@@ -7,6 +7,7 @@ import { RecruiterApplications } from "./RecruiterApplications";
 import RecruiterInterviews from "./RecruiterInterviews";
 import RecruiterSelections from "./RecruiterSelections";
 import { getRecruiterActivities, type RecruiterActivityItem, formatRelativeTime } from "../../utils/recruiterActivityUtils";
+import ClearDataButton from "../../components/ClearDataButton";
 
 export interface RecruiterDashboardProps {
     user?: any;
@@ -55,100 +56,121 @@ export const RecruiterDashboard: React.FC<RecruiterDashboardProps> = ({
 
     // Dynamic Database Stats State
     const [dbStats, setDbStats] = useState({
-        eligibleCandidates: 2,
-        activeDrives: 1,
-        totalApplications: 5,
-        shortlisted: 2,
-        interviews: 5,
-        selected: 1,
-        offersReleased: 1
+        eligibleCandidates: 0,
+        activeDrives: 0,
+        totalApplications: 0,
+        shortlisted: 0,
+        interviews: 0,
+        selected: 0,
+        offersReleased: 0
     });
 
-    // Upcoming Interviews Mock/Database State
-    const [upcomingInterviews, setUpcomingInterviews] = useState([
-        {
-            id: "up_1",
-            candidateName: "Ashwanth S",
-            registerNo: "22CSR025",
-            role: "Cloud Engineer",
-            date: "Sep 1, 2026",
-            time: "03:30 PM IST",
-            round: "Round 2: Technical Interview",
-            status: "Upcoming"
-        },
-        {
-            id: "up_2",
-            candidateName: "Rahul Kumar",
-            registerNo: "22CSR101",
-            role: "Software Developer",
-            date: "Sep 2, 2026",
-            time: "10:00 AM IST",
-            round: "Round 2: Technical Interview",
-            status: "Upcoming"
-        }
-    ]);
+    // Upcoming Interviews State
+    const [upcomingInterviews, setUpcomingInterviews] = useState<any[]>([]);
 
     // Fetch Dynamic Stats & Upcoming Interviews from MongoDB APIs
     const fetchDashboardStats = async () => {
         try {
             // 1. Fetch Applications for company
             const appRes = await fetch(`http://localhost:5001/api/applications?company=${encodeURIComponent(companyNameShort)}`);
-            let totalApps = 5;
-            let shortlistedCount = 2;
-            let interviewsCount = 5;
-            let selectedCount = 1;
-            let offersCount = 1;
+            let totalApps = 0;
+            let shortlistedCount = 0;
+            let interviewsCount = 0;
+            let selectedCount = 0;
+            let offersCount = 0;
+            const scheduledInterviews: any[] = [];
 
             if (appRes.ok) {
                 const apiApps = await appRes.json();
-                if (Array.isArray(apiApps) && apiApps.length > 0) {
-                    totalApps = Math.max(apiApps.length, 5);
-                    shortlistedCount = Math.max(apiApps.filter((a: any) => 
+                if (Array.isArray(apiApps)) {
+                    totalApps = apiApps.length;
+                    shortlistedCount = apiApps.filter((a: any) => 
                         a.status === "Shortlisted" || a.status === "Interview Scheduled" || a.status === "Selected" || a.status === "Placed"
-                    ).length, 2);
-                    interviewsCount = Math.max(apiApps.filter((a: any) => 
+                    ).length;
+                    const withInterviews = apiApps.filter((a: any) => 
                         (a.interviewSchedule && a.interviewSchedule.date) || a.status === "Interview Scheduled"
-                    ).length, 5);
-                    selectedCount = Math.max(apiApps.filter((a: any) => a.status === "Selected" || a.status === "Placed").length, 1);
+                    );
+                    interviewsCount = withInterviews.length;
+                    selectedCount = apiApps.filter((a: any) => a.status === "Selected" || a.status === "Placed").length;
                     offersCount = selectedCount;
+
+                    withInterviews.forEach((a: any) => {
+                        scheduledInterviews.push({
+                            id: a._id || a.id || `int_${Date.now()}`,
+                            candidateName: a.studentName || a.studentEmail || "Candidate",
+                            registerNo: a.registerNo || a.rollNo || "22CSR001",
+                            role: a.jobRole || a.driveRole || "Software Engineer",
+                            date: a.interviewSchedule?.date || "Upcoming",
+                            time: a.interviewSchedule?.time || "10:00 AM IST",
+                            round: a.interviewSchedule?.round || a.round || "Round 1: Technical",
+                            status: "Upcoming"
+                        });
+                    });
                 }
             }
 
+            // Also check interviews endpoint
+            try {
+                const intRes = await fetch("http://localhost:5001/api/interviews");
+                if (intRes.ok) {
+                    const ints = await intRes.json();
+                    if (Array.isArray(ints)) {
+                        interviewsCount = Math.max(interviewsCount, ints.length);
+                        ints.forEach((item: any) => {
+                            if (!scheduledInterviews.some(si => si.candidateName === item.candidateName)) {
+                                scheduledInterviews.push({
+                                    id: item._id || item.id,
+                                    candidateName: item.candidateName || "Candidate",
+                                    registerNo: item.registerNo || "22CSR001",
+                                    role: item.role || item.jobRole || "Engineer",
+                                    date: item.date || "Upcoming",
+                                    time: item.time || "10:00 AM IST",
+                                    round: item.round || "Technical Interview",
+                                    status: item.status || "Upcoming"
+                                });
+                            }
+                        });
+                    }
+                }
+            } catch (e) {}
+
+            setUpcomingInterviews(scheduledInterviews);
+
             // 2. Fetch Placement Drives for company
-            let activeDrivesCount = 1;
+            let activeDrivesCount = 0;
             try {
                 const driveRes = await fetch(`http://localhost:5001/api/placement-drives?company=${encodeURIComponent(companyNameShort)}`);
                 if (driveRes.ok) {
                     const apiDrives = await driveRes.json();
-                    if (Array.isArray(apiDrives) && apiDrives.length > 0) {
-                        activeDrivesCount = apiDrives.filter((d: any) => d.status === "Approved" || d.status === "Active").length || 1;
+                    if (Array.isArray(apiDrives)) {
+                        activeDrivesCount = apiDrives.filter((d: any) => d.status === "Approved" || d.status === "Active").length;
                     }
                 }
             } catch (e) {
                 const savedDrives = localStorage.getItem("cpms_placement_drives");
                 if (savedDrives) {
                     const parsed = JSON.parse(savedDrives);
-                    if (Array.isArray(parsed) && parsed.length > 0) {
-                        activeDrivesCount = parsed.filter((d: any) => d.status === "Approved" || d.status === "Active").length || 1;
+                    if (Array.isArray(parsed)) {
+                        activeDrivesCount = parsed.filter((d: any) => d.status === "Approved" || d.status === "Active").length;
                     }
                 }
             }
 
             // 3. Fetch Candidates / Students matching drive criteria
-            let eligibleCount = 2;
+            let eligibleCount = 0;
             try {
-                const studentRes = await fetch("http://localhost:5001/api/students");
+                const studentRes = await fetch("http://localhost:5001/api/student/all");
                 if (studentRes.ok) {
                     const students = await studentRes.json();
-                    if (Array.isArray(students) && students.length > 0) {
-                        eligibleCount = students.filter((s: any) => (s.cgpa || 8.0) >= 7.5).length || 2;
+                    if (Array.isArray(students)) {
+                        eligibleCount = students.filter((s: any) => (s.cgpa || 8.0) >= 7.5).length;
                     }
                 }
             } catch (e) {}
 
             setDbStats({
-                eligibleCandidates: Math.max(eligibleCount, 2),
-                activeDrives: Math.max(activeDrivesCount, 1),
+                eligibleCandidates: eligibleCount,
+                activeDrives: activeDrivesCount,
                 totalApplications: totalApps,
                 shortlisted: shortlistedCount,
                 interviews: interviewsCount,
@@ -278,7 +300,7 @@ export const RecruiterDashboard: React.FC<RecruiterDashboardProps> = ({
     };
 
     return (
-        <div style={{ display: "flex", height: "100vh", overflow: "hidden", backgroundColor: "#f4f6f8", fontFamily: "Inter, -apple-system, BlinkMacSystemFont, sans-serif", width: "100%" }}>
+        <div style={{ display: "flex", height: "100vh", overflow: "hidden", backgroundColor: "#f4f6f8", fontFamily: "Inter, -apple-system, BlinkMacSystemFont, sans-serif", width: "100%", maxWidth: "100vw" }}>
             <style>{`
                 @media (max-width: 1024px) {
                     .recruiter-sidebar-drawer {
@@ -310,6 +332,14 @@ export const RecruiterDashboard: React.FC<RecruiterDashboardProps> = ({
                         display: none !important;
                     }
                 }
+
+                @media (max-width: 768px) {
+                    .recruiter-progress-label {
+                        display: flex !important;
+                        flex-wrap: nowrap !important;
+                        min-width: 0 !important;
+                    }
+                }
             `}</style>
 
             {/* Mobile Menu Backdrop */}
@@ -330,17 +360,26 @@ export const RecruiterDashboard: React.FC<RecruiterDashboardProps> = ({
             )}
 
             {/* Left Sidebar Shell */}
-            <aside className={`recruiter-sidebar-drawer ${isMobileMenuOpen ? "open" : ""}`} style={{ width: "240px", backgroundColor: "#ffffff", borderRight: "1px solid #eaedf0", display: "flex", flexDirection: "column", justifyContent: "space-between", flexShrink: 0, minHeight: "100vh", position: "sticky", top: 0, height: "100vh" }}>
+            <aside className={`app-drawer-sidebar recruiter-sidebar-drawer ${isMobileMenuOpen ? "open" : ""}`} style={{ width: "240px", backgroundColor: "#ffffff", borderRight: "1px solid #eaedf0", display: "flex", flexDirection: "column", justifyContent: "space-between", flexShrink: 0, minHeight: "100vh", position: "sticky", top: 0, height: "100vh" }}>
                 <div>
                     {/* Brand Header */}
-                    <div style={{ padding: "20px 24px", borderBottom: "1px solid #f0f2f5", display: "flex", alignItems: "center", gap: "12px" }}>
-                        <div style={{ width: "36px", height: "36px", backgroundColor: "#0f172a", borderRadius: "10px", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "800", fontSize: "16px" }}>
-                            CP
+                    <div style={{ padding: "20px 24px", borderBottom: "1px solid #f0f2f5", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                            <div style={{ width: "36px", height: "36px", backgroundColor: "#0f172a", borderRadius: "10px", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "800", fontSize: "16px" }}>
+                                CP
+                            </div>
+                            <div>
+                                <div style={{ fontWeight: "800", color: "#0f172a", fontSize: "15px", letterSpacing: "-0.3px" }}>Placement Portal</div>
+                                <div style={{ fontSize: "10px", color: "#94a3b8", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.5px" }}>PLACEMENT SPACE</div>
+                            </div>
                         </div>
-                        <div>
-                            <div style={{ fontWeight: "800", color: "#0f172a", fontSize: "15px", letterSpacing: "-0.3px" }}>Placement Portal</div>
-                            <div style={{ fontSize: "10px", color: "#94a3b8", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.5px" }}>PLACEMENT SPACE</div>
-                        </div>
+                        <button
+                            onClick={() => setIsMobileMenuOpen(false)}
+                            className="mobile-drawer-close"
+                            style={{ display: "none", background: "none", border: "none", fontSize: "20px", color: "#64748b", cursor: "pointer", padding: "4px" }}
+                        >
+                            ✕
+                        </button>
                     </div>
 
                     {/* Navigation Menu */}
@@ -423,13 +462,27 @@ export const RecruiterDashboard: React.FC<RecruiterDashboardProps> = ({
 
             {/* Main Application Area Shell */}
             <main style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, overflow: "hidden" }}>
-                {/* Top Desktop Bar with Notification Bell Icon & Popup Dropdown */}
-                <div style={{ backgroundColor: "#ffffff", borderBottom: "1px solid #eaedf0", padding: "14px 32px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div style={{ fontSize: "13px", color: "#64748b", fontWeight: "600" }}>
-                        Campus Placement Management System — Recruiter Portal
+                {/* Top Desktop Bar with Notification Bell Icon & Mobile Hamburger */}
+                <div style={{ backgroundColor: "#ffffff", borderBottom: "1px solid #eaedf0", padding: "14px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                        <button
+                            onClick={() => setIsMobileMenuOpen(true)}
+                            className="mobile-hamburger-toggle"
+                            style={{ display: "none", alignItems: "center", justifyContent: "center", width: "36px", height: "36px", borderRadius: "8px", border: "1px solid #e2e8f0", backgroundColor: "#f8fafc", cursor: "pointer", fontSize: "18px", color: "#0f172a" }}
+                            aria-label="Open Menu"
+                        >
+                            ☰
+                        </button>
+                        <div style={{ fontSize: "14px", color: "#0f172a", fontWeight: "700" }}>
+                            Recruiter Portal — Placement Management
+                        </div>
                     </div>
 
-                    <div style={{ position: "relative" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                        {/* 🗑️ Universal Clear System Data Button */}
+                        <ClearDataButton />
+
+                        <div style={{ position: "relative" }}>
                         <button
                             type="button"
                             onClick={() => {
@@ -514,6 +567,7 @@ export const RecruiterDashboard: React.FC<RecruiterDashboardProps> = ({
                         )}
                     </div>
                 </div>
+            </div>
 
                 {/* Mobile Top Navigation Header */}
                 <div className="recruiter-mobile-header" style={{ padding: "14px 20px", backgroundColor: "#ffffff", borderBottom: "1px solid #eaedf0", alignItems: "center", justifyContent: "space-between" }}>
@@ -529,7 +583,7 @@ export const RecruiterDashboard: React.FC<RecruiterDashboardProps> = ({
                 </div>
 
                 {/* Main Scrollable Viewport */}
-                <div style={{ flex: 1, overflowY: "auto", padding: "28px 32px" }}>
+                <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden", padding: "clamp(14px, 4vw, 28px) clamp(12px, 4vw, 32px)" }}>
                     {activeTab === "stats" && (
                         <div style={{ display: "flex", flexDirection: "column", gap: "28px" }}>
                             {/* Premium Recruiter Dark Hero Banner */}
@@ -537,21 +591,23 @@ export const RecruiterDashboard: React.FC<RecruiterDashboardProps> = ({
                                 style={{
                                     backgroundColor: "#0f172a",
                                     borderRadius: "20px",
-                                    padding: "32px 36px",
+                                    padding: "28px 28px",
                                     color: "#ffffff",
                                     position: "relative",
                                     overflow: "hidden",
                                     display: "flex",
                                     justifyContent: "space-between",
                                     alignItems: "center",
+                                    flexWrap: "wrap",
+                                    gap: "16px",
                                     boxShadow: "0 10px 15px -3px rgba(15, 23, 42, 0.15)"
                                 }}
                             >
-                                <div>
+                                <div style={{ minWidth: 0 }}>
                                     <div style={{ fontSize: "11px", fontWeight: "800", color: "#f59e0b", textTransform: "uppercase", letterSpacing: "1px", marginBottom: "6px", display: "flex", alignItems: "center", gap: "6px" }}>
                                         👋 RECRUITER SPACE
                                     </div>
-                                    <h2 style={{ margin: "0 0 8px 0", fontSize: "26px", fontWeight: "800", color: "#ffffff", letterSpacing: "-0.5px", fontFamily: "Inter, -apple-system, BlinkMacSystemFont, sans-serif" }}>
+                                    <h2 style={{ margin: "0 0 8px 0", fontSize: "24px", fontWeight: "800", color: "#ffffff", letterSpacing: "-0.5px", fontFamily: "Inter, -apple-system, BlinkMacSystemFont, sans-serif", overflowWrap: "break-word" }}>
                                         Welcome back, {displayName} 👋
                                     </h2>
                                     <div style={{ color: "#9ca3af", fontSize: "13px", fontWeight: "500" }}>
@@ -568,7 +624,9 @@ export const RecruiterDashboard: React.FC<RecruiterDashboardProps> = ({
                                     fontWeight: "700",
                                     display: "flex",
                                     alignItems: "center",
-                                    gap: "10px"
+                                    gap: "10px",
+                                    flexShrink: 0,
+                                    whiteSpace: "nowrap"
                                 }}>
                                     <span style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "#10b981" }} />
                                     Recruitment Active
@@ -786,81 +844,89 @@ export const RecruiterDashboard: React.FC<RecruiterDashboardProps> = ({
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {upcomingInterviews.map((item, idx) => (
-                                                <tr key={item.id} style={{ borderBottom: idx !== upcomingInterviews.length - 1 ? "1px solid #f1f5f9" : "none" }}>
-                                                    <td style={{ padding: "12px", fontWeight: "700", color: "#0f172a", fontSize: "13px" }}>
-                                                        {item.candidateName} <span style={{ fontFamily: "monospace", color: "#64748b", fontWeight: "500", fontSize: "12px" }}>({item.registerNo})</span>
-                                                    </td>
-                                                    <td style={{ padding: "12px", color: "#334155", fontSize: "13px", fontWeight: "600" }}>{item.role}</td>
-                                                    <td style={{ padding: "12px", color: "#475569", fontSize: "13px", fontWeight: "600" }}>{item.date}</td>
-                                                    <td style={{ padding: "12px", color: "#475569", fontSize: "13px", fontWeight: "600" }}>{item.time}</td>
-                                                    <td style={{ padding: "12px", color: "#2563eb", fontSize: "13px", fontWeight: "700" }}>{item.round}</td>
-                                                    <td style={{ padding: "12px" }}>
-                                                        <span style={{ backgroundColor: "#faf5ff", color: "#7e22ce", border: "1px solid #e9d5ff", padding: "4px 10px", borderRadius: "10px", fontSize: "11px", fontWeight: "700" }}>
-                                                            🟣 {item.status}
-                                                        </span>
+                                            {upcomingInterviews.length === 0 ? (
+                                                <tr>
+                                                    <td colSpan={6} style={{ padding: "36px 16px", textAlign: "center", color: "#64748b", fontSize: "13px" }}>
+                                                        No upcoming interviews scheduled yet.
                                                     </td>
                                                 </tr>
-                                            ))}
+                                            ) : (
+                                                upcomingInterviews.map((item, idx) => (
+                                                    <tr key={item.id} style={{ borderBottom: idx !== upcomingInterviews.length - 1 ? "1px solid #f1f5f9" : "none" }}>
+                                                        <td style={{ padding: "12px", fontWeight: "700", color: "#0f172a", fontSize: "13px" }}>
+                                                            {item.candidateName} <span style={{ fontFamily: "monospace", color: "#64748b", fontWeight: "500", fontSize: "12px" }}>({item.registerNo})</span>
+                                                        </td>
+                                                        <td style={{ padding: "12px", color: "#334155", fontSize: "13px", fontWeight: "600" }}>{item.role}</td>
+                                                        <td style={{ padding: "12px", color: "#475569", fontSize: "13px", fontWeight: "600" }}>{item.date}</td>
+                                                        <td style={{ padding: "12px", color: "#475569", fontSize: "13px", fontWeight: "600" }}>{item.time}</td>
+                                                        <td style={{ padding: "12px", color: "#2563eb", fontSize: "13px", fontWeight: "700" }}>{item.round}</td>
+                                                        <td style={{ padding: "12px" }}>
+                                                            <span style={{ backgroundColor: "#faf5ff", color: "#7e22ce", border: "1px solid #e9d5ff", padding: "4px 10px", borderRadius: "10px", fontSize: "11px", fontWeight: "700" }}>
+                                                                🟣 {item.status}
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                ))
+                                            )}
                                         </tbody>
                                     </table>
                                 </div>
                             </div>
 
                             {/* 2-COLUMN BOTTOM GRID: RECRUITMENT PROGRESS FUNNEL & RECENT ACTIVITIES STREAM */}
-                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "24px" }}>
+                            <div className="recruiter-bottom-grid">
                                 {/* Left Column: Recruitment Progress (Hiring Funnel) */}
-                                <div style={{ backgroundColor: "#ffffff", borderRadius: "16px", padding: "24px", border: "1px solid #eaedf0", boxShadow: "0 1px 3px rgba(0,0,0,0.02)" }}>
+                                <div style={{ backgroundColor: "#ffffff", borderRadius: "16px", padding: "24px", border: "1px solid #eaedf0", boxShadow: "0 1px 3px rgba(0,0,0,0.02)", minWidth: 0, overflow: "hidden" }}>
                                     <div style={{ marginBottom: "18px" }}>
                                         <h3 style={{ margin: 0, fontSize: "16px", fontWeight: "800", color: "#0f172a" }}>Recruitment Progress</h3>
                                         <p style={{ margin: "2px 0 0 0", fontSize: "12px", color: "#64748b" }}>Live hiring conversion funnel across recruitment stages</p>
                                     </div>
 
                                     <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-                                        <div>
-                                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", fontWeight: "700", color: "#334155", marginBottom: "4px" }}>
-                                                <span>Applications Received</span>
-                                                <span style={{ color: "#2563eb" }}>{dbStats.totalApplications}</span>
+                                        <div style={{ minWidth: 0 }}>
+                                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px", minWidth: 0, gap: "8px" }}>
+                                                <span style={{ fontSize: "12px", fontWeight: "700", color: "#334155", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flex: 1 }}>Applications Received</span>
+                                                <span style={{ fontSize: "12px", fontWeight: "700", color: "#2563eb", flexShrink: 0 }}>{dbStats.totalApplications}</span>
                                             </div>
                                             <div style={{ width: "100%", height: "8px", backgroundColor: "#eff6ff", borderRadius: "4px", overflow: "hidden" }}>
                                                 <div style={{ width: "100%", height: "100%", backgroundColor: "#2563eb", borderRadius: "4px" }} />
                                             </div>
                                         </div>
 
-                                        <div>
-                                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", fontWeight: "700", color: "#334155", marginBottom: "4px" }}>
-                                                <span>Shortlisted Candidates</span>
-                                                <span style={{ color: "#ea580c" }}>{dbStats.shortlisted}</span>
+                                        <div style={{ minWidth: 0 }}>
+                                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px", minWidth: 0, gap: "8px" }}>
+                                                <span style={{ fontSize: "12px", fontWeight: "700", color: "#334155", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flex: 1 }}>Shortlisted Candidates</span>
+                                                <span style={{ fontSize: "12px", fontWeight: "700", color: "#ea580c", flexShrink: 0 }}>{dbStats.shortlisted}</span>
                                             </div>
                                             <div style={{ width: "100%", height: "8px", backgroundColor: "#fff7ed", borderRadius: "4px", overflow: "hidden" }}>
                                                 <div style={{ width: `${(dbStats.shortlisted / dbStats.totalApplications) * 100}%`, height: "100%", backgroundColor: "#ea580c", borderRadius: "4px" }} />
                                             </div>
                                         </div>
 
-                                        <div>
-                                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", fontWeight: "700", color: "#334155", marginBottom: "4px" }}>
-                                                <span>Interview Rounds</span>
-                                                <span style={{ color: "#7e22ce" }}>{dbStats.interviews}</span>
+                                        <div style={{ minWidth: 0 }}>
+                                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px", minWidth: 0, gap: "8px" }}>
+                                                <span style={{ fontSize: "12px", fontWeight: "700", color: "#334155", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flex: 1 }}>Interview Rounds</span>
+                                                <span style={{ fontSize: "12px", fontWeight: "700", color: "#7e22ce", flexShrink: 0 }}>{dbStats.interviews}</span>
                                             </div>
                                             <div style={{ width: "100%", height: "8px", backgroundColor: "#faf5ff", borderRadius: "4px", overflow: "hidden" }}>
                                                 <div style={{ width: "90%", height: "100%", backgroundColor: "#9333ea", borderRadius: "4px" }} />
                                             </div>
                                         </div>
 
-                                        <div>
-                                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", fontWeight: "700", color: "#334155", marginBottom: "4px" }}>
-                                                <span>Final Candidates Selected</span>
-                                                <span style={{ color: "#16a34a" }}>{dbStats.selected}</span>
+                                        <div style={{ minWidth: 0 }}>
+                                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px", minWidth: 0, gap: "8px" }}>
+                                                <span style={{ fontSize: "12px", fontWeight: "700", color: "#334155", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flex: 1 }}>Final Candidates Selected</span>
+                                                <span style={{ fontSize: "12px", fontWeight: "700", color: "#16a34a", flexShrink: 0 }}>{dbStats.selected}</span>
                                             </div>
                                             <div style={{ width: "100%", height: "8px", backgroundColor: "#f0fdf4", borderRadius: "4px", overflow: "hidden" }}>
                                                 <div style={{ width: `${(dbStats.selected / dbStats.totalApplications) * 100}%`, height: "100%", backgroundColor: "#16a34a", borderRadius: "4px" }} />
                                             </div>
                                         </div>
 
-                                        <div>
-                                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", fontWeight: "700", color: "#334155", marginBottom: "4px" }}>
-                                                <span>Offers Released</span>
-                                                <span style={{ color: "#2563eb" }}>{dbStats.offersReleased}</span>
+                                        <div style={{ minWidth: 0 }}>
+                                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px", minWidth: 0, gap: "8px" }}>
+                                                <span style={{ fontSize: "12px", fontWeight: "700", color: "#334155", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flex: 1 }}>Offers Released</span>
+                                                <span style={{ fontSize: "12px", fontWeight: "700", color: "#2563eb", flexShrink: 0 }}>{dbStats.offersReleased}</span>
                                             </div>
                                             <div style={{ width: "100%", height: "8px", backgroundColor: "#eff6ff", borderRadius: "4px", overflow: "hidden" }}>
                                                 <div style={{ width: `${(dbStats.offersReleased / dbStats.totalApplications) * 100}%`, height: "100%", backgroundColor: "#2563eb", borderRadius: "4px" }} />
@@ -1049,6 +1115,15 @@ export const RecruiterDashboard: React.FC<RecruiterDashboardProps> = ({
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 11l3 3L22 4M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" /></svg>
                     </div>
                     <span>Apps</span>
+                </button>
+                <button
+                    onClick={() => setIsMobileMenuOpen(true)}
+                    className="mobile-tab-item"
+                >
+                    <div className="tab-icon">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="18" x2="21" y2="18" /></svg>
+                    </div>
+                    <span>Menu ☰</span>
                 </button>
             </nav>
         </div>

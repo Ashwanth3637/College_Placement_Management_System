@@ -20,42 +20,13 @@ export const getRecruiterActivities = (): RecruiterActivityItem[] => {
         const saved = localStorage.getItem("cpms_recruiter_activities");
         if (saved) {
             const parsed = JSON.parse(saved);
-            if (Array.isArray(parsed) && parsed.length > 0) {
+            if (Array.isArray(parsed)) {
                 return parsed;
             }
         }
     } catch (e) { }
 
-    // Initial default activity if none exist
-    return [
-        {
-            id: "act_default_1",
-            type: "PLACEMENT_DRIVE_APPROVED",
-            title: "Placement Drive Approved",
-            message: "Software Developer placement drive has been approved and applications are now open.",
-            company: "Amazon Development Center",
-            driveRole: "Software Developer",
-            createdAt: new Date().toISOString()
-        },
-        {
-            id: "act_default_2",
-            type: "APPLICATION_RECEIVED",
-            title: "New Application Received",
-            message: "Rahul Kumar applied for Software Developer placement drive.",
-            company: "Amazon Development Center",
-            driveRole: "Software Developer",
-            createdAt: new Date(Date.now() - 3600000).toISOString()
-        },
-        {
-            id: "act_default_3",
-            type: "CANDIDATE_SHORTLISTED",
-            title: "Candidate Shortlisted",
-            message: "Ashwanth S was shortlisted for Round 2 Technical Interview.",
-            company: "Amazon Development Center",
-            driveRole: "Cloud Engineer",
-            createdAt: new Date(Date.now() - 7200000).toISOString()
-        }
-    ];
+    return [];
 };
 
 export const addRecruiterActivity = (activity: Omit<RecruiterActivityItem, "id" | "createdAt">) => {

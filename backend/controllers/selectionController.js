@@ -1,36 +1,11 @@
 const Selection = require("../models/selectionModel");
 const mongoose = require("mongoose");
 
-const initialSelections = [
-    {
-        selectionId: "SEL-001",
-        studentName: "Ashwanth",
-        regNo: "22CSR025",
-        department: "Computer Science & Engineering",
-        companyName: "Amazon Development Center",
-        jobRole: "SDE Trainee / Intern + FTE",
-        finalRound: "Round 1",
-        result: "Passed",
-        status: "Offer Released",
-        ctc: "₹28 LPA",
-        location: "Bangalore",
-        academicYear: "2025-2026",
-        offerDate: "18 Aug 2026",
-    }
-];
-
-// Get all selection records (Auto-seed single record)
+// Get all selection records
 const getSelections = async (req, res) => {
     try {
         let selections = await Selection.find().sort({ createdAt: -1 });
-
-        if (!selections || selections.length === 0 || selections.length > 1) {
-            console.log("Seeding single selection record into MongoDB...");
-            await Selection.deleteMany({});
-            selections = await Selection.insertMany(initialSelections);
-        }
-
-        res.status(200).json(selections);
+        res.status(200).json(selections || []);
     } catch (error) {
         console.error("Get Selections Error:", error);
         res.status(500).json({ message: "Failed to fetch selection records", error: error.message });

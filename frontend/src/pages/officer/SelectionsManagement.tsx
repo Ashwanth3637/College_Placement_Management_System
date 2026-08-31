@@ -127,40 +127,18 @@ const SelectionsManagement: React.FC<SelectionsManagementProps> = ({ user: propU
         };
     }, [selectedCand, confirmAcceptOffer, confirmDeclineOffer, viewOfferLetterModal]);
 
-    // Dynamic State for Candidate List (allow local status mutations & sync with localStorage)
+    // Dynamic State for Candidate List (loaded purely from database and local mutations)
     const [candidatesState, setCandidatesState] = useState<SelectionCandidateRecord[]>(() => {
-        const defaultList: SelectionCandidateRecord[] = [
-            {
-                id: "SEL-001",
-                studentName: "Ashwanth",
-                regNo: "22CSR025",
-                department: "Computer Science & Engineering",
-                companyName: "Amazon Development Center",
-                jobRole: "SDE Trainee / Intern + FTE",
-                finalRound: "Round 1",
-                result: "Passed",
-                status: "Offer Released",
-                academicYear: "2025-2026"
-            }
-        ];
-
-        let list: SelectionCandidateRecord[] = defaultList;
-
         try {
             const savedSelsStr = localStorage.getItem("cpms_selections");
             if (savedSelsStr) {
                 const parsedSels = JSON.parse(savedSelsStr);
-                if (Array.isArray(parsedSels) && parsedSels.length > 0) {
-                    list = parsedSels;
+                if (Array.isArray(parsedSels)) {
+                    return parsedSels;
                 }
             }
         } catch (e) {}
-
-        try {
-            localStorage.setItem("cpms_selections", JSON.stringify(list));
-        } catch (e) {}
-
-        return list;
+        return [];
     });
 
     // 🔄 Sync with MongoDB backend API (Automatic Real-Time Polling)
@@ -170,23 +148,30 @@ const SelectionsManagement: React.FC<SelectionsManagementProps> = ({ user: propU
                 const res = await fetch("http://localhost:5001/api/selections");
                 if (res.ok) {
                     const data = await res.json();
-                    if (Array.isArray(data) && data.length > 0) {
-                        const mapped: SelectionCandidateRecord[] = data.map((d: any) => ({
-                            id: d.selectionId || d._id,
-                            studentName: d.studentName,
-                            regNo: d.regNo,
-                            department: d.department,
-                            companyName: d.companyName,
-                            jobRole: d.jobRole,
-                            finalRound: d.finalRound || "Round 1",
-                            result: d.result || "Passed",
-                            status: d.status,
-                            academicYear: d.academicYear || "2025-2026",
-                        }));
-                        setCandidatesState(mapped);
-                        try {
-                            localStorage.setItem("cpms_selections", JSON.stringify(mapped));
-                        } catch (e) {}
+                    if (Array.isArray(data)) {
+                        if (data.length > 0) {
+                            const mapped: SelectionCandidateRecord[] = data.map((d: any) => ({
+                                id: d.selectionId || d._id,
+                                studentName: d.studentName,
+                                regNo: d.regNo,
+                                department: d.department,
+                                companyName: d.companyName,
+                                jobRole: d.jobRole,
+                                finalRound: d.finalRound || "Round 1",
+                                result: d.result || "Passed",
+                                status: d.status,
+                                academicYear: d.academicYear || "2025-2026",
+                            }));
+                            setCandidatesState(mapped);
+                            try {
+                                localStorage.setItem("cpms_selections", JSON.stringify(mapped));
+                            } catch (e) {}
+                        } else {
+                            setCandidatesState([]);
+                            try {
+                                localStorage.removeItem("cpms_selections");
+                            } catch (e) {}
+                        }
                     }
                 }
             } catch (e) {
@@ -634,8 +619,8 @@ const SelectionsManagement: React.FC<SelectionsManagementProps> = ({ user: propU
                     </div>
 
                     {/* Candidate Table Section */}
-                    <div style={{ backgroundColor: "#ffffff", borderRadius: "16px", border: "1px solid #eaedf0", overflow: "hidden", boxShadow: "0 4px 6px -1px rgba(0,0,0,0.02)" }}>
-                        <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: "13px" }}>
+                    <div className="responsive-table-wrapper" style={{ backgroundColor: "#ffffff", borderRadius: "16px", border: "1px solid #eaedf0", overflowX: "auto", boxShadow: "0 4px 6px -1px rgba(0,0,0,0.02)" }}>
+                        <table style={{ width: "100%", minWidth: "750px", borderCollapse: "collapse", textAlign: "left", fontSize: "13px" }}>
                             <thead>
                                 <tr style={{ backgroundColor: "#f8fafc", borderBottom: "1px solid #eaedf0", textTransform: "uppercase", fontSize: "11px", color: "#64748b", letterSpacing: "0.5px" }}>
                                     <th style={{ padding: "14px 20px" }}>Student</th>

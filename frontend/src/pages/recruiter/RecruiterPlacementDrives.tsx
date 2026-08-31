@@ -684,7 +684,7 @@ export const RecruiterPlacementDrives: React.FC<RecruiterPlacementDrivesProps> =
     };
 
     return (
-        <div style={{ maxWidth: "1100px", margin: "0 auto", fontFamily: "Inter, -apple-system, BlinkMacSystemFont, sans-serif" }}>
+        <div style={{ maxWidth: "1100px", margin: "0 auto", fontFamily: "Inter, -apple-system, BlinkMacSystemFont, sans-serif", width: "100%", boxSizing: "border-box" }}>
             <style>{`
                 .drives-card-grid {
                     display: grid;
@@ -709,9 +709,10 @@ export const RecruiterPlacementDrives: React.FC<RecruiterPlacementDrivesProps> =
             <div style={{
                 backgroundColor: "#ffffff",
                 borderRadius: "16px",
-                padding: "28px 32px",
+                padding: "clamp(16px, 4vw, 28px) clamp(14px, 4vw, 32px)",
                 border: "1px solid #eaedf0",
-                boxShadow: "0 1px 3px rgba(0,0,0,0.02)"
+                boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
+                overflow: "hidden"
             }}>
 
                 {/* Page Heading & Create New Drive Action */}

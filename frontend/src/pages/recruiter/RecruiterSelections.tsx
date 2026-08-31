@@ -61,80 +61,13 @@ export const RecruiterSelections: React.FC<RecruiterSelectionsProps> = ({ user, 
     const [showResumeViewer, setShowResumeViewer] = useState<boolean>(false);
     const [showOfferLetterViewer, setShowOfferLetterViewer] = useState<boolean>(false);
 
-    // Initial Mock Selections matching user workflow specification
-    const initialSelections: RecruiterSelectionItem[] = [
-        {
-            id: "sel_1",
-            studentName: "Ananya Roy",
-            email: "ananya.roy@gmail.com",
-            registerNumber: "22CSR110",
-            branch: "CSE",
-            cgpa: 9.1,
-            gradYear: 2026,
-            company: recruiterCompany,
-            jobRole: "Cloud Engineer",
-            appliedDrive: "Cloud Engineer",
-            finalRound: "Round 3: HR Bar Raiser",
-            result: "Selected",
-            offerStatus: "Offer Released",
-            selectionDate: "28 Aug 2026",
-            salaryPackage: "₹18.5 LPA"
-        },
-        {
-            id: "sel_2",
-            studentName: "Rahul Kumar",
-            email: "rahul.k@gmail.com",
-            registerNumber: "22CSR101",
-            branch: "CSE",
-            cgpa: 8.4,
-            gradYear: 2026,
-            company: recruiterCompany,
-            jobRole: "Software Developer",
-            appliedDrive: "Software Developer",
-            finalRound: "Round 1: Resume Screening",
-            result: "Pending",
-            offerStatus: "—",
-            selectionDate: "31 Aug 2026"
-        },
-        {
-            id: "sel_3",
-            studentName: "Ashwanth S",
-            email: "ashwanth@gmail.com",
-            registerNumber: "22CSR025",
-            branch: "CSE",
-            cgpa: 8.45,
-            gradYear: 2026,
-            company: recruiterCompany,
-            jobRole: "Cloud Engineer",
-            appliedDrive: "Cloud Engineer",
-            finalRound: "Round 2: Technical Interview",
-            result: "Selected",
-            offerStatus: "Offer Released",
-            selectionDate: "30 Aug 2026",
-            salaryPackage: "₹18.5 LPA"
-        },
-        {
-            id: "sel_4",
-            studentName: "Priya Sharma",
-            email: "priya.sharma@gmail.com",
-            registerNumber: "22IT045",
-            branch: "IT",
-            cgpa: 8.7,
-            gradYear: 2026,
-            company: recruiterCompany,
-            jobRole: "Software Developer",
-            appliedDrive: "Software Developer",
-            finalRound: "Round 1: Technical Assessment",
-            result: "Rejected",
-            offerStatus: "—",
-            selectionDate: "27 Aug 2026"
-        }
-    ];
+    // Selections loaded exclusively from live database & approved offers
+    const initialSelections: RecruiterSelectionItem[] = [];
 
     // Load Applications / Selections from MongoDB API
     const fetchSelectionsData = async () => {
         setIsLoading(true);
-        let list: RecruiterSelectionItem[] = [...initialSelections];
+        let list: RecruiterSelectionItem[] = [];
 
         try {
             const res = await fetch(`http://localhost:5001/api/applications?company=${encodeURIComponent(companyNameShort)}`);

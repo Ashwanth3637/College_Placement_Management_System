@@ -232,22 +232,36 @@ const StudentManagement: React.FC = () => {
         }
 
         try {
-            const userKey = selectedStudent?.user?.email || targetId;
+            const userKey = (selectedStudent?.user?.email || (selectedStudent as any)?.email || targetId).toLowerCase().trim();
+            const studentIdKey = selectedStudent?._id || (selectedStudent as any)?.id || "";
+            const userIdKey = selectedStudent?.user?._id || "";
+
             localStorage.setItem(`cpms_verification_status_${userKey}`, "Approved");
             localStorage.setItem(`cpms_verified_student_${userKey}`, "true");
             localStorage.setItem(`cpms_profile_verified_${targetId}`, "true");
             localStorage.setItem(`cpms_profile_verified_${userKey}`, "true");
+            if (studentIdKey) {
+                localStorage.setItem(`cpms_profile_verified_${studentIdKey}`, "true");
+                localStorage.setItem(`cpms_verification_status_${studentIdKey}`, "Approved");
+            }
+            if (userIdKey) {
+                localStorage.setItem(`cpms_profile_verified_${userIdKey}`, "true");
+                localStorage.setItem(`cpms_verification_status_${userIdKey}`, "Approved");
+            }
             localStorage.setItem(`cpms_profile_verified_global`, "true");
+            localStorage.setItem("cpms_verification_updated", String(Date.now()));
             localStorage.setItem(`cpms_pending_fields_${userKey}`, JSON.stringify([]));
             localStorage.setItem(`cpms_pending_fields_${targetId}`, JSON.stringify([]));
 
             try {
                 const channel = new BroadcastChannel("cpms_profile_channel");
-                channel.postMessage({ type: "PROFILE_VERIFIED", isVerified: true, studentId: targetId });
+                channel.postMessage({ type: "PROFILE_VERIFIED", isVerified: true, studentId: targetId, studentEmail: userKey });
                 channel.close();
             } catch (e) {}
 
             window.dispatchEvent(new Event("cpms_profile_updated"));
+            window.dispatchEvent(new Event("cpms_verification_updated"));
+            window.dispatchEvent(new Event("storage"));
         } catch (e) {}
 
         setActionMessage({ type: "success", text: `✓ Verified & Approved Student Profile` });
@@ -327,10 +341,35 @@ const StudentManagement: React.FC = () => {
         }
 
         try {
-            const userKey = selectedStudent.user?.email || targetId;
+            const userKey = (selectedStudent.user?.email || (selectedStudent as any)?.email || targetId).toLowerCase().trim();
+            const studentIdKey = selectedStudent?._id || (selectedStudent as any)?.id || "";
+            const userIdKey = selectedStudent?.user?._id || "";
+
             if (shouldVerify) {
                 localStorage.setItem(`cpms_verification_status_${userKey}`, "Approved");
                 localStorage.setItem(`cpms_verified_student_${userKey}`, "true");
+                localStorage.setItem(`cpms_profile_verified_${targetId}`, "true");
+                localStorage.setItem(`cpms_profile_verified_${userKey}`, "true");
+                if (studentIdKey) {
+                    localStorage.setItem(`cpms_profile_verified_${studentIdKey}`, "true");
+                    localStorage.setItem(`cpms_verification_status_${studentIdKey}`, "Approved");
+                }
+                if (userIdKey) {
+                    localStorage.setItem(`cpms_profile_verified_${userIdKey}`, "true");
+                    localStorage.setItem(`cpms_verification_status_${userIdKey}`, "Approved");
+                }
+                localStorage.setItem(`cpms_profile_verified_global`, "true");
+                localStorage.setItem("cpms_verification_updated", String(Date.now()));
+
+                try {
+                    const channel = new BroadcastChannel("cpms_profile_channel");
+                    channel.postMessage({ type: "PROFILE_VERIFIED", isVerified: true, studentId: targetId, studentEmail: userKey });
+                    channel.close();
+                } catch (e) {}
+
+                window.dispatchEvent(new Event("cpms_profile_updated"));
+                window.dispatchEvent(new Event("cpms_verification_updated"));
+                window.dispatchEvent(new Event("storage"));
             }
         } catch (e) {}
 
@@ -672,7 +711,8 @@ const StudentManagement: React.FC = () => {
 
             {/* Clean Main Table */}
             <div style={{ backgroundColor: "#ffffff", borderRadius: "14px", border: "1px solid #eaedf0", overflow: "hidden", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
+                <div className="responsive-table-wrapper" style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px", minWidth: "720px" }}>
                     <thead>
                         <tr style={{ backgroundColor: "#f8fafc", borderBottom: "2px solid #e2e8f0" }}>
                             <th style={{ padding: "12px 16px", textAlign: "left", color: "#64748b", fontWeight: "700" }}>Student</th>
@@ -767,6 +807,7 @@ const StudentManagement: React.FC = () => {
                         )}
                     </tbody>
                 </table>
+                </div>
             </div>
 
             {/* Student Details Verification Modal for Placement Officer */}

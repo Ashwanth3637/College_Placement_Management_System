@@ -28,61 +28,12 @@ export interface StudentRecord {
     isVerified: boolean;
 }
 
-const DEFAULT_DRIVES: EligibilityDrive[] = [
-    {
-        id: "drive_4",
-        companyName: "Wipro",
-        jobRole: "Graduate Engineer Trainee",
-        minCgpa: 6.0,
-        maxBacklogs: 2,
-        departments: ["Computer Science & Engineering", "Information Technology", "Electronics & Communication"],
-        minTenth: 60,
-        minTwelfth: 60,
-        gradYear: 2026,
-        status: "Upcoming"
-    },
-    {
-        id: "drive_1",
-        companyName: "Google India",
-        jobRole: "Software Development Engineer (SDE-1)",
-        minCgpa: 8.0,
-        maxBacklogs: 0,
-        departments: ["Computer Science & Engineering", "Information Technology"],
-        minTenth: 80,
-        minTwelfth: 80,
-        gradYear: 2026,
-        status: "Upcoming"
-    },
-    {
-        id: "drive_2",
-        companyName: "Zoho Corporation",
-        jobRole: "Software Developer",
-        minCgpa: 6.5,
-        maxBacklogs: 1,
-        departments: ["Computer Science & Engineering", "Information Technology", "Mechanical Engineering"],
-        minTenth: 65,
-        minTwelfth: 65,
-        gradYear: 2026,
-        status: "Ongoing"
-    },
-    {
-        id: "drive_3",
-        companyName: "Microsoft India",
-        jobRole: "Cloud Systems Engineer",
-        minCgpa: 7.0,
-        maxBacklogs: 0,
-        departments: ["Computer Science & Engineering", "Information Technology", "Electronics & Communication"],
-        minTenth: 75,
-        minTwelfth: 75,
-        gradYear: 2026,
-        status: "Upcoming"
-    }
-];
+const DEFAULT_DRIVES: EligibilityDrive[] = [];
 
 const EligibilityManagement: React.FC = () => {
-    const [drives, setDrives] = useState<EligibilityDrive[]>(DEFAULT_DRIVES);
+    const [drives, setDrives] = useState<EligibilityDrive[]>([]);
     const [students, setStudents] = useState<StudentRecord[]>([]);
-    const [selectedDriveId, setSelectedDriveId] = useState<string>("drive_2");
+    const [selectedDriveId, setSelectedDriveId] = useState<string>("");
 
     // Search & Filters
     const [searchQuery, setSearchQuery] = useState<string>("");
@@ -94,34 +45,68 @@ const EligibilityManagement: React.FC = () => {
 
     // Load placement drives & student records dynamically
     useEffect(() => {
-        try {
-            const savedDrives = localStorage.getItem("cpms_drives");
-            if (savedDrives) {
-                const parsedD = JSON.parse(savedDrives);
-                if (Array.isArray(parsedD) && parsedD.length > 0) {
-                    const formatted = parsedD.map((d: any, idx: number) => ({
-                        id: d.id || `d_${idx}`,
-                        companyName: d.companyName || "Recruiter",
-                        jobRole: d.jobRole || "Software Developer",
-                        minCgpa: Number(d.minCgpa || (d.companyName === "Google India" ? 8.0 : d.companyName === "Wipro" ? 6.0 : 6.5)),
-                        maxBacklogs: Number(d.maxBacklogs !== undefined ? d.maxBacklogs : (d.companyName === "Google India" ? 0 : 2)),
-                        departments: Array.isArray(d.departments) 
-                            ? d.departments 
-                            : typeof d.departments === "string" 
-                                ? d.departments.split(",").map((s: string) => s.trim())
-                                : ["Computer Science & Engineering", "Information Technology"],
-                        minTenth: Number(d.minTenth || (d.companyName === "Google India" ? 80 : 60)),
-                        minTwelfth: Number(d.minTwelfth || (d.companyName === "Google India" ? 80 : 60)),
-                        gradYear: Number(d.gradYear || 2026),
-                        status: d.status || "Upcoming"
-                    }));
-                    setDrives(formatted);
-                    if (formatted.length > 0) {
-                        setSelectedDriveId(formatted[0].id);
+        const loadDrives = async () => {
+            let combinedDrives: EligibilityDrive[] = [];
+
+            // 1. Fetch from MongoDB
+            try {
+                const res = await fetch("http://localhost:5001/api/company/drives");
+                if (res.ok) {
+                    const data = await res.json();
+                    if (Array.isArray(data) && data.length > 0) {
+                        const formatted = data.map((d: any, idx: number) => ({
+                            id: d._id || d.id || `d_${idx}`,
+                            companyName: d.company || d.companyName || "Company",
+                            jobRole: d.role || d.jobTitle || d.jobRole || "Role",
+                            minCgpa: Number(d.minCgpa || 6.5),
+                            maxBacklogs: Number(d.maxBacklogs !== undefined ? d.maxBacklogs : 1),
+                            departments: Array.isArray(d.eligibleBranches) ? d.eligibleBranches : (Array.isArray(d.departments) ? d.departments : ["Computer Science & Engineering", "Information Technology"]),
+                            minTenth: Number(d.minTenth || 60),
+                            minTwelfth: Number(d.minTwelfth || 60),
+                            gradYear: Number(d.gradYear || 2026),
+                            status: d.status || "Active"
+                        }));
+                        combinedDrives.push(...formatted);
                     }
                 }
+            } catch (err) {}
+
+            // 2. Fetch from LocalStorage
+            try {
+                const savedDrives = localStorage.getItem("cpms_drives");
+                if (savedDrives) {
+                    const parsedD = JSON.parse(savedDrives);
+                    if (Array.isArray(parsedD) && parsedD.length > 0) {
+                        parsedD.forEach((d: any, idx: number) => {
+                            const driveId = d.id || d._id || `ls_d_${idx}`;
+                            if (!combinedDrives.some(cd => cd.id === driveId)) {
+                                combinedDrives.push({
+                                    id: driveId,
+                                    companyName: d.companyName || d.company || "Company",
+                                    jobRole: d.jobRole || d.role || "Role",
+                                    minCgpa: Number(d.minCgpa || 6.5),
+                                    maxBacklogs: Number(d.maxBacklogs !== undefined ? d.maxBacklogs : 1),
+                                    departments: Array.isArray(d.departments) ? d.departments : (Array.isArray(d.eligibleBranches) ? d.eligibleBranches : ["Computer Science & Engineering", "Information Technology"]),
+                                    minTenth: Number(d.minTenth || 60),
+                                    minTwelfth: Number(d.minTwelfth || 60),
+                                    gradYear: Number(d.gradYear || 2026),
+                                    status: d.status || "Upcoming"
+                                });
+                            }
+                        });
+                    }
+                }
+            } catch (e) {}
+
+            setDrives(combinedDrives);
+            if (combinedDrives.length > 0) {
+                setSelectedDriveId(prev => prev && combinedDrives.some(d => d.id === prev) ? prev : combinedDrives[0].id);
+            } else {
+                setSelectedDriveId("");
             }
-        } catch (e) {}
+        };
+
+        loadDrives();
 
         const fetchLiveStudents = async () => {
             try {
@@ -157,21 +142,8 @@ const EligibilityManagement: React.FC = () => {
                     }
                 }
             } catch (err) {}
-            // Default fallback student profile for local state evaluation
-            setStudents([{
-                id: "ashwanth_st",
-                _id: "ashwanth_st",
-                name: "Ashwanth",
-                email: "ashwanth@gmail.com",
-                regNo: "22CSR025",
-                dept: "Computer Science & Engineering",
-                cgpa: 8.00,
-                tenth: 87.0,
-                twelfth: 77.33,
-                backlogs: 0,
-                gradYear: 2026,
-                isVerified: true
-            }]);
+            // Clean fallback
+            setStudents([]);
         };
         fetchLiveStudents();
     }, []);
@@ -195,33 +167,53 @@ const EligibilityManagement: React.FC = () => {
     }, [selectedStudentEval]);
 
     // Active Drive Selected
-    const selectedDrive = drives.find(d => d.id === selectedDriveId) || drives[0];
+    const selectedDrive = drives.find(d => d.id === selectedDriveId) || (drives.length > 0 ? drives[0] : null);
 
     // Evaluate Students for Selected Drive
-    const evaluateStudentForDrive = (student: StudentRecord, drive: EligibilityDrive) => {
-        const cgpaPass = student.cgpa >= drive.minCgpa;
-        const tenthPass = student.tenth >= drive.minTenth;
-        const twelfthPass = student.twelfth >= drive.minTwelfth;
-        const backlogsPass = student.backlogs <= drive.maxBacklogs;
+    const evaluateStudentForDrive = (student: StudentRecord, drive: EligibilityDrive | null) => {
+        if (!drive) {
+            return {
+                isEligible: false,
+                cgpaPass: false,
+                tenthPass: false,
+                twelfthPass: false,
+                backlogsPass: false,
+                deptPass: false,
+                yearPass: false,
+                failureReasons: ["No active placement drive selected"]
+            };
+        }
+
+        const minCgpa = Number(drive.minCgpa) || 6.0;
+        const minTenth = Number(drive.minTenth) || 60;
+        const minTwelfth = Number(drive.minTwelfth) || 60;
+        const maxBacklogs = Number(drive.maxBacklogs) ?? 1;
+        const gradYear = Number(drive.gradYear) || 2026;
+        const depts = Array.isArray(drive.departments) ? drive.departments : [];
+
+        const cgpaPass = student.cgpa >= minCgpa;
+        const tenthPass = student.tenth >= minTenth;
+        const twelfthPass = student.twelfth >= minTwelfth;
+        const backlogsPass = student.backlogs <= maxBacklogs;
         
         // Department matching logic
-        const studentDeptLower = student.dept.toLowerCase().trim();
-        const deptPass = drive.departments.some(d => {
-            const dLower = d.toLowerCase().trim();
+        const studentDeptLower = (student.dept || "").toLowerCase().trim();
+        const deptPass = depts.length === 0 || depts.some(d => {
+            const dLower = (d || "").toLowerCase().trim();
             return dLower === "all" || dLower.includes("all engineering") || studentDeptLower.includes(dLower) || dLower.includes(studentDeptLower) || (dLower.includes("cse") && studentDeptLower.includes("computer"));
         });
 
-        const yearPass = Number(student.gradYear) === Number(drive.gradYear);
+        const yearPass = Number(student.gradYear) === gradYear;
 
         const isEligible = cgpaPass && tenthPass && twelfthPass && backlogsPass && deptPass && yearPass;
 
         const failureReasons: string[] = [];
-        if (!cgpaPass) failureReasons.push(`CGPA requirement is ${drive.minCgpa.toFixed(2)}, Student CGPA is ${student.cgpa.toFixed(2)}`);
-        if (!tenthPass) failureReasons.push(`10th % requirement is ${drive.minTenth}%, Student 10th is ${student.tenth}%`);
-        if (!twelfthPass) failureReasons.push(`12th % requirement is ${drive.minTwelfth}%, Student 12th is ${student.twelfth}%`);
-        if (!backlogsPass) failureReasons.push(`Max allowed backlogs is ${drive.maxBacklogs}, Student has ${student.backlogs}`);
+        if (!cgpaPass) failureReasons.push(`CGPA requirement is ${minCgpa.toFixed(2)}, Student CGPA is ${student.cgpa.toFixed(2)}`);
+        if (!tenthPass) failureReasons.push(`10th % requirement is ${minTenth}%, Student 10th is ${student.tenth}%`);
+        if (!twelfthPass) failureReasons.push(`12th % requirement is ${minTwelfth}%, Student 12th is ${student.twelfth}%`);
+        if (!backlogsPass) failureReasons.push(`Max allowed backlogs is ${maxBacklogs}, Student has ${student.backlogs}`);
         if (!deptPass) failureReasons.push(`Department ${student.dept} is not in eligible departments list`);
-        if (!yearPass) failureReasons.push(`Graduation year requirement is ${drive.gradYear}, Student year is ${student.gradYear}`);
+        if (!yearPass) failureReasons.push(`Graduation year requirement is ${gradYear}, Student year is ${student.gradYear}`);
 
         return {
             isEligible,
@@ -460,8 +452,8 @@ const EligibilityManagement: React.FC = () => {
 
             {/* 4. Clean Student Eligibility Table */}
             <div style={{ backgroundColor: "#ffffff", borderRadius: "14px", border: "1px solid #eaedf0", overflow: "hidden", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
-                <div style={{ overflowX: "auto" }}>
-                    <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: "13px" }}>
+                <div className="responsive-table-wrapper" style={{ overflowX: "auto" }}>
+                    <table style={{ width: "100%", minWidth: "700px", borderCollapse: "collapse", textAlign: "left", fontSize: "13px" }}>
                         <thead>
                             <tr style={{ backgroundColor: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
                                 <th style={{ padding: "14px 16px", color: "#475569", fontWeight: "700" }}>Student</th>
@@ -588,7 +580,7 @@ const EligibilityManagement: React.FC = () => {
                         <div style={{ padding: "24px", display: "flex", flexDirection: "column", gap: "16px" }}>
                             {/* Target Drive Subtitle */}
                             <div style={{ backgroundColor: "#f8fafc", padding: "10px 14px", borderRadius: "8px", border: "1px solid #e2e8f0", fontSize: "12px", color: "#475569" }}>
-                                💼 Target Drive: <strong style={{ color: "#2563eb" }}>{selectedStudentEval.drive.companyName} – {selectedStudentEval.drive.jobRole}</strong>
+                                💼 Target Drive: <strong style={{ color: "#2563eb" }}>{selectedStudentEval.drive?.companyName || "Drive"} – {selectedStudentEval.drive?.jobRole || "Role"}</strong>
                             </div>
 
                             {/* Section 1: ELIGIBILITY REQUIREMENTS */}
@@ -604,38 +596,38 @@ const EligibilityManagement: React.FC = () => {
                                                 Student: <strong>{selectedStudentEval.student.dept}</strong> {selectedStudentEval.evalResult.deptPass ? "✓" : "✕"}
                                             </div>
                                             <div style={{ color: "#64748b" }}>
-                                                Required: <strong>{selectedStudentEval.drive.departments.map((d: string) => d.replace("Computer Science & Engineering", "CSE").replace("Information Technology", "IT").replace("Electronics & Communication", "ECE").replace("Mechanical Engineering", "Mech")).join(", ")}</strong>
+                                                Required: <strong>{(selectedStudentEval.drive?.departments || ["All"]).map((d: string) => d.replace("Computer Science & Engineering", "CSE").replace("Information Technology", "IT").replace("Electronics & Communication", "ECE").replace("Mechanical Engineering", "Mech")).join(", ")}</strong>
                                             </div>
                                         </div>
                                     </div>
                                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                                         <span>CGPA</span>
                                         <strong style={{ color: selectedStudentEval.evalResult.cgpaPass ? "#16a34a" : "#dc2626" }}>
-                                            {selectedStudentEval.student.cgpa.toFixed(2)} / {selectedStudentEval.drive.minCgpa.toFixed(2)} {selectedStudentEval.evalResult.cgpaPass ? "✓" : "✕"}
+                                            {selectedStudentEval.student.cgpa.toFixed(2)} / {selectedStudentEval.drive ? selectedStudentEval.drive.minCgpa.toFixed(2) : "6.00"} {selectedStudentEval.evalResult.cgpaPass ? "✓" : "✕"}
                                         </strong>
                                     </div>
                                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                                         <span>10th Percentage</span>
                                         <strong style={{ color: selectedStudentEval.evalResult.tenthPass ? "#16a34a" : "#dc2626" }}>
-                                            {selectedStudentEval.student.tenth}% / {selectedStudentEval.drive.minTenth}% {selectedStudentEval.evalResult.tenthPass ? "✓" : "✕"}
+                                            {selectedStudentEval.student.tenth}% / {selectedStudentEval.drive ? selectedStudentEval.drive.minTenth : 60}% {selectedStudentEval.evalResult.tenthPass ? "✓" : "✕"}
                                         </strong>
                                     </div>
                                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                                         <span>12th Percentage</span>
                                         <strong style={{ color: selectedStudentEval.evalResult.twelfthPass ? "#16a34a" : "#dc2626" }}>
-                                            {selectedStudentEval.student.twelfth}% / {selectedStudentEval.drive.minTwelfth}% {selectedStudentEval.evalResult.twelfthPass ? "✓" : "✕"}
+                                            {selectedStudentEval.student.twelfth}% / {selectedStudentEval.drive ? selectedStudentEval.drive.minTwelfth : 60}% {selectedStudentEval.evalResult.twelfthPass ? "✓" : "✕"}
                                         </strong>
                                     </div>
                                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                                         <span>Backlogs</span>
                                         <strong style={{ color: selectedStudentEval.evalResult.backlogsPass ? "#16a34a" : "#dc2626" }}>
-                                            {selectedStudentEval.student.backlogs} / {selectedStudentEval.drive.maxBacklogs} {selectedStudentEval.evalResult.backlogsPass ? "✓" : "✕"}
+                                            {selectedStudentEval.student.backlogs} / {selectedStudentEval.drive ? selectedStudentEval.drive.maxBacklogs : 0} {selectedStudentEval.evalResult.backlogsPass ? "✓" : "✕"}
                                         </strong>
                                     </div>
                                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                                         <span>Graduation Batch</span>
                                         <strong style={{ color: selectedStudentEval.evalResult.yearPass ? "#16a34a" : "#dc2626" }}>
-                                            {selectedStudentEval.student.gradYear} / {selectedStudentEval.drive.gradYear} {selectedStudentEval.evalResult.yearPass ? "✓" : "✕"}
+                                            {selectedStudentEval.student.gradYear} / {selectedStudentEval.drive ? selectedStudentEval.drive.gradYear : 2026} {selectedStudentEval.evalResult.yearPass ? "✓" : "✕"}
                                         </strong>
                                     </div>
                                 </div>

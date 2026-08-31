@@ -797,8 +797,8 @@ const InterviewManagement: React.FC = () => {
             </div>
 
             {/* 3. Clean Interview Table */}
-            <div style={{ backgroundColor: "#ffffff", borderRadius: "14px", border: "1px solid #e2e8f0", overflowX: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: "12px" }}>
+            <div className="responsive-table-wrapper" style={{ backgroundColor: "#ffffff", borderRadius: "14px", border: "1px solid #e2e8f0", overflowX: "auto" }}>
+                <table style={{ width: "100%", minWidth: "680px", borderCollapse: "collapse", textAlign: "left", fontSize: "12px" }}>
                     <thead>
                         <tr style={{ backgroundColor: "#f8fafc", borderBottom: "2px solid #e2e8f0" }}>
                             <th style={{ padding: "10px 12px", color: "#64748b", fontWeight: "700" }}>Student</th>

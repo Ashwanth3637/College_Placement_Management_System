@@ -2,44 +2,12 @@ const mongoose = require("mongoose");
 const Attendance = require("../models/attendanceModel");
 const Announcement = require("../models/announcementModel");
 
-// Static fallback events list
-const EVENTS_LIST = [
-    { id: "evt_1", name: "Amazon Technical Drive", date: "Sep 1, 2026" },
-    { id: "evt_2", name: "TCS Pre-Placement Talk", date: "Sep 3, 2026" },
-    { id: "evt_3", name: "Google Cloud Interview Setup", date: "Sep 5, 2026" }
-];
-
-// Initial mock candidates per event
-const DEFAULT_CANDIDATES = {
-    evt_1: [
-        { registerNo: "22CS001", studentName: "Arun Kumar", department: "CSE", attendance: "Not Marked" },
-        { registerNo: "22CS002", studentName: "Rahul Kumar", department: "CSE", attendance: "Not Marked" },
-        { registerNo: "22CS003", studentName: "Priya S", department: "CSE", attendance: "Not Marked" },
-        { registerNo: "22CS004", studentName: "Ananya Verma", department: "ISE", attendance: "Not Marked" },
-        { registerNo: "22CS005", studentName: "Karthik V", department: "MECH", attendance: "Not Marked" },
-        { registerNo: "22CS006", studentName: "Siddharth Nair", department: "ECE", attendance: "Not Marked" }
-    ],
-    evt_2: [
-        { registerNo: "22CS001", studentName: "Arun Kumar", department: "CSE", attendance: "Not Marked" },
-        { registerNo: "22CS007", studentName: "Divya Ramesh", department: "ISE", attendance: "Not Marked" },
-        { registerNo: "22CS008", studentName: "Rohan Das", department: "CSE", attendance: "Not Marked" },
-        { registerNo: "22CS009", studentName: "Meera Patel", department: "ECE", attendance: "Not Marked" },
-        { registerNo: "22CS010", studentName: "Aakash Gupta", department: "EEE", attendance: "Not Marked" }
-    ],
-    evt_3: [
-        { registerNo: "22CS008", studentName: "Rohan Das", department: "CSE", attendance: "Not Marked" },
-        { registerNo: "22CS001", studentName: "Arun Kumar", department: "CSE", attendance: "Not Marked" },
-        { registerNo: "22CS003", studentName: "Priya S", department: "CSE", attendance: "Not Marked" },
-        { registerNo: "22CS005", studentName: "Karthik V", department: "MECH", attendance: "Not Marked" }
-    ]
-};
-
 // GET /api/coordinator/events
 const getCoordinatorEvents = async (req, res) => {
     try {
         return res.status(200).json({
             success: true,
-            events: EVENTS_LIST
+            events: []
         });
     } catch (error) {
         return res.status(500).json({ success: false, message: error.message });
@@ -50,32 +18,30 @@ const getCoordinatorEvents = async (req, res) => {
 const getEventAttendance = async (req, res) => {
     try {
         const { eventId } = req.params;
-        const initialDefaults = DEFAULT_CANDIDATES[eventId] || DEFAULT_CANDIDATES["evt_1"];
 
         if (mongoose.connection.readyState === 1) {
             const dbRecords = await Attendance.find({ eventId });
             if (dbRecords && dbRecords.length > 0) {
-                const map = {};
                 let isEventVerified = false;
                 let verifiedByName = "";
 
-                dbRecords.forEach(r => {
-                    map[r.registerNo] = r.status;
+                const mapped = dbRecords.map(r => {
                     if (r.isVerified) {
                         isEventVerified = true;
-                        verifiedByName = r.verifiedBy || "Prof. Rajesh Sharma (Coordinator)";
+                        verifiedByName = r.verifiedBy || "Coordinator";
                     }
+                    return {
+                        registerNo: r.registerNo,
+                        studentName: r.studentName,
+                        department: r.department,
+                        attendance: r.status || "Not Marked"
+                    };
                 });
-
-                const merged = initialDefaults.map(s => ({
-                    ...s,
-                    attendance: map[s.registerNo] || s.attendance
-                }));
 
                 return res.status(200).json({
                     success: true,
                     eventId,
-                    attendance: merged,
+                    attendance: mapped,
                     isVerified: isEventVerified,
                     verifiedBy: verifiedByName
                 });
@@ -85,7 +51,7 @@ const getEventAttendance = async (req, res) => {
         return res.status(200).json({
             success: true,
             eventId,
-            attendance: initialDefaults,
+            attendance: [],
             isVerified: false,
             verifiedBy: ""
         });

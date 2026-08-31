@@ -39,190 +39,47 @@ export interface CoordinatorStudentsProps {
 export const CoordinatorStudents: React.FC<CoordinatorStudentsProps> = ({
     onBackToDashboard
 }) => {
-    // Initial Clean Student Directory Data with precise status attributes
-    const defaultStudents: StudentDirectoryItem[] = [
-        {
-            id: "std_1",
-            name: "Ashwanth S",
-            registerNo: "1CS22CS014",
-            department: "Computer Science & Engineering",
-            batch: "2022-2026",
-            email: "ashwanth@college.edu",
-            phone: "+91 98765 43210",
-            cgpa: 9.24,
-            tenthPercentage: 96.4,
-            twelfthPercentage: 94.8,
-            backlogs: 0,
-            verificationStatus: "verified",
-            placementStatus: "Placed",
-            placedCompany: "Amazon Development Center",
-            placedPackage: "₹18.0 LPA",
-            currentStage: "Final Offer Accepted",
-            skills: ["Java", "React.js", "Data Structures", "Node.js", "System Design"],
-            drivesHistory: [
-                { company: "Amazon", role: "SDE-1", round: "Final Bar Raiser", status: "Selected", date: "Aug 30, 2026" },
-                { company: "TCS", role: "Digital Engineer", round: "Technical Interview", status: "Shortlisted", date: "Aug 15, 2026" }
-            ]
-        },
-        {
-            id: "std_2",
-            name: "Rahul Kumar",
-            registerNo: "1CS22CS045",
-            department: "Computer Science & Engineering",
-            batch: "2022-2026",
-            email: "rahul@college.edu",
-            phone: "+91 98765 43211",
-            cgpa: 8.80,
-            tenthPercentage: 92.0,
-            twelfthPercentage: 89.5,
-            backlogs: 0,
-            verificationStatus: "verified",
-            placementStatus: "Shortlisted",
-            placedCompany: "TCS (Ninja / Digital)",
-            currentStage: "Technical Interview Scheduled",
-            skills: ["Python", "SQL", "Machine Learning", "Django"],
-            drivesHistory: [
-                { company: "TCS", role: "Systems Engineer", round: "Round 2 Technical", status: "Shortlisted", date: "Sep 03, 2026" }
-            ]
-        },
-        {
-            id: "std_3",
-            name: "Priya S",
-            registerNo: "1CS22CS088",
-            department: "Computer Science & Engineering",
-            batch: "2022-2026",
-            email: "priya@college.edu",
-            phone: "+91 98765 43212",
-            cgpa: 8.95,
-            tenthPercentage: 95.0,
-            twelfthPercentage: 93.2,
-            backlogs: 0,
-            verificationStatus: "verified",
-            placementStatus: "In Process",
-            placedCompany: "Amazon (Round 2)",
-            currentStage: "Technical Round 2",
-            skills: ["C++", "DSA", "System Design", "SQL"],
-            drivesHistory: [
-                { company: "Amazon", role: "SDE-1", round: "Round 2 Technical", status: "In Process", date: "Sep 05, 2026" }
-            ]
-        },
-        {
-            id: "std_4",
-            name: "Ananya Verma",
-            registerNo: "1IS22IS023",
-            department: "Information Science & Engineering",
-            batch: "2022-2026",
-            email: "ananya@college.edu",
-            phone: "+91 98765 43213",
-            cgpa: 8.45,
-            tenthPercentage: 91.5,
-            twelfthPercentage: 88.0,
-            backlogs: 0,
-            verificationStatus: "verified",
-            placementStatus: "In Process",
-            placedCompany: "Google Cloud Challenge",
-            currentStage: "Assessment Evaluation",
-            skills: ["GCP", "Kubernetes", "Golang", "Cloud Architecture"],
-            drivesHistory: [
-                { company: "Google", role: "Cloud Engineer", round: "HR Assessment", status: "In Process", date: "Sep 06, 2026" }
-            ]
-        },
-        {
-            id: "std_5",
-            name: "Karthik V",
-            registerNo: "1ME22ME019",
-            department: "Mechanical Engineering",
-            batch: "2022-2026",
-            email: "karthik@college.edu",
-            phone: "+91 98765 43214",
-            cgpa: 7.80,
-            tenthPercentage: 88.0,
-            twelfthPercentage: 85.0,
-            backlogs: 0,
-            verificationStatus: "verified",
-            placementStatus: "Placed",
-            placedCompany: "Infosys Limited",
-            placedPackage: "₹7.5 LPA",
-            currentStage: "Offer Letter Released",
-            skills: ["AutoCAD", "SolidWorks", "Python", "Robotics"],
-            drivesHistory: [
-                { company: "Infosys", role: "Systems Engineer", round: "HR Final", status: "Selected", date: "Aug 28, 2026" }
-            ]
-        },
-        {
-            id: "std_6",
-            name: "Siddharth Nair",
-            registerNo: "1EC22EC056",
-            department: "Electronics & Communication",
-            batch: "2022-2026",
-            email: "siddharth@college.edu",
-            phone: "+91 98765 43215",
-            cgpa: 8.15,
-            tenthPercentage: 89.0,
-            twelfthPercentage: 86.5,
-            backlogs: 0,
-            verificationStatus: "verified",
-            placementStatus: "Applied",
-            placedCompany: "TCS National Qualifier Drive",
-            currentStage: "Application Under Review",
-            skills: ["VLSI", "Embedded C", "MATLAB", "IoT"],
-            drivesHistory: [
-                { company: "TCS", role: "Ninja", round: "National Qualifier Test", status: "Applied", date: "Sep 18, 2026" }
-            ]
-        },
-        {
-            id: "std_7",
-            name: "Divya Ramesh",
-            registerNo: "1IS22IS034",
-            department: "Information Science & Engineering",
-            batch: "2022-2026",
-            email: "divya@college.edu",
-            phone: "+91 98765 43216",
-            cgpa: 8.70,
-            tenthPercentage: 94.0,
-            twelfthPercentage: 91.0,
-            backlogs: 0,
-            verificationStatus: "verified",
-            placementStatus: "Shortlisted",
-            placedCompany: "TCS Pre-Placement (Digital)",
-            currentStage: "Shortlisted for Round 2",
-            skills: ["React", "TypeScript", "Node.js", "MongoDB"],
-            drivesHistory: [
-                { company: "TCS", role: "Digital", round: "Round 1 Aptitude", status: "Shortlisted", date: "Sep 03, 2026" }
-            ]
-        },
-        {
-            id: "std_8",
-            name: "Rohan Das",
-            registerNo: "1CS22CS092",
-            department: "Computer Science & Engineering",
-            batch: "2022-2026",
-            email: "rohan@college.edu",
-            phone: "+91 98765 43217",
-            cgpa: 7.50,
-            tenthPercentage: 82.5,
-            twelfthPercentage: 79.0,
-            backlogs: 0,
-            verificationStatus: "pending",
-            placementStatus: "Applied",
-            placedCompany: "General Placement Drive Pool",
-            currentStage: "Profile Submitted",
-            skills: ["Web Development", "PHP", "MySQL"],
-            drivesHistory: []
-        }
-    ];
+    // Clean Student Directory Data loaded exclusively from live system
+    const defaultStudents: StudentDirectoryItem[] = [];
 
     // State
-    const [studentsList] = useState<StudentDirectoryItem[]>(() => {
-        try {
-            const saved = localStorage.getItem("cpms_coordinator_students");
-            if (saved) {
-                const parsed = JSON.parse(saved);
-                if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-            }
-        } catch (e) {}
-        return defaultStudents;
-    });
+    const [studentsList, setStudentsList] = useState<StudentDirectoryItem[]>([]);
+
+    useEffect(() => {
+        const fetchStudents = async () => {
+            try {
+                const res = await fetch("http://localhost:5001/api/student/all");
+                if (res.ok) {
+                    const data = await res.json();
+                    if (Array.isArray(data) && data.length > 0) {
+                        const mapped: StudentDirectoryItem[] = data.map((s: any, idx: number) => ({
+                            id: s._id || s.id || `std_${idx}`,
+                            name: s.user?.name || s.personal?.fullName || "Student",
+                            registerNo: s.personal?.registerNumber || `22CSR0${25 + idx}`,
+                            department: s.personal?.department || "Computer Science & Engineering",
+                            batch: "2022-2026",
+                            email: s.user?.email || s.personal?.email || "",
+                            phone: s.personal?.phone || "+91 98765 43210",
+                            cgpa: Number(s.academic?.cgpa || 0),
+                            tenthPercentage: Number(s.academic?.tenthPercentage || 0),
+                            twelfthPercentage: Number(s.academic?.twelfthPercentage || 0),
+                            backlogs: Number(s.academic?.backlogs || 0),
+                            verificationStatus: s.isVerified ? "verified" : "pending",
+                            placementStatus: "Applied",
+                            placedCompany: "General Placement Drive Pool",
+                            currentStage: s.isVerified ? "Verified for Placements" : "Profile Pending Verification",
+                            skills: s.professional?.skills || [],
+                            drivesHistory: []
+                        }));
+                        setStudentsList(mapped);
+                        return;
+                    }
+                }
+            } catch (e) {}
+            setStudentsList([]);
+        };
+        fetchStudents();
+    }, []);
 
     // Modal State
     const [selectedStudent, setSelectedStudent] = useState<StudentDirectoryItem | null>(null);

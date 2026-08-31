@@ -823,8 +823,8 @@ const ApplicationManagement: React.FC = () => {
             </div>
 
             {/* 4. Applications Table */}
-            <div style={{ backgroundColor: "#ffffff", borderRadius: "16px", border: "1px solid #eaedf0", overflow: "hidden", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: "13px" }}>
+            <div className="responsive-table-wrapper" style={{ backgroundColor: "#ffffff", borderRadius: "16px", border: "1px solid #eaedf0", overflowX: "auto", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
+                <table style={{ width: "100%", minWidth: "750px", borderCollapse: "collapse", textAlign: "left", fontSize: "13px" }}>
                     <thead>
                         <tr style={{ backgroundColor: "#f8fafc", borderBottom: "1px solid #eaedf0", color: "#64748b", fontSize: "12px", textTransform: "uppercase", fontWeight: "700" }}>
                             <th style={{ padding: "14px 20px" }}>Student</th>

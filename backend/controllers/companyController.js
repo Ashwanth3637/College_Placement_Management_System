@@ -1,33 +1,5 @@
 const CompanyDrive = require("../models/companyDriveModel");
 
-// Default initial placement drives data
-const initialDrives = [
-    {
-        company: "Amazon Development Center",
-        jobTitle: "SDE Trainee / Intern + FTE",
-        role: "SDE Trainee / Intern + FTE",
-        jobType: "Internship + FTE",
-        location: "Bangalore, India",
-        packageCtc: "₹22.0 LPA",
-        ctc: "₹22.0 LPA",
-        deadline: "08 Sep 2026",
-        driveDate: "10 Sep 2026",
-        status: "Pending Approval",
-        createdBy: "Arya",
-        recruiterName: "Arya",
-        recruiterEmail: "arya@amazon.com",
-        logo: "https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg",
-        openings: 12,
-        eligibleBranches: ["CSE", "IT", "ECE"],
-        minCgpa: 7.5,
-        gradYear: 2026,
-        maxBacklogs: 0,
-        requiredSkills: ["Java", "Data Structures", "AWS", "Python"],
-        jobDescription: "Design, build, and maintain high-scale software systems and APIs for Amazon Web Services & Retail platform.",
-        selectionProcess: "Online Assessment → Technical Interview 1 → Technical Interview 2 → HR Bar Raiser"
-    }
-];
-
 // Get placement drives (Filter by recruiter createdBy/company, or return for Officer review / Student view)
 const getDrives = async (req, res) => {
     try {
@@ -49,7 +21,27 @@ const getDrives = async (req, res) => {
         }
 
         let drives = await CompanyDrive.find(query).sort({ createdAt: -1 });
-        res.status(200).json(drives);
+
+        // Deduplicate drives by canonical company
+        const uniqueDrives = [];
+        const seen = new Set();
+        for (const d of drives) {
+            let compKey = (d.company || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+            if (compKey.includes("tcs") || compKey.includes("tataconsultancy")) {
+                compKey = "tcs";
+            } else if (compKey.includes("amazon")) {
+                compKey = "amazon";
+            } else {
+                compKey = compKey.slice(0, 12);
+            }
+
+            if (!seen.has(compKey)) {
+                seen.add(compKey);
+                uniqueDrives.push(d);
+            }
+        }
+
+        res.status(200).json(uniqueDrives);
     } catch (error) {
         console.error("Get Company Drives Error:", error);
         res.status(500).json({ message: "Failed to fetch company drives", error: error.message });
@@ -252,67 +244,7 @@ const getAllCompanyProfiles = async (req, res) => {
     try {
         const CompanyProfile = require("../models/companyProfileModel");
         let companies = await CompanyProfile.find().sort({ createdAt: -1 });
-
-        if (!companies || companies.length === 0) {
-            // Seed initial companies if empty
-            const seedCompanies = [
-                {
-                    companyName: "Amazon Development Center",
-                    companyEmail: "recruitment@amazon.com",
-                    industry: "E-Commerce & Cloud Infrastructure",
-                    website: "https://www.amazon.jobs",
-                    location: "Bangalore / Hyderabad / Chennai",
-                    description: "Amazon Software Development Center India engages in world-class software engineering.",
-                    contactPersonName: "Arya",
-                    contactEmail: "arya@amazon.com",
-                    contactPhone: "+91 97654 32109",
-                    status: "Approved",
-                    logo: "https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg",
-                },
-                {
-                    companyName: "Zoho Corporation",
-                    companyEmail: "recruitment@zoho.com",
-                    industry: "SaaS & Cloud Software",
-                    website: "https://www.zoho.com",
-                    location: "Chennai / Tenkasi",
-                    description: "Zoho Corporation develops cloud software applications for businesses worldwide.",
-                    contactPersonName: "Siddharth",
-                    contactEmail: "siddharth@zoho.com",
-                    contactPhone: "+91 98765 43210",
-                    status: "Approved",
-                    logo: "/company-logos/zoho.png",
-                },
-                {
-                    companyName: "JAC MediaLand",
-                    companyEmail: "contact@jacmedialand.com",
-                    industry: "Media & Design Technology",
-                    website: "https://www.jacmedialand.com",
-                    location: "Erode",
-                    description: "JAC MediaLand specializes in digital media, UI/UX development, and design tech.",
-                    contactPersonName: "Manikandan",
-                    contactEmail: "contact@jacmedialand.com",
-                    contactPhone: "+91 94433 22110",
-                    status: "Approved",
-                    logo: "/company-logos/jac-medialand.png",
-                },
-                {
-                    companyName: "Cognizant Technology Solutions",
-                    companyEmail: "recruitment@cognizant.com",
-                    industry: "IT & Digital Services",
-                    website: "https://www.cognizant.com",
-                    location: "Coimbatore / Chennai",
-                    description: "Cognizant provides digital transformation, IT consulting, and application services.",
-                    contactPersonName: "Priya",
-                    contactEmail: "priya@cognizant.com",
-                    contactPhone: "+91 98123 45678",
-                    status: "Approved",
-                    logo: "/company-logos/cognizant.png",
-                },
-            ];
-            companies = await CompanyProfile.insertMany(seedCompanies);
-        }
-
-        res.status(200).json(companies);
+        res.status(200).json(companies || []);
     } catch (error) {
         console.error("Get All Company Profiles Error:", error);
         res.status(500).json({ message: "Failed to fetch company profiles", error: error.message });

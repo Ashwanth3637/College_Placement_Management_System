@@ -481,7 +481,7 @@ const CompanyManagement: React.FC = () => {
                         Manage registered companies, recruiter contacts, job roles and approval status.
                     </span>
                 </div>
-                <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+                <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
                     <button
                         onClick={handleClearAllCompanies}
                         title="Delete All Companies"
@@ -645,8 +645,8 @@ const CompanyManagement: React.FC = () => {
                 </div>
             </div>
 
-            <div style={{ overflowX: "auto", borderRadius: "12px", border: "1px solid #e2e8f0" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: "13px" }}>
+            <div className="responsive-table-wrapper" style={{ overflowX: "auto", borderRadius: "12px", border: "1px solid #e2e8f0" }}>
+                <table style={{ width: "100%", minWidth: "650px", borderCollapse: "collapse", textAlign: "left", fontSize: "13px" }}>
                     <thead>
                         <tr style={{ backgroundColor: "#f8fafc", borderBottom: "1px solid #e2e8f0", color: "#64748b" }}>
                             <th style={{ padding: "14px 16px" }}>Company</th>

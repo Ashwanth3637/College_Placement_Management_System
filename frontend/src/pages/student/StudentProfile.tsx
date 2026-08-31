@@ -3,6 +3,7 @@ import React, {
     useMemo,
     useState,
 } from "react";
+import ClearDataButton from "../../components/ClearDataButton";
 
 interface StudentProfileProps {
     user: {
@@ -174,8 +175,9 @@ const StudentProfile: React.FC<StudentProfileProps> = ({
             try {
                 setLoading(true);
 
+                const lookupKey = userId || (user?.email || "").toLowerCase().trim() || "student";
                 const res = await fetch(
-                    `${API_BASE_URL}/api/student/profile/${userId}`
+                    `${API_BASE_URL}/api/student/profile/${encodeURIComponent(lookupKey)}?email=${encodeURIComponent((user?.email || "").toLowerCase().trim())}`
                 );
 
                 const data = await res.json();
@@ -216,32 +218,38 @@ const StudentProfile: React.FC<StudentProfileProps> = ({
 
                     if (student.academic) {
                         setTenthPercentage(
-                            student.academic
-                                .tenthPercentage ??
-                            ""
+                            student.academic.tenthPercentage && Number(student.academic.tenthPercentage) > 0
+                                ? Number(student.academic.tenthPercentage)
+                                : ""
                         );
 
                         setTwelfthPercentage(
-                            student.academic
-                                .twelfthPercentage ??
-                            ""
+                            student.academic.twelfthPercentage && Number(student.academic.twelfthPercentage) > 0
+                                ? Number(student.academic.twelfthPercentage)
+                                : ""
                         );
 
                         setCgpa(
-                            student.academic.cgpa ??
-                            ""
+                            student.academic.cgpa && Number(student.academic.cgpa) > 0
+                                ? Number(student.academic.cgpa)
+                                : ""
                         );
 
                         setBacklogs(
-                            student.academic.backlogs ??
-                            0
+                            student.academic.backlogs !== undefined && student.academic.backlogs !== null && student.academic.backlogs !== ""
+                                ? Number(student.academic.backlogs)
+                                : 0
                         );
 
                         setGraduationYear(
-                            student.academic
-                                .graduationYear ??
-                            2026
+                            Number(student.academic.graduationYear) || 2026
                         );
+                    } else {
+                        setTenthPercentage("");
+                        setTwelfthPercentage("");
+                        setCgpa("");
+                        setBacklogs(0);
+                        setGraduationYear(2026);
                     }
 
                     // =================================================
@@ -250,37 +258,35 @@ const StudentProfile: React.FC<StudentProfileProps> = ({
 
                     if (student.professional) {
                         setSkills(
-                            student.professional.skills?.join(
-                                ", "
-                            ) || ""
+                            Array.isArray(student.professional.skills)
+                                ? student.professional.skills.join(", ")
+                                : student.professional.skills || ""
                         );
 
                         setCertifications(
-                            student.professional.certifications?.join(
-                                ", "
-                            ) || ""
+                            Array.isArray(student.professional.certifications)
+                                ? student.professional.certifications.join(", ")
+                                : student.professional.certifications || ""
                         );
 
                         setProjects(
-                            student.professional.projects?.join(
-                                ", "
-                            ) || ""
+                            Array.isArray(student.professional.projects)
+                                ? student.professional.projects.join(", ")
+                                : student.professional.projects || ""
                         );
 
                         setInternship(
-                            student.professional.internships?.join(
-                                ", "
-                            ) || ""
+                            Array.isArray(student.professional.internships)
+                                ? student.professional.internships.join(", ")
+                                : student.professional.internships || ""
                         );
 
                         setResumeName(
-                            student.professional
-                                .resumeName || ""
+                            student.professional.resumeName || ""
                         );
 
                         // Load uploaded resume URL
-                        if (
-                            student.professional
+                        if (student.professional
                                 .resumeUrl
                         ) {
                             setResumeUrl(
@@ -873,8 +879,8 @@ const StudentProfile: React.FC<StudentProfileProps> = ({
     // =========================================================
 
     return (
-        <div style={styles.container}>
-            <div style={styles.card}>
+        <div style={styles.container} className="profile-container">
+            <div style={styles.card} className="profile-card">
 
                 {/* =================================================
                     HEADER
@@ -884,12 +890,14 @@ const StudentProfile: React.FC<StudentProfileProps> = ({
                     style={
                         styles.cardHeader
                     }
+                    className="profile-card-header"
                 >
                     <div>
                         <h2
                             style={
                                 styles.title
                             }
+                            className="profile-title"
                         >
                             Student Profile Setup
                         </h2>
@@ -898,6 +906,7 @@ const StudentProfile: React.FC<StudentProfileProps> = ({
                             style={
                                 styles.subtitle
                             }
+                            className="profile-subtitle"
                         >
                             Complete your Personal,
                             Academic, Professional,
@@ -907,26 +916,30 @@ const StudentProfile: React.FC<StudentProfileProps> = ({
                         </p>
                     </div>
 
-                    <div
-                        style={{
-                            ...styles.completionBadge,
+                    <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+                        <ClearDataButton variant="compact" />
+                        <div
+                            style={{
+                                ...styles.completionBadge,
 
-                            backgroundColor:
-                                completionPercentage ===
-                                    100
-                                    ? "#dcfce7"
-                                    : "#eff6ff",
+                                backgroundColor:
+                                    completionPercentage ===
+                                        100
+                                        ? "#dcfce7"
+                                        : "#eff6ff",
 
-                            color:
-                                completionPercentage ===
-                                    100
-                                    ? "#166534"
-                                    : "#1d4ed8",
-                        }}
-                    >
-                        Profile{" "}
-                        {completionPercentage}%
-                        ✓
+                                color:
+                                    completionPercentage ===
+                                        100
+                                        ? "#166534"
+                                        : "#1d4ed8",
+                            }}
+                            className="profile-completion-badge"
+                        >
+                            Profile{" "}
+                            {completionPercentage}%
+                            ✓
+                        </div>
                     </div>
                 </div>
 
@@ -975,6 +988,7 @@ const StudentProfile: React.FC<StudentProfileProps> = ({
                             style={
                                 styles.gridTwo
                             }
+                            className="profile-grid-two"
                         >
 
                             {/* Full Name */}
@@ -1180,6 +1194,7 @@ const StudentProfile: React.FC<StudentProfileProps> = ({
                             style={
                                 styles.gridTwo
                             }
+                            className="profile-grid-two"
                         >
 
                             {/* 10th */}
@@ -1674,6 +1689,7 @@ const StudentProfile: React.FC<StudentProfileProps> = ({
                                     marginTop: "20px",
                                     flexWrap: "wrap",
                                 }}
+                                className="profile-actions-row"
                             >
                                 <button
                                     type="button"
@@ -1716,6 +1732,7 @@ const StudentProfile: React.FC<StudentProfileProps> = ({
                         <button
                             type="submit"
                             disabled={saving}
+                            className="profile-save-btn"
                             style={{
                                 ...styles.saveBtn,
 

@@ -18,39 +18,30 @@ export const CoordinatorAttendance: React.FC<CoordinatorAttendanceProps> = ({
     onBackToDashboard
 }) => {
     // Campus Events Options
-    const [eventsList, setEventsList] = useState<Array<{ id: string; name: string; date: string }>>([
-        { id: "evt_1", name: "Amazon Technical Drive", date: "Sep 1, 2026" },
-        { id: "evt_2", name: "TCS Pre-Placement Talk", date: "Sep 3, 2026" },
-        { id: "evt_3", name: "Google Cloud Interview Setup", date: "Sep 5, 2026" }
-    ]);
+    const [eventsList, setEventsList] = useState<Array<{ id: string; name: string; date: string }>>(() => {
+        try {
+            const saved = localStorage.getItem("cpms_coordinator_events");
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    return parsed.map((e: any) => ({
+                        id: e.id || `evt_${Date.now()}`,
+                        name: e.name || "Placement Event",
+                        date: e.date || "Upcoming"
+                    }));
+                }
+            }
+        } catch (e) {}
+        return [];
+    });
 
-    const [selectedEventId, setSelectedEventId] = useState<string>("evt_1");
+    const [selectedEventId, setSelectedEventId] = useState<string>(() => {
+        return eventsList.length > 0 ? eventsList[0].id : "";
+    });
     const selectedEvent = eventsList.find(e => e.id === selectedEventId) || eventsList[0];
 
-    // Initial Default Data Fallback
-    const defaultData: Record<string, StudentAttendanceRow[]> = {
-        evt_1: [
-            { registerNo: "22CS001", studentName: "Arun Kumar", department: "CSE", attendance: "Not Marked" },
-            { registerNo: "22CS002", studentName: "Rahul Kumar", department: "CSE", attendance: "Not Marked" },
-            { registerNo: "22CS003", studentName: "Priya S", department: "CSE", attendance: "Not Marked" },
-            { registerNo: "22CS004", studentName: "Ananya Verma", department: "ISE", attendance: "Not Marked" },
-            { registerNo: "22CS005", studentName: "Karthik V", department: "MECH", attendance: "Not Marked" },
-            { registerNo: "22CS006", studentName: "Siddharth Nair", department: "ECE", attendance: "Not Marked" }
-        ],
-        evt_2: [
-            { registerNo: "22CS001", studentName: "Arun Kumar", department: "CSE", attendance: "Not Marked" },
-            { registerNo: "22CS007", studentName: "Divya Ramesh", department: "ISE", attendance: "Not Marked" },
-            { registerNo: "22CS008", studentName: "Rohan Das", department: "CSE", attendance: "Not Marked" },
-            { registerNo: "22CS009", studentName: "Meera Patel", department: "ECE", attendance: "Not Marked" },
-            { registerNo: "22CS010", studentName: "Aakash Gupta", department: "EEE", attendance: "Not Marked" }
-        ],
-        evt_3: [
-            { registerNo: "22CS008", studentName: "Rohan Das", department: "CSE", attendance: "Not Marked" },
-            { registerNo: "22CS001", studentName: "Arun Kumar", department: "CSE", attendance: "Not Marked" },
-            { registerNo: "22CS003", studentName: "Priya S", department: "CSE", attendance: "Not Marked" },
-            { registerNo: "22CS005", studentName: "Karthik V", department: "MECH", attendance: "Not Marked" }
-        ]
-    };
+    // Clean Attendance Data loaded exclusively from live database
+    const defaultData: Record<string, StudentAttendanceRow[]> = {};
 
     // Attendance State per Event
     const [attendanceData, setAttendanceData] = useState<Record<string, StudentAttendanceRow[]>>(() => {
@@ -76,7 +67,7 @@ export const CoordinatorAttendance: React.FC<CoordinatorAttendanceProps> = ({
         return {};
     });
 
-    const isVerified = Boolean(verifiedMap[selectedEventId]);
+    const isVerified = Boolean(selectedEventId && verifiedMap[selectedEventId]);
 
     const [loading, setLoading] = useState<boolean>(false);
     const [searchTerm, setSearchTerm] = useState("");
@@ -86,20 +77,38 @@ export const CoordinatorAttendance: React.FC<CoordinatorAttendanceProps> = ({
     useEffect(() => {
         const fetchEvents = async () => {
             try {
+                const saved = localStorage.getItem("cpms_coordinator_events");
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                        const mapped = parsed.map((e: any) => ({
+                            id: e.id || `evt_${Date.now()}`,
+                            name: e.name || "Placement Event",
+                            date: e.date || "Upcoming"
+                        }));
+                        setEventsList(mapped);
+                        if (!selectedEventId) setSelectedEventId(mapped[0].id);
+                        return;
+                    }
+                }
                 const res = await fetch(`${API_BASE_URL}/events`);
                 if (res.ok) {
                     const data = await res.json();
                     if (data.events && Array.isArray(data.events) && data.events.length > 0) {
                         setEventsList(data.events);
+                        if (!selectedEventId) setSelectedEventId(data.events[0].id);
+                    } else {
+                        setEventsList([]);
                     }
                 }
             } catch (e) {}
         };
         fetchEvents();
-    }, []);
+    }, [selectedEventId]);
 
     // Fetch Attendance Records & Verification status from API
     const fetchAttendanceForEvent = useCallback(async (eventId: string) => {
+        if (!eventId) return;
         setLoading(true);
         try {
             const res = await fetch(`${API_BASE_URL}/events/${eventId}/attendance`);
@@ -318,9 +327,13 @@ export const CoordinatorAttendance: React.FC<CoordinatorAttendanceProps> = ({
                                 boxSizing: "border-box"
                             }}
                         >
-                            {eventsList.map(e => (
-                                <option key={e.id} value={e.id}>{e.name} ▼</option>
-                            ))}
+                            {eventsList.length === 0 ? (
+                                <option value="">No events scheduled</option>
+                            ) : (
+                                eventsList.map(e => (
+                                    <option key={e.id} value={e.id}>{e.name} ▼</option>
+                                ))
+                            )}
                         </select>
                     </div>
 
@@ -338,7 +351,7 @@ export const CoordinatorAttendance: React.FC<CoordinatorAttendanceProps> = ({
                             fontWeight: "600",
                             color: "#334155"
                         }}>
-                            {selectedEvent.date}
+                            {selectedEvent ? selectedEvent.date : "—"}
                         </div>
                     </div>
 
@@ -404,8 +417,8 @@ export const CoordinatorAttendance: React.FC<CoordinatorAttendanceProps> = ({
                     Student Attendance
                 </div>
 
-                <div style={{ overflowX: "auto" }}>
-                    <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", whiteSpace: "nowrap" }}>
+                <div className="responsive-table-wrapper" style={{ overflowX: "auto" }}>
+                    <table style={{ width: "100%", minWidth: "600px", borderCollapse: "collapse", textAlign: "left", whiteSpace: "nowrap" }}>
                         <thead>
                             <tr style={{ backgroundColor: "#f8fafc", borderBottom: "1px solid #eaedf0", color: "#64748b", fontSize: "12px", fontWeight: "700" }}>
                                 <th style={{ padding: "14px 20px" }}>Register</th>
@@ -417,8 +430,8 @@ export const CoordinatorAttendance: React.FC<CoordinatorAttendanceProps> = ({
                         <tbody>
                             {filteredStudents.length === 0 ? (
                                 <tr>
-                                    <td colSpan={4} style={{ padding: "32px", textAlign: "center", color: "#64748b", fontSize: "13px" }}>
-                                        No students found matching your search.
+                                    <td colSpan={4} style={{ padding: "36px 20px", textAlign: "center", color: "#64748b", fontSize: "13px" }}>
+                                        {eventsList.length === 0 ? "No campus events scheduled yet. Create an event in Events tab to record attendance." : "No student attendance records found for this event."}
                                     </td>
                                 </tr>
                             ) : (

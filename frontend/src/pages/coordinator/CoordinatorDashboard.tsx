@@ -5,6 +5,7 @@ import CoordinatorAttendance from "./CoordinatorAttendance";
 import CoordinatorInterviews from "./CoordinatorInterviews";
 import CoordinatorAnnouncements from "./CoordinatorAnnouncements";
 import CoordinatorStudents from "./CoordinatorStudents";
+import ClearDataButton from "../../components/ClearDataButton";
 
 export interface CoordinatorDashboardProps {
     user?: any;
@@ -40,9 +41,56 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
     const [shouldAutoOpenCreateEventModal, setShouldAutoOpenCreateEventModal] = useState<boolean>(false);
 
+    // Live Metrics States
+    const [eventsList, setEventsList] = useState<any[]>(() => {
+        try {
+            const saved = localStorage.getItem("cpms_coordinator_events");
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                if (Array.isArray(parsed)) return parsed;
+            }
+        } catch (e) {}
+        return [];
+    });
+    const [interviewsCount, setInterviewsCount] = useState<number>(0);
+    const [studentsCount, setStudentsCount] = useState<number>(0);
+
+    useEffect(() => {
+        const loadLiveCounts = async () => {
+            try {
+                const saved = localStorage.getItem("cpms_coordinator_events");
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    if (Array.isArray(parsed)) setEventsList(parsed);
+                } else {
+                    setEventsList([]);
+                }
+            } catch (e) {}
+
+            try {
+                const savedInts = localStorage.getItem("cpms_coordinator_interviews_records");
+                if (savedInts) {
+                    const parsed = JSON.parse(savedInts);
+                    if (Array.isArray(parsed)) setInterviewsCount(parsed.length);
+                } else {
+                    setInterviewsCount(0);
+                }
+            } catch (e) {}
+
+            try {
+                const res = await fetch("http://localhost:5001/api/student/all");
+                if (res.ok) {
+                    const data = await res.json();
+                    if (Array.isArray(data)) setStudentsCount(data.length);
+                }
+            } catch (e) {}
+        };
+        loadLiveCounts();
+    }, [activeTab]);
+
     // Notifications State
     const [showNotifications, setShowNotifications] = useState<boolean>(false);
-    const [unreadCount, setUnreadCount] = useState<number>(3);
+    const [unreadCount, setUnreadCount] = useState<number>(0);
 
     // ESC Key Navigation Handler
     useEffect(() => {
@@ -194,17 +242,26 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
             )}
 
             {/* Left Sidebar Shell */}
-            <aside className={`coordinator-sidebar-drawer ${isMobileMenuOpen ? "open" : ""}`} style={{ width: "240px", backgroundColor: "#ffffff", borderRight: "1px solid #eaedf0", display: "flex", flexDirection: "column", justifyContent: "space-between", flexShrink: 0, minHeight: "100vh", position: "sticky", top: 0, height: "100vh" }}>
+            <aside className={`app-drawer-sidebar coordinator-sidebar-drawer ${isMobileMenuOpen ? "open" : ""}`} style={{ width: "240px", backgroundColor: "#ffffff", borderRight: "1px solid #eaedf0", display: "flex", flexDirection: "column", justifyContent: "space-between", flexShrink: 0, minHeight: "100vh", position: "sticky", top: 0, height: "100vh" }}>
                 <div>
                     {/* Brand Header */}
-                    <div style={{ padding: "20px 24px", borderBottom: "1px solid #f0f2f5", display: "flex", alignItems: "center", gap: "12px" }}>
-                        <div style={{ width: "36px", height: "36px", backgroundColor: "#0f172a", borderRadius: "10px", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "800", fontSize: "16px" }}>
-                            CP
+                    <div style={{ padding: "20px 24px", borderBottom: "1px solid #f0f2f5", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                            <div style={{ width: "36px", height: "36px", backgroundColor: "#0f172a", borderRadius: "10px", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "800", fontSize: "16px" }}>
+                                CP
+                            </div>
+                            <div>
+                                <div style={{ fontWeight: "800", color: "#0f172a", fontSize: "15px", letterSpacing: "-0.3px" }}>Placement Portal</div>
+                                <div style={{ fontSize: "10px", color: "#2563eb", fontWeight: "800", textTransform: "uppercase", letterSpacing: "0.5px" }}>COORDINATOR SPACE</div>
+                            </div>
                         </div>
-                        <div>
-                            <div style={{ fontWeight: "800", color: "#0f172a", fontSize: "15px", letterSpacing: "-0.3px" }}>Placement Portal</div>
-                            <div style={{ fontSize: "10px", color: "#2563eb", fontWeight: "800", textTransform: "uppercase", letterSpacing: "0.5px" }}>COORDINATOR SPACE</div>
-                        </div>
+                        <button
+                            onClick={() => setIsMobileMenuOpen(false)}
+                            className="mobile-drawer-close"
+                            style={{ display: "none", background: "none", border: "none", fontSize: "20px", color: "#64748b", cursor: "pointer", padding: "4px" }}
+                        >
+                            ✕
+                        </button>
                     </div>
 
                     {/* Navigation Menu */}
@@ -287,13 +344,27 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
 
             {/* Main Application Area Shell */}
             <main style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, overflow: "hidden" }}>
-                {/* Top Header Bar */}
-                <div style={{ backgroundColor: "#ffffff", borderBottom: "1px solid #eaedf0", padding: "14px 32px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div style={{ fontSize: "13px", color: "#64748b", fontWeight: "600" }}>
-                        Campus Placement Management System — Coordinator Portal
+                {/* Top Header Bar with Mobile Hamburger Toggle */}
+                <div style={{ backgroundColor: "#ffffff", borderBottom: "1px solid #eaedf0", padding: "14px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                        <button
+                            onClick={() => setIsMobileMenuOpen(true)}
+                            className="mobile-hamburger-toggle"
+                            style={{ display: "none", alignItems: "center", justifyContent: "center", width: "36px", height: "36px", borderRadius: "8px", border: "1px solid #e2e8f0", backgroundColor: "#f8fafc", cursor: "pointer", fontSize: "18px", color: "#0f172a" }}
+                            aria-label="Open Menu"
+                        >
+                            ☰
+                        </button>
+                        <div style={{ fontSize: "14px", color: "#0f172a", fontWeight: "700" }}>
+                            Coordinator Portal — Placement Management
+                        </div>
                     </div>
 
-                    <div style={{ position: "relative" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                        {/* 🗑️ Universal Clear System Data Button */}
+                        <ClearDataButton />
+
+                        <div style={{ position: "relative" }}>
                         <button
                             type="button"
                             onClick={() => {
@@ -378,6 +449,7 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
                         )}
                     </div>
                 </div>
+            </div>
 
                 {/* Mobile Top Navigation Header */}
                 <div className="coordinator-mobile-header" style={{ padding: "14px 20px", backgroundColor: "#ffffff", borderBottom: "1px solid #eaedf0", alignItems: "center", justifyContent: "space-between" }}>
@@ -393,7 +465,7 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
                 </div>
 
                 {/* Main Scrollable Viewport */}
-                <div style={{ flex: 1, overflowY: "auto", padding: "28px 32px" }}>
+                <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden", padding: "clamp(14px, 4vw, 28px) clamp(12px, 4vw, 32px)" }}>
                     {activeTab === "dashboard" && (
                         <div style={{ display: "flex", flexDirection: "column", gap: "28px" }}>
                             {/* Premium Coordinator Hero Banner */}
@@ -401,21 +473,23 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
                                 style={{
                                     backgroundColor: "#0f172a",
                                     borderRadius: "20px",
-                                    padding: "32px 36px",
+                                    padding: "24px 28px",
                                     color: "#ffffff",
                                     position: "relative",
                                     overflow: "hidden",
                                     display: "flex",
                                     justifyContent: "space-between",
                                     alignItems: "center",
+                                    flexWrap: "wrap",
+                                    gap: "16px",
                                     boxShadow: "0 10px 15px -3px rgba(15, 23, 42, 0.15)"
                                 }}
                             >
-                                <div>
+                                <div style={{ minWidth: 0 }}>
                                     <div style={{ fontSize: "11px", fontWeight: "800", color: "#38bdf8", textTransform: "uppercase", letterSpacing: "1px", marginBottom: "6px", display: "flex", alignItems: "center", gap: "6px" }}>
                                         📋 COORDINATOR DASHBOARD
                                     </div>
-                                    <h2 style={{ margin: "0 0 8px 0", fontSize: "26px", fontWeight: "800", color: "#ffffff", letterSpacing: "-0.5px" }}>
+                                    <h2 style={{ margin: "0 0 8px 0", fontSize: "24px", fontWeight: "800", color: "#ffffff", letterSpacing: "-0.5px", overflowWrap: "break-word" }}>
                                         Welcome back, {coordinatorName} 👋
                                     </h2>
                                     <div style={{ color: "#9ca3af", fontSize: "13px", fontWeight: "500" }}>
@@ -432,7 +506,9 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
                                     fontWeight: "700",
                                     display: "flex",
                                     alignItems: "center",
-                                    gap: "10px"
+                                    gap: "10px",
+                                    flexShrink: 0,
+                                    whiteSpace: "nowrap"
                                 }}>
                                     <span style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "#10b981" }} />
                                     Operations Active
@@ -455,7 +531,7 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
                                         </svg>
                                     </div>
                                     <div style={{ fontSize: "11px", fontWeight: "700", color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px" }}>TOTAL STUDENTS</div>
-                                    <div style={{ fontSize: "28px", fontWeight: "800", color: "#0f172a", margin: "4px 0 2px 0" }}>450</div>
+                                    <div style={{ fontSize: "28px", fontWeight: "800", color: "#0f172a", margin: "4px 0 2px 0" }}>{studentsCount}</div>
                                     <div style={{ fontSize: "12px", color: "#2563eb", fontWeight: "600" }}>Registered placement candidates</div>
                                 </div>
 
@@ -473,7 +549,7 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
                                         </svg>
                                     </div>
                                     <div style={{ fontSize: "11px", fontWeight: "700", color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px" }}>UPCOMING EVENTS</div>
-                                    <div style={{ fontSize: "28px", fontWeight: "800", color: "#9333ea", margin: "4px 0 2px 0" }}>4</div>
+                                    <div style={{ fontSize: "28px", fontWeight: "800", color: "#9333ea", margin: "4px 0 2px 0" }}>{eventsList.length}</div>
                                     <div style={{ fontSize: "12px", color: "#9333ea", fontWeight: "600" }}>Drives & pre-placement talks</div>
                                 </div>
 
@@ -489,7 +565,7 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
                                         </svg>
                                     </div>
                                     <div style={{ fontSize: "11px", fontWeight: "700", color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px" }}>TODAY'S EVENTS</div>
-                                    <div style={{ fontSize: "28px", fontWeight: "800", color: "#16a34a", margin: "4px 0 2px 0" }}>2</div>
+                                    <div style={{ fontSize: "28px", fontWeight: "800", color: "#16a34a", margin: "4px 0 2px 0" }}>{eventsList.filter(e => (e.date || "").toLowerCase().includes("today") || (e.status || "").toLowerCase().includes("in progress")).length}</div>
                                     <div style={{ fontSize: "12px", color: "#16a34a", fontWeight: "600" }}>Active today on campus</div>
                                 </div>
 
@@ -504,7 +580,7 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
                                         </svg>
                                     </div>
                                     <div style={{ fontSize: "11px", fontWeight: "700", color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px" }}>PENDING ATTENDANCE</div>
-                                    <div style={{ fontSize: "28px", fontWeight: "800", color: "#ea580c", margin: "4px 0 2px 0" }}>1</div>
+                                    <div style={{ fontSize: "28px", fontWeight: "800", color: "#ea580c", margin: "4px 0 2px 0" }}>{eventsList.filter(e => (e.status || "").toLowerCase().includes("pending")).length}</div>
                                     <div style={{ fontSize: "12px", color: "#ea580c", fontWeight: "600" }}>Requires proctor verification</div>
                                 </div>
 
@@ -519,7 +595,7 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
                                         </svg>
                                     </div>
                                     <div style={{ fontSize: "11px", fontWeight: "700", color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px" }}>UPCOMING INTERVIEWS</div>
-                                    <div style={{ fontSize: "28px", fontWeight: "800", color: "#0284c7", margin: "4px 0 2px 0" }}>3</div>
+                                    <div style={{ fontSize: "28px", fontWeight: "800", color: "#0284c7", margin: "4px 0 2px 0" }}>{interviewsCount}</div>
                                     <div style={{ fontSize: "12px", color: "#0284c7", fontWeight: "600" }}>Scheduled interview sessions</div>
                                 </div>
                             </div>
@@ -693,27 +769,24 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
                                     </div>
 
                                     <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                                        <div style={{ padding: "12px 14px", backgroundColor: "#f8fafc", borderRadius: "12px", border: "1px solid #f1f5f9", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                            <div>
-                                                <div style={{ fontSize: "13px", fontWeight: "800", color: "#0f172a" }}>Amazon Technical Test</div>
-                                                <div style={{ fontSize: "12px", color: "#64748b", marginTop: "2px" }}>Sep 1, 2026 • 10:00 AM • Lab 3</div>
-                                                <div style={{ fontSize: "11px", color: "#2563eb", fontWeight: "700", marginTop: "3px" }}>👥 120 Candidates Registered</div>
+                                        {eventsList.length === 0 ? (
+                                            <div style={{ textAlign: "center", padding: "24px 16px", color: "#64748b", fontSize: "13px", backgroundColor: "#f8fafc", borderRadius: "12px", border: "1px dashed #cbd5e1" }}>
+                                                No upcoming events scheduled. Click <strong style={{ color: "#2563eb", cursor: "pointer" }} onClick={() => { setShouldAutoOpenCreateEventModal(true); setActiveTab("events"); }}>+ Create Event</strong> to schedule campus drives & talks.
                                             </div>
-                                            <span style={{ backgroundColor: "#fff7ed", color: "#ea580c", border: "1px solid #fed7aa", padding: "3px 8px", borderRadius: "10px", fontSize: "10px", fontWeight: "700" }}>
-                                                🟡 Pending Verification
-                                            </span>
-                                        </div>
-
-                                        <div style={{ padding: "12px 14px", backgroundColor: "#f8fafc", borderRadius: "12px", border: "1px solid #f1f5f9", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                            <div>
-                                                <div style={{ fontSize: "13px", fontWeight: "800", color: "#0f172a" }}>TCS Pre-Placement Talk</div>
-                                                <div style={{ fontSize: "12px", color: "#64748b", marginTop: "2px" }}>Sep 3, 2026 • 11:30 AM • Main Auditorium</div>
-                                                <div style={{ fontSize: "11px", color: "#2563eb", fontWeight: "700", marginTop: "3px" }}>👥 350 Candidates Registered</div>
-                                            </div>
-                                            <span style={{ backgroundColor: "#eff6ff", color: "#2563eb", border: "1px solid #bfdbfe", padding: "3px 8px", borderRadius: "10px", fontSize: "10px", fontWeight: "700" }}>
-                                                🔵 Scheduled
-                                            </span>
-                                        </div>
+                                        ) : (
+                                            eventsList.slice(0, 3).map((evt, idx) => (
+                                                <div key={evt.id || idx} style={{ padding: "12px 14px", backgroundColor: "#f8fafc", borderRadius: "12px", border: "1px solid #f1f5f9", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                                    <div>
+                                                        <div style={{ fontSize: "13px", fontWeight: "800", color: "#0f172a" }}>{evt.name}</div>
+                                                        <div style={{ fontSize: "12px", color: "#64748b", marginTop: "2px" }}>{evt.date} • {evt.time} • {evt.venue}</div>
+                                                        <div style={{ fontSize: "11px", color: "#2563eb", fontWeight: "700", marginTop: "3px" }}>👥 {evt.registeredStudents || 0} Candidates Registered</div>
+                                                    </div>
+                                                    <span style={{ backgroundColor: evt.status === "Pending Verification" ? "#fff7ed" : "#eff6ff", color: evt.status === "Pending Verification" ? "#ea580c" : "#2563eb", border: "1px solid #fed7aa", padding: "3px 8px", borderRadius: "10px", fontSize: "10px", fontWeight: "700" }}>
+                                                        {evt.status}
+                                                    </span>
+                                                </div>
+                                            ))
+                                        )}
                                     </div>
                                 </div>
 
@@ -811,13 +884,13 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
                     <span>Home</span>
                 </button>
                 <button
-                    onClick={() => setActiveTab("events")}
-                    className={`mobile-tab-item ${activeTab === "events" ? "active" : ""}`}
+                    onClick={() => setActiveTab("students")}
+                    className={`mobile-tab-item ${activeTab === "students" ? "active" : ""}`}
                 >
                     <div className="tab-icon">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" /></svg>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5zM6 12v5c3 3 9 3 12 0v-5" /></svg>
                     </div>
-                    <span>Events</span>
+                    <span>Students</span>
                 </button>
                 <button
                     onClick={() => setActiveTab("attendance")}
@@ -829,13 +902,22 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
                     <span>Attendance</span>
                 </button>
                 <button
-                    onClick={() => setActiveTab("announcements")}
-                    className={`mobile-tab-item ${activeTab === "announcements" ? "active" : ""}`}
+                    onClick={() => setActiveTab("events")}
+                    className={`mobile-tab-item ${activeTab === "events" ? "active" : ""}`}
                 >
                     <div className="tab-icon">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0" /></svg>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z" /></svg>
                     </div>
-                    <span>Announce</span>
+                    <span>Events</span>
+                </button>
+                <button
+                    onClick={() => setIsMobileMenuOpen(true)}
+                    className="mobile-tab-item"
+                >
+                    <div className="tab-icon">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="18" x2="21" y2="18" /></svg>
+                    </div>
+                    <span>Menu ☰</span>
                 </button>
             </nav>
         </div>

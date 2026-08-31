@@ -25,68 +25,7 @@ export const CoordinatorEvents: React.FC<CoordinatorEventsProps> = ({
     onModalClose,
     onBackToDashboard
 }) => {
-    const defaultEvents: CoordinatorEventItem[] = [
-        {
-            id: "evt_1",
-            name: "Amazon Technical Test",
-            type: "Technical Assessment",
-            date: "Sep 1, 2026",
-            time: "10:00 AM IST",
-            venue: "Lab 3 — Computer Center",
-            registeredStudents: 120,
-            status: "Pending Verification",
-            description: "Online coding and aptitude test for Amazon SDE-1 recruitment drive.",
-            organizer: "Placement Operational Cell"
-        },
-        {
-            id: "evt_2",
-            name: "TCS Pre-Placement Talk",
-            type: "Pre-Placement Talk",
-            date: "Sep 3, 2026",
-            time: "11:30 AM IST",
-            venue: "Main Auditorium",
-            registeredStudents: 350,
-            status: "Scheduled",
-            description: "Pre-placement briefing and company orientation session by TCS hiring team.",
-            organizer: "TCS Campus Relations"
-        },
-        {
-            id: "evt_3",
-            name: "Google Cloud Interview Setup",
-            type: "Interview",
-            date: "Sep 5, 2026",
-            time: "02:00 PM IST",
-            venue: "Placement Cell Boardroom",
-            registeredStudents: 45,
-            status: "Upcoming",
-            description: "Round 2 Technical Interview coordination for Cloud Engineer candidates.",
-            organizer: "Google Talent Acquisition"
-        },
-        {
-            id: "evt_4",
-            name: "Placement Orientation 2026",
-            type: "Orientation",
-            date: "Aug 25, 2026",
-            time: "09:00 AM IST",
-            venue: "Hall A — Main Building",
-            registeredStudents: 450,
-            status: "Completed",
-            description: "Annual placement readiness workshop for 2026 graduating batch.",
-            organizer: "Placement Advisory Committee"
-        },
-        {
-            id: "evt_5",
-            name: "Infosys Aptitude Drive",
-            type: "Placement Drive",
-            date: "Sep 8, 2026",
-            time: "09:30 AM IST",
-            venue: "Lab 1 & Lab 2",
-            registeredStudents: 280,
-            status: "In Progress",
-            description: "First round online aptitude test for Systems Engineer position.",
-            organizer: "Infosys Recruitment Team"
-        }
-    ];
+    const defaultEvents: CoordinatorEventItem[] = [];
 
     // Persisted Events State
     const [eventsList, setEventsList] = useState<CoordinatorEventItem[]>(() => {
@@ -414,8 +353,8 @@ export const CoordinatorEvents: React.FC<CoordinatorEventsProps> = ({
                     </div>
                 </div>
 
-                <div style={{ overflowX: "auto" }}>
-                    <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", whiteSpace: "nowrap" }}>
+                <div className="responsive-table-wrapper" style={{ overflowX: "auto" }}>
+                    <table style={{ width: "100%", minWidth: "750px", borderCollapse: "collapse", textAlign: "left", whiteSpace: "nowrap" }}>
                         <thead>
                             <tr style={{ backgroundColor: "#f8fafc", borderBottom: "1px solid #eaedf0", color: "#64748b", fontSize: "11px", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.5px" }}>
                                 <th style={{ padding: "12px 18px" }}>Event Name</th>

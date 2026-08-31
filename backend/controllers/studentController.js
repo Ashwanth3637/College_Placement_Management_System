@@ -182,10 +182,11 @@ const saveStudentProfile = async (req, res) => {
 const getStudentProfile = async (req, res) => {
     try {
         const { userId } = req.params;
+        const queryEmail = (req.query.email || "").toLowerCase().trim();
 
-        if (!userId) {
+        if (!userId && !queryEmail) {
             return res.status(400).json({
-                message: "User ID is required",
+                message: "User ID or email is required",
             });
         }
 
@@ -194,18 +195,41 @@ const getStudentProfile = async (req, res) => {
 
         if (mongoose.connection.readyState === 1) {
             let userDoc = null;
-            if (mongoose.Types.ObjectId.isValid(userId)) {
+            if (userId && mongoose.Types.ObjectId.isValid(userId)) {
                 student = await Student.findOne({ user: userId }).populate("user", "name email role");
+                if (!student) {
+                    student = await Student.findById(userId).populate("user", "name email role");
+                }
                 if (!student) {
                     userDoc = await User.findById(userId);
                 }
             }
-            if (!student) {
-                const searchEmail = userId.toLowerCase().trim();
-                userDoc = await User.findOne({ email: searchEmail });
+
+            const searchEmail = (queryEmail || (userId && userId.includes("@") ? userId : "")).toLowerCase().trim();
+
+            if (!student && searchEmail) {
+                userDoc = await User.findOne({ email: new RegExp(`^${searchEmail}$`, "i") });
                 if (userDoc) {
                     student = await Student.findOne({ user: userDoc._id }).populate("user", "name email role");
                 }
+                if (!student) {
+                    student = await Student.findOne({
+                        $or: [
+                            { "personal.email": new RegExp(`^${searchEmail}$`, "i") },
+                            { "personal.registerNumber": searchEmail }
+                        ]
+                    }).populate("user", "name email role");
+                }
+            }
+
+            if (!student && userId && !mongoose.Types.ObjectId.isValid(userId)) {
+                student = await Student.findOne({
+                    $or: [
+                        { "personal.email": new RegExp(`^${userId.trim()}$`, "i") },
+                        { "personal.registerNumber": userId.trim() },
+                        { "personal.fullName": new RegExp(`^${userId.trim()}$`, "i") }
+                    ]
+                }).populate("user", "name email role");
             }
         }
 
@@ -214,7 +238,7 @@ const getStudentProfile = async (req, res) => {
         }
 
         return res.status(200).json({
-            user: { _id: userId, name: "Student", email: userId.includes("@") ? userId : "student@college.edu", role: "student" },
+            user: { _id: userId, name: "Student", email: (queryEmail || (userId && userId.includes("@") ? userId : "student@college.edu")), role: "student" },
             personal: { fullName: "", phone: "", department: "Computer Science & Engineering", registerNumber: "" },
             academic: { tenthPercentage: 0, twelfthPercentage: 0, cgpa: 0, backlogs: 0, graduationYear: 2026 },
             professional: { skills: [], certifications: [], projects: [], internships: [], resumeName: "", resumeUrl: "" },
@@ -323,6 +347,14 @@ const verifyStudentProfile = async (req, res) => {
             if (!student) {
                 student = await Student.findOne({ user: studentId }).populate("user", "name email role");
             }
+        }
+        if (!student && studentId) {
+            student = await Student.findOne({
+                $or: [
+                    { "personal.email": new RegExp(`^${studentId.trim()}$`, "i") },
+                    { "personal.registerNumber": studentId.trim() }
+                ]
+            }).populate("user", "name email role");
         }
 
         if (!student) {

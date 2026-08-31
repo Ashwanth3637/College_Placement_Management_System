@@ -144,11 +144,7 @@ function AppContent() {
         path="/student/dashboard"
         element={
           user ? (
-            isStudent ? (
-              <StudentDashboard initialTab="dashboard" user={user} onLogout={handleLogout} />
-            ) : (
-              getDashboardRedirect()
-            )
+            <StudentDashboard initialTab="dashboard" user={user} onLogout={handleLogout} />
           ) : (
             renderLogin
           )
@@ -158,11 +154,7 @@ function AppContent() {
         path="/student/campus-drives"
         element={
           user ? (
-            isStudent ? (
-              <StudentDashboard initialTab="companies" user={user} onLogout={handleLogout} />
-            ) : (
-              getDashboardRedirect()
-            )
+            <StudentDashboard initialTab="companies" user={user} onLogout={handleLogout} />
           ) : (
             renderLogin
           )
@@ -172,11 +164,7 @@ function AppContent() {
         path="/student/applications"
         element={
           user ? (
-            isStudent ? (
-              <StudentDashboard initialTab="applications" user={user} onLogout={handleLogout} />
-            ) : (
-              getDashboardRedirect()
-            )
+            <StudentDashboard initialTab="applications" user={user} onLogout={handleLogout} />
           ) : (
             renderLogin
           )
@@ -186,11 +174,7 @@ function AppContent() {
         path="/student/interviews"
         element={
           user ? (
-            isStudent ? (
-              <StudentDashboard initialTab="schedule" user={user} onLogout={handleLogout} />
-            ) : (
-              getDashboardRedirect()
-            )
+            <StudentDashboard initialTab="schedule" user={user} onLogout={handleLogout} />
           ) : (
             renderLogin
           )
@@ -200,11 +184,7 @@ function AppContent() {
         path="/student/results"
         element={
           user ? (
-            isStudent ? (
-              <StudentDashboard initialTab="results" user={user} onLogout={handleLogout} />
-            ) : (
-              getDashboardRedirect()
-            )
+            <StudentDashboard initialTab="results" user={user} onLogout={handleLogout} />
           ) : (
             renderLogin
           )
@@ -214,11 +194,7 @@ function AppContent() {
         path="/student/profile"
         element={
           user ? (
-            isStudent ? (
-              <StudentDashboard initialTab="profile" user={user} onLogout={handleLogout} />
-            ) : (
-              getDashboardRedirect()
-            )
+            <StudentDashboard initialTab="profile" user={user} onLogout={handleLogout} />
           ) : (
             renderLogin
           )
@@ -228,11 +204,7 @@ function AppContent() {
         path="/student"
         element={
           user ? (
-            isStudent ? (
-              <StudentDashboard initialTab="dashboard" user={user} onLogout={handleLogout} />
-            ) : (
-              getDashboardRedirect()
-            )
+            <StudentDashboard initialTab="dashboard" user={user} onLogout={handleLogout} />
           ) : (
             renderLogin
           )
@@ -244,11 +216,7 @@ function AppContent() {
         path="/coordinator/dashboard"
         element={
           user ? (
-            isCoordinator ? (
-              <CoordinatorDashboard initialTab="dashboard" user={user} onLogout={handleLogout} />
-            ) : (
-              getDashboardRedirect()
-            )
+            <CoordinatorDashboard initialTab="dashboard" user={user} onLogout={handleLogout} />
           ) : (
             renderLogin
           )
@@ -258,11 +226,7 @@ function AppContent() {
         path="/coordinator/:tab"
         element={
           user ? (
-            isCoordinator ? (
-              <CoordinatorDashboard user={user} onLogout={handleLogout} />
-            ) : (
-              getDashboardRedirect()
-            )
+            <CoordinatorDashboard user={user} onLogout={handleLogout} />
           ) : (
             renderLogin
           )
@@ -274,11 +238,7 @@ function AppContent() {
         path="/officer/dashboard"
         element={
           user ? (
-            isOfficer ? (
-              <OfficerDashboard initialTab="stats" user={user} onLogout={handleLogout} />
-            ) : (
-              getDashboardRedirect()
-            )
+            <OfficerDashboard initialTab="stats" user={user} onLogout={handleLogout} />
           ) : (
             renderLogin
           )
@@ -288,11 +248,7 @@ function AppContent() {
         path="/officer/applications"
         element={
           user ? (
-            isOfficer ? (
-              <OfficerDashboard initialTab="applications" user={user} onLogout={handleLogout} />
-            ) : (
-              getDashboardRedirect()
-            )
+            <OfficerDashboard initialTab="applications" user={user} onLogout={handleLogout} />
           ) : (
             renderLogin
           )
@@ -302,11 +258,7 @@ function AppContent() {
         path="/officer/companies"
         element={
           user ? (
-            isOfficer ? (
-              <OfficerDashboard initialTab="companies" user={user} onLogout={handleLogout} />
-            ) : (
-              getDashboardRedirect()
-            )
+            <OfficerDashboard initialTab="companies" user={user} onLogout={handleLogout} />
           ) : (
             renderLogin
           )
@@ -316,11 +268,7 @@ function AppContent() {
         path="/officer/drives"
         element={
           user ? (
-            isOfficer ? (
-              <OfficerDashboard initialTab="drives" user={user} onLogout={handleLogout} />
-            ) : (
-              getDashboardRedirect()
-            )
+            <OfficerDashboard initialTab="drives" user={user} onLogout={handleLogout} />
           ) : (
             renderLogin
           )
@@ -330,11 +278,7 @@ function AppContent() {
         path="/officer/students"
         element={
           user ? (
-            isOfficer ? (
-              <OfficerDashboard initialTab="verification" user={user} onLogout={handleLogout} />
-            ) : (
-              getDashboardRedirect()
-            )
+            <OfficerDashboard initialTab="verification" user={user} onLogout={handleLogout} />
           ) : (
             renderLogin
           )
@@ -344,11 +288,7 @@ function AppContent() {
         path="/officer/verification"
         element={
           user ? (
-            isOfficer ? (
-              <OfficerDashboard initialTab="verification" user={user} onLogout={handleLogout} />
-            ) : (
-              getDashboardRedirect()
-            )
+            <OfficerDashboard initialTab="verification" user={user} onLogout={handleLogout} />
           ) : (
             renderLogin
           )
@@ -358,11 +298,7 @@ function AppContent() {
         path="/officer/eligibility"
         element={
           user ? (
-            isOfficer ? (
-              <OfficerDashboard initialTab="eligibility" user={user} onLogout={handleLogout} />
-            ) : (
-              getDashboardRedirect()
-            )
+            <OfficerDashboard initialTab="eligibility" user={user} onLogout={handleLogout} />
           ) : (
             renderLogin
           )
@@ -372,11 +308,7 @@ function AppContent() {
         path="/officer/interviews"
         element={
           user ? (
-            isOfficer ? (
-              <OfficerDashboard initialTab="interviews" user={user} onLogout={handleLogout} />
-            ) : (
-              getDashboardRedirect()
-            )
+            <OfficerDashboard initialTab="interviews" user={user} onLogout={handleLogout} />
           ) : (
             renderLogin
           )
@@ -386,11 +318,7 @@ function AppContent() {
         path="/officer/selections"
         element={
           user ? (
-            isOfficer ? (
-              <OfficerDashboard initialTab="selections" user={user} onLogout={handleLogout} />
-            ) : (
-              getDashboardRedirect()
-            )
+            <OfficerDashboard initialTab="selections" user={user} onLogout={handleLogout} />
           ) : (
             renderLogin
           )
@@ -400,11 +328,7 @@ function AppContent() {
         path="/officer/reports"
         element={
           user ? (
-            isOfficer ? (
-              <OfficerDashboard initialTab="reports" user={user} onLogout={handleLogout} />
-            ) : (
-              getDashboardRedirect()
-            )
+            <OfficerDashboard initialTab="reports" user={user} onLogout={handleLogout} />
           ) : (
             renderLogin
           )
@@ -414,11 +338,7 @@ function AppContent() {
         path="/officer"
         element={
           user ? (
-            isOfficer ? (
-              <OfficerDashboard initialTab="stats" user={user} onLogout={handleLogout} />
-            ) : (
-              getDashboardRedirect()
-            )
+            <OfficerDashboard initialTab="stats" user={user} onLogout={handleLogout} />
           ) : (
             renderLogin
           )
@@ -430,11 +350,7 @@ function AppContent() {
         path="/recruiter/dashboard"
         element={
           user ? (
-            isRecruiter ? (
-              <RecruiterDashboard initialTab="stats" user={user} onLogout={handleLogout} />
-            ) : (
-              getDashboardRedirect()
-            )
+            <RecruiterDashboard initialTab="stats" user={user} onLogout={handleLogout} />
           ) : (
             renderLogin
           )
@@ -444,11 +360,7 @@ function AppContent() {
         path="/recruiter/company-profile"
         element={
           user ? (
-            isRecruiter ? (
-              <RecruiterDashboard initialTab="company_profile" user={user} onLogout={handleLogout} />
-            ) : (
-              getDashboardRedirect()
-            )
+            <RecruiterDashboard initialTab="company_profile" user={user} onLogout={handleLogout} />
           ) : (
             renderLogin
           )
@@ -458,11 +370,7 @@ function AppContent() {
         path="/recruiter/placement-drives"
         element={
           user ? (
-            isRecruiter ? (
-              <RecruiterDashboard initialTab="drives" user={user} onLogout={handleLogout} />
-            ) : (
-              getDashboardRedirect()
-            )
+            <RecruiterDashboard initialTab="drives" user={user} onLogout={handleLogout} />
           ) : (
             renderLogin
           )
@@ -472,11 +380,7 @@ function AppContent() {
         path="/recruiter/candidates"
         element={
           user ? (
-            isRecruiter ? (
-              <RecruiterDashboard initialTab="candidates" user={user} onLogout={handleLogout} />
-            ) : (
-              getDashboardRedirect()
-            )
+            <RecruiterDashboard initialTab="candidates" user={user} onLogout={handleLogout} />
           ) : (
             renderLogin
           )
@@ -486,11 +390,7 @@ function AppContent() {
         path="/recruiter/applications"
         element={
           user ? (
-            isRecruiter ? (
-              <RecruiterDashboard initialTab="applications" user={user} onLogout={handleLogout} />
-            ) : (
-              getDashboardRedirect()
-            )
+            <RecruiterDashboard initialTab="applications" user={user} onLogout={handleLogout} />
           ) : (
             renderLogin
           )
@@ -500,11 +400,7 @@ function AppContent() {
         path="/recruiter/interviews"
         element={
           user ? (
-            isRecruiter ? (
-              <RecruiterDashboard initialTab="interviews" user={user} onLogout={handleLogout} />
-            ) : (
-              getDashboardRedirect()
-            )
+            <RecruiterDashboard initialTab="interviews" user={user} onLogout={handleLogout} />
           ) : (
             renderLogin
           )
@@ -514,11 +410,7 @@ function AppContent() {
         path="/recruiter/selections"
         element={
           user ? (
-            isRecruiter ? (
-              <RecruiterDashboard initialTab="selections" user={user} onLogout={handleLogout} />
-            ) : (
-              getDashboardRedirect()
-            )
+            <RecruiterDashboard initialTab="selections" user={user} onLogout={handleLogout} />
           ) : (
             renderLogin
           )
@@ -528,11 +420,7 @@ function AppContent() {
         path="/recruiter"
         element={
           user ? (
-            isRecruiter ? (
-              <RecruiterDashboard initialTab="stats" user={user} onLogout={handleLogout} />
-            ) : (
-              getDashboardRedirect()
-            )
+            <RecruiterDashboard initialTab="stats" user={user} onLogout={handleLogout} />
           ) : (
             renderLogin
           )

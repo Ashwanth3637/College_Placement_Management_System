@@ -404,7 +404,7 @@ export const ReportsAnalyticsManagement: React.FC = () => {
                 </div>
             )}
 
-            {/* Print Layout Styling */}
+            {/* Print Layout Styling + Mobile Responsive */}
             <style>{`
                 @media print {
                     body { background: #ffffff !important; margin: 0; padding: 0; }
@@ -413,27 +413,43 @@ export const ReportsAnalyticsManagement: React.FC = () => {
                     table { page-break-inside: auto; }
                     tr { page-break-inside: avoid; page-break-after: auto; }
                 }
+                @media (max-width: 1200px) {
+                    .reports-filter-grid { grid-template-columns: repeat(3, 1fr) !important; }
+                    .reports-kpi-grid { grid-template-columns: repeat(3, 1fr) !important; }
+                }
+                @media (max-width: 768px) {
+                    .reports-filter-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
+                    .reports-kpi-grid { grid-template-columns: repeat(2, 1fr) !important; }
+                    .reports-page-header { flex-direction: column !important; align-items: flex-start !important; }
+                    .reports-header-actions { width: 100% !important; justify-content: flex-start !important; }
+                    .reports-header-timestamp { display: none !important; }
+                    .reports-kpi-grid > div { border-right: none !important; border-bottom: 1px solid #f1f5f9 !important; }
+                }
+                @media (max-width: 480px) {
+                    .reports-filter-grid { grid-template-columns: 1fr !important; }
+                    .reports-kpi-grid { grid-template-columns: 1fr !important; }
+                }
             `}</style>
 
-            {/* Clean Institutional Header */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", borderBottom: "1px solid #e2e8f0", paddingBottom: "14px" }}>
-                <div>
+            {/* Clean Institutional Header - Mobile Responsive */}
+            <div className="reports-page-header">
+                <div className="reports-header-left">
                     <h1 style={{ margin: 0, fontSize: "20px", fontWeight: "700", color: "#0f172a", letterSpacing: "-0.3px" }}>
                         Reports & Analytics
                     </h1>
-                    <p style={{ margin: "2px 0 0 0", fontSize: "12px", color: "#64748b" }}>
+                    <p style={{ margin: "2px 0 2px 0", fontSize: "12px", color: "#64748b" }}>
                         Institutional placement overview & recruitment intelligence
                     </p>
+                    <div style={{ fontSize: "11px", color: "#94a3b8", fontWeight: "500", marginTop: "2px" }}>
+                        Last updated: Aug 24, 2026 · 13:46
+                    </div>
                     {saveStatusMsg && (
                         <div style={{ fontSize: "11px", color: "#16a34a", fontWeight: "700", marginTop: "4px" }}>
                             {saveStatusMsg}
                         </div>
                     )}
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                    <span style={{ fontSize: "11px", color: "#64748b", fontWeight: "500", marginRight: "6px" }}>
-                        Last updated: Aug 24, 2026 • 13:46 PM
-                    </span>
+                <div className="reports-header-actions">
                     <button
                         onClick={handleManualRefresh}
                         title="Refresh Data"
@@ -450,7 +466,8 @@ export const ReportsAnalyticsManagement: React.FC = () => {
                             alignItems: "center",
                             gap: "4px",
                             transform: isRefreshed ? "rotate(360deg)" : "none",
-                            transition: "transform 0.5s ease"
+                            transition: "transform 0.5s ease",
+                            whiteSpace: "nowrap"
                         }}
                     >
                         <span>↻</span> Refresh
@@ -465,7 +482,8 @@ export const ReportsAnalyticsManagement: React.FC = () => {
                             borderRadius: "6px",
                             fontSize: "12px",
                             fontWeight: "600",
-                            cursor: "pointer"
+                            cursor: "pointer",
+                            whiteSpace: "nowrap"
                         }}
                     >
                         💾 Save to MongoDB
@@ -480,7 +498,8 @@ export const ReportsAnalyticsManagement: React.FC = () => {
                             borderRadius: "6px",
                             fontSize: "12px",
                             fontWeight: "600",
-                            cursor: "pointer"
+                            cursor: "pointer",
+                            whiteSpace: "nowrap"
                         }}
                     >
                         Export Excel
@@ -495,7 +514,8 @@ export const ReportsAnalyticsManagement: React.FC = () => {
                             borderRadius: "6px",
                             fontSize: "12px",
                             fontWeight: "600",
-                            cursor: "pointer"
+                            cursor: "pointer",
+                            whiteSpace: "nowrap"
                         }}
                     >
                         Export PDF
@@ -504,7 +524,7 @@ export const ReportsAnalyticsManagement: React.FC = () => {
             </div>
 
             {/* Filter Toolbar with Company Filter */}
-            <div style={{ backgroundColor: "#ffffff", padding: "12px 16px", borderRadius: "8px", border: "1px solid #e2e8f0", marginBottom: "16px", display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: "10px", boxShadow: "0 1px 2px rgba(0,0,0,0.02)" }}>
+            <div className="reports-filter-grid" style={{ backgroundColor: "#ffffff", padding: "12px 16px", borderRadius: "8px", border: "1px solid #e2e8f0", marginBottom: "16px", boxShadow: "0 1px 2px rgba(0,0,0,0.02)" }}>
                 <div>
                     <label style={{ display: "block", fontSize: "10px", fontWeight: "700", color: "#64748b", textTransform: "uppercase", marginBottom: "4px" }}>Academic Year</label>
                     <select
@@ -593,7 +613,7 @@ export const ReportsAnalyticsManagement: React.FC = () => {
             </div>
 
             {/* Mathematically Consistent 6-KPI Metric Grid Bar */}
-            <div style={{ backgroundColor: "#ffffff", borderRadius: "8px", border: "1px solid #e2e8f0", marginBottom: "16px", display: "grid", gridTemplateColumns: "repeat(6, 1fr)", boxShadow: "0 1px 2px rgba(0,0,0,0.02)" }}>
+            <div className="reports-kpi-grid" style={{ backgroundColor: "#ffffff", borderRadius: "8px", border: "1px solid #e2e8f0", marginBottom: "16px", boxShadow: "0 1px 2px rgba(0,0,0,0.02)" }}>
                 <div style={{ padding: "14px 16px", borderRight: "1px solid #f1f5f9" }}>
                     <div style={{ fontSize: "10px", fontWeight: "700", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px" }}>TOTAL STUDENTS</div>
                     <div style={{ fontSize: "22px", fontWeight: "700", color: "#0f172a", marginTop: "2px" }}>{summary.totalStudents}</div>

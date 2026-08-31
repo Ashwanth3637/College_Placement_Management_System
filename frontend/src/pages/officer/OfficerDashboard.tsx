@@ -9,6 +9,7 @@ import ApplicationManagement from "./ApplicationManagement";
 import InterviewManagement from "./InterviewManagement";
 import SelectionsManagement from "./SelectionsManagement";
 import ReportsAnalyticsManagement from "./ReportsAnalyticsManagement";
+import ClearDataButton from "../../components/ClearDataButton";
 
 interface User {
     id?: string;
@@ -40,8 +41,11 @@ const OfficerDashboard: React.FC<DashboardProps> = ({ user, onLogout, initialTab
         return "stats";
     });
 
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
+
     const setActiveTab = (tab: any) => {
         setActiveTabState(tab);
+        setIsMobileMenuOpen(false);
         try {
             localStorage.setItem(`cpms_active_tab_officer_${userKey}`, tab);
         } catch (e) {}
@@ -85,13 +89,13 @@ const OfficerDashboard: React.FC<DashboardProps> = ({ user, onLogout, initialTab
     const [selectedAppModal, setSelectedAppModal] = useState<{ app: any; drive: any } | null>(null);
 
     const [stats, setStats] = useState({
-        totalStudents: 1,
-        eligibleStudents: 1,
-        totalCompanies: 5,
-        activeDrives: 4,
-        totalApplications: 12,
-        selectedStudents: 1,
-        placementPercentage: "100%",
+        totalStudents: 0,
+        eligibleStudents: 0,
+        totalCompanies: 0,
+        activeDrives: 0,
+        totalApplications: 0,
+        selectedStudents: 0,
+        placementPercentage: "0%",
     });
 
     const userId = user.id || user._id || "";
@@ -99,38 +103,37 @@ const OfficerDashboard: React.FC<DashboardProps> = ({ user, onLogout, initialTab
     React.useEffect(() => {
         const calculateLiveStats = async () => {
             // 1. Live Total Companies Count
-            let totalCompaniesCount = 7;
+            let totalCompaniesCount = 0;
             try {
                 const savedC = localStorage.getItem("cpms_companies");
                 if (savedC) {
                     const parsedC = JSON.parse(savedC);
-                    if (Array.isArray(parsedC) && parsedC.length > 0) {
+                    if (Array.isArray(parsedC)) {
                         totalCompaniesCount = parsedC.length;
                     }
                 }
             } catch (e) { }
 
             // 2. Live Active/Ongoing Drives Count
-            let activeDrivesCount = 1;
+            let activeDrivesCount = 0;
             try {
                 const savedD = localStorage.getItem("cpms_drives");
                 if (savedD) {
                     const parsedD = JSON.parse(savedD);
-                    if (Array.isArray(parsedD) && parsedD.length > 0) {
-                        // Count drives with status "Ongoing"
-                        activeDrivesCount = parsedD.filter((d: any) => d.status === "Ongoing").length;
+                    if (Array.isArray(parsedD)) {
+                        activeDrivesCount = parsedD.filter((d: any) => d.status === "Ongoing" || d.status === "Approved" || d.status === "Active").length;
                     }
                 }
             } catch (e) { }
 
             // 3. Live Total Students & Placed Students Count
-            let studentCount = 1;
-            let placedCount = 1;
+            let studentCount = 0;
+            let placedCount = 0;
             try {
                 const res = await fetch("http://localhost:5001/api/student/all");
                 if (res.ok) {
                     const data = await res.json();
-                    if (Array.isArray(data) && data.length > 0) {
+                    if (Array.isArray(data)) {
                         const validStudents = data.filter((s: any) =>
                             s.user &&
                             s.user.name &&
@@ -138,10 +141,8 @@ const OfficerDashboard: React.FC<DashboardProps> = ({ user, onLogout, initialTab
                             s.user.name.trim() !== "Student" &&
                             !s.user.name.toLowerCase().includes("candidate")
                         );
-                        if (validStudents.length > 0) {
-                            studentCount = validStudents.length;
-                            placedCount = validStudents.filter((s: any) => s.isPlaced || s.personal?.registerNumber === "22CSR025").length;
-                        }
+                        studentCount = validStudents.length;
+                        placedCount = validStudents.filter((s: any) => s.isPlaced).length;
                     }
                 }
             } catch (e) { }
@@ -151,28 +152,26 @@ const OfficerDashboard: React.FC<DashboardProps> = ({ user, onLogout, initialTab
                 const selRes = await fetch("http://localhost:5001/api/selections");
                 if (selRes.ok) {
                     const selectionsData = await selRes.json();
-                    if (Array.isArray(selectionsData) && selectionsData.length > 0) {
+                    if (Array.isArray(selectionsData)) {
                         const confirmedCount = selectionsData.filter((s: any) => s.status === "Offer Accepted" || s.status === "Selected").length;
-                        if (confirmedCount > 0) {
-                            placedCount = Math.max(placedCount, confirmedCount);
-                        }
+                        placedCount = Math.max(placedCount, confirmedCount);
                     }
                 }
             } catch (e) { }
 
             // 4. Live Applications Count
-            let appCount = 284;
+            let appCount = 0;
             try {
-                const savedApps = localStorage.getItem("cpms_student_applications");
+                const savedApps = localStorage.getItem("cpms_applications") || localStorage.getItem("cpms_student_applications");
                 if (savedApps) {
                     const parsedApps = JSON.parse(savedApps);
-                    if (Array.isArray(parsedApps) && parsedApps.length > 0) {
+                    if (Array.isArray(parsedApps)) {
                         appCount = parsedApps.length;
                     }
                 }
             } catch (e) { }
 
-            const placementPct = Math.round((placedCount / studentCount) * 100) + "%";
+            const placementPct = studentCount > 0 ? Math.round((placedCount / studentCount) * 100) + "%" : "0%";
 
             setStats({
                 totalStudents: studentCount,
@@ -511,18 +510,34 @@ const OfficerDashboard: React.FC<DashboardProps> = ({ user, onLogout, initialTab
 
     return (
         <div style={{ display: "flex", height: "100vh", overflow: "hidden", backgroundColor: "#f4f6f8", fontFamily: "Inter, -apple-system, BlinkMacSystemFont, sans-serif", width: "100%" }}>
-            {/* Left Sidebar */}
-            <aside style={{ width: "240px", backgroundColor: "#ffffff", borderRight: "1px solid #eaedf0", display: "flex", flexDirection: "column", justifyContent: "space-between", flexShrink: 0, height: "100vh", position: "sticky", top: 0, zIndex: 20 }}>
+            {/* Mobile Menu Backdrop */}
+            <div
+                className={`app-menu-backdrop ${isMobileMenuOpen ? "open" : ""}`}
+                onClick={() => setIsMobileMenuOpen(false)}
+            />
+
+            {/* Left Sidebar Shell */}
+            <aside className={`app-drawer-sidebar ${isMobileMenuOpen ? "open" : ""}`} style={{ width: "240px", backgroundColor: "#ffffff", borderRight: "1px solid #eaedf0", display: "flex", flexDirection: "column", justifyContent: "space-between", flexShrink: 0, height: "100vh", position: "sticky", top: 0, zIndex: 20 }}>
                 <div>
                     {/* Brand */}
-                    <div style={{ padding: "20px 24px", borderBottom: "1px solid #f0f2f5", display: "flex", alignItems: "center", gap: "12px" }}>
-                        <div style={{ width: "36px", height: "36px", backgroundColor: "#0f172a", borderRadius: "10px", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "800", fontSize: "16px" }}>
-                            CP
+                    <div style={{ padding: "20px 24px", borderBottom: "1px solid #f0f2f5", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                            <div style={{ width: "36px", height: "36px", backgroundColor: "#0f172a", borderRadius: "10px", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "800", fontSize: "16px" }}>
+                                CP
+                            </div>
+                            <div>
+                                <div style={{ fontWeight: "800", color: "#0f172a", fontSize: "15px", letterSpacing: "-0.3px" }}>Placement Portal</div>
+                                <div style={{ fontSize: "10px", color: "#94a3b8", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.5px" }}>Placement Space</div>
+                            </div>
                         </div>
-                        <div>
-                            <div style={{ fontWeight: "800", color: "#0f172a", fontSize: "15px", letterSpacing: "-0.3px" }}>Placement Portal</div>
-                            <div style={{ fontSize: "10px", color: "#94a3b8", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.5px" }}>Placement Space</div>
-                        </div>
+                        {/* Close button for mobile drawer */}
+                        <button
+                            onClick={() => setIsMobileMenuOpen(false)}
+                            className="mobile-drawer-close"
+                            style={{ display: "none", background: "none", border: "none", fontSize: "20px", color: "#64748b", cursor: "pointer", padding: "4px" }}
+                        >
+                            ✕
+                        </button>
                     </div>
 
                     {/* Navigation Menu */}
@@ -660,14 +675,25 @@ const OfficerDashboard: React.FC<DashboardProps> = ({ user, onLogout, initialTab
 
             {/* Right Main Panel */}
             <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, height: "100vh", overflowY: "auto" }}>
-                {/* Header Navbar */}
-                <header style={{ height: "64px", backgroundColor: "#ffffff", borderBottom: "1px solid #eaedf0", padding: "0 32px", display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 10 }}>
+                {/* Header Navbar with Responsive Mobile Drawer Toggle */}
+                <header style={{ minHeight: "64px", backgroundColor: "#ffffff", borderBottom: "1px solid #eaedf0", padding: "12px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 10, flexWrap: "wrap", gap: "10px" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                        <button
+                            onClick={() => setIsMobileMenuOpen(true)}
+                            className="mobile-hamburger-toggle"
+                            style={{ display: "none", alignItems: "center", justifyContent: "center", width: "36px", height: "36px", borderRadius: "8px", border: "1px solid #e2e8f0", backgroundColor: "#f8fafc", cursor: "pointer", fontSize: "18px", color: "#0f172a" }}
+                            aria-label="Open Menu"
+                        >
+                            ☰
+                        </button>
                         <h1 style={{ margin: 0, fontSize: "18px", fontWeight: "800", color: "#0f172a" }}>
                             {isOfficer ? "Placement Officer Dashboard" : "Student Placement Dashboard"}
                         </h1>
                     </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+                        {/* 🗑️ Universal Clear System Data Button */}
+                        <ClearDataButton />
+
                         {/* 🔔 Notifications Bell Drawer */}
                         <div style={{ position: "relative" }}>
                             <button
@@ -735,24 +761,24 @@ const OfficerDashboard: React.FC<DashboardProps> = ({ user, onLogout, initialTab
                 </header>
 
                 {/* Main Content Body */}
-                <main style={{ padding: "28px 32px", flexGrow: 1, display: "flex", flexDirection: "column", gap: "24px" }}>
+                <main style={{ padding: "clamp(14px, 4vw, 28px) clamp(12px, 4vw, 32px)", flexGrow: 1, display: "flex", flexDirection: "column", gap: "24px", overflow: "hidden" }}>
                     {/* 1. Dashboard Hero Overview Card */}
                     {activeTab === "stats" && (
                         <>
                             {/* Dark Premium Banner */}
-                            <div style={{ backgroundColor: "#111827", color: "#ffffff", borderRadius: "16px", padding: "28px 32px", display: "flex", justifyContent: "space-between", alignItems: "center", position: "relative", overflow: "hidden" }}>
-                                <div>
+                            <div style={{ backgroundColor: "#111827", color: "#ffffff", borderRadius: "16px", padding: "24px 28px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "16px", position: "relative", overflow: "hidden" }}>
+                                <div style={{ minWidth: 0 }}>
                                     <div style={{ fontSize: "11px", fontWeight: "800", color: "#fbbf24", letterSpacing: "1px", textTransform: "uppercase", marginBottom: "6px" }}>
                                         👋 {isOfficer ? "PLACEMENT OFFICER SPACE" : "STUDENT SPACE"}
                                     </div>
-                                    <h2 style={{ margin: "0 0 8px 0", fontSize: "26px", fontWeight: "800", color: "#ffffff", letterSpacing: "-0.5px" }}>
+                                    <h2 style={{ margin: "0 0 8px 0", fontSize: "24px", fontWeight: "800", color: "#ffffff", letterSpacing: "-0.5px", overflowWrap: "break-word" }}>
                                         Welcome, {user.name || (isOfficer ? "Officer" : "Student")}
                                     </h2>
                                     <div style={{ color: "#9ca3af", fontSize: "13px", fontWeight: "500" }}>
                                         Season: <strong style={{ color: "#ffffff" }}>2026 Drive Active ✓</strong> | Last Sync: {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
                                     </div>
                                 </div>
-                                <div style={{ backgroundColor: "rgba(255, 255, 255, 0.08)", padding: "10px 18px", borderRadius: "30px", border: "1px solid rgba(255, 255, 255, 0.1)", display: "flex", alignItems: "center", gap: "10px" }}>
+                                <div style={{ backgroundColor: "rgba(255, 255, 255, 0.08)", padding: "10px 18px", borderRadius: "30px", border: "1px solid rgba(255, 255, 255, 0.1)", display: "flex", alignItems: "center", gap: "10px", flexShrink: 0, whiteSpace: "nowrap" }}>
                                     <span style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "#10b981" }}></span>
                                     <span style={{ fontSize: "12px", fontWeight: "700", color: "#f9fafb" }}>Drive Season 2026 Active</span>
                                 </div>
@@ -1154,7 +1180,7 @@ const OfficerDashboard: React.FC<DashboardProps> = ({ user, onLogout, initialTab
                                 return (
                                     <>
                                         {/* 5 Clickable Summary Filter Section Cards */}
-                                        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "12px", marginBottom: "20px", gridColumn: "1 / -1" }}>
+                                        <div className="student-drive-filters" style={{ gridColumn: "1 / -1" }}>
                                             {/* 🟢 Opted-In Filter Card */}
                                             <div
                                                 onClick={() => setDriveFilterSection("opted_in")}
@@ -2806,22 +2832,31 @@ const OfficerDashboard: React.FC<DashboardProps> = ({ user, onLogout, initialTab
                 {/* Mobile App Bottom Navigation Bar Dock */}
                 <nav className="mobile-bottom-nav">
                     <button
+                        onClick={() => setActiveTab("stats")}
+                        className={`mobile-tab-item ${activeTab === "stats" ? "active" : ""}`}
+                    >
+                        <div className="tab-icon">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5zm10 0a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1V5M4 15a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-4zm10 0a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1v-4z" /></svg>
+                        </div>
+                        <span>Dashboard</span>
+                    </button>
+                    <button
                         onClick={() => setActiveTab("drives")}
                         className={`mobile-tab-item ${activeTab === "drives" ? "active" : ""}`}
                     >
                         <div className="tab-icon">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2" /><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" /></svg>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" /></svg>
                         </div>
                         <span>Drives</span>
                     </button>
                     <button
-                        onClick={() => setActiveTab("campus_drives")}
-                        className={`mobile-tab-item ${activeTab === "campus_drives" ? "active" : ""}`}
+                        onClick={() => setActiveTab("verification")}
+                        className={`mobile-tab-item ${activeTab === "verification" ? "active" : ""}`}
                     >
                         <div className="tab-icon">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21h18M3 7v14M21 7v14M6 10h4M6 14h4M6 18h4M14 10h4M14 14h4M14 18h4M9 3h6v4H9z" /></svg>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5zM6 12v5c3 3 9 3 12 0v-5" /></svg>
                         </div>
-                        <span>Drives</span>
+                        <span>Students</span>
                     </button>
                     <button
                         onClick={() => setActiveTab("applications")}
@@ -2833,13 +2868,13 @@ const OfficerDashboard: React.FC<DashboardProps> = ({ user, onLogout, initialTab
                         <span>Apps</span>
                     </button>
                     <button
-                        onClick={() => setActiveTab("profile")}
-                        className={`mobile-tab-item ${activeTab === "profile" ? "active" : ""}`}
+                        onClick={() => setIsMobileMenuOpen(true)}
+                        className="mobile-tab-item"
                     >
                         <div className="tab-icon">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="18" x2="21" y2="18" /></svg>
                         </div>
-                        <span>Profile</span>
+                        <span>Menu ☰</span>
                     </button>
                 </nav>
             </div>

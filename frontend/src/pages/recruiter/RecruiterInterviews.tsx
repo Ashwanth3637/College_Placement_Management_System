@@ -63,93 +63,13 @@ export const RecruiterInterviews: React.FC<RecruiterInterviewsProps> = ({ user, 
     const [selectedInterview, setSelectedInterview] = useState<RecruiterInterviewItem | null>(null);
     const [showResumeViewer, setShowResumeViewer] = useState<boolean>(false);
 
-    // Synchronized Initial Mock Interviews with Strict Mode/Platform/Venue/Status Separation
-    const initialInterviews: RecruiterInterviewItem[] = [
-        {
-            id: "int_1",
-            studentName: "Ashwanth S",
-            email: "ashwanth@gmail.com",
-            registerNumber: "22CSR025",
-            branch: "CSE",
-            cgpa: 8.45,
-            gradYear: 2026,
-            appliedDrive: "Cloud Engineer",
-            jobRole: "Cloud Engineer",
-            round: "Round 2: Technical Interview",
-            dateTime: "30 Aug 2026, 3:30 PM IST",
-            mode: "Online",
-            platform: "Amazon Chime",
-            location: "Online — Amazon Chime Platform",
-            interviewer: "Senior Cloud Lead",
-            status: "Evaluation Pending",
-            meetingLink: "https://chime.aws/amz-cloud-ashwanth",
-            notes: "Technical interview conducted on 30 Aug 2026. Architecture design & AWS questions evaluated; pending final result decision."
-        },
-        {
-            id: "int_2",
-            studentName: "Rahul Kumar",
-            email: "rahul.k@gmail.com",
-            registerNumber: "22CSR101",
-            branch: "CSE",
-            cgpa: 8.4,
-            gradYear: 2026,
-            appliedDrive: "Software Developer",
-            jobRole: "Software Developer",
-            round: "Round 2: Technical Interview",
-            dateTime: "02 Sep 2026, 10:00 AM IST",
-            mode: "Online",
-            platform: "Google Meet",
-            location: "Online — Google Meet Room",
-            interviewer: "Amazon Tech Team",
-            status: "Scheduled",
-            meetingLink: "https://meet.google.com/amz-tech-eval",
-            notes: "Upcoming Round 2 Technical Interview focusing on Data Structures & Problem Solving."
-        },
-        {
-            id: "int_3",
-            studentName: "Priya Sharma",
-            email: "priya.sharma@gmail.com",
-            registerNumber: "22IT045",
-            branch: "IT",
-            cgpa: 8.7,
-            gradYear: 2026,
-            appliedDrive: "Software Developer",
-            jobRole: "Software Developer",
-            round: "Round 1: Technical Assessment",
-            dateTime: "26 Aug 2026, 11:30 AM IST",
-            mode: "Online",
-            platform: "HackerRank Platform",
-            location: "Online — HackerRank Test Environment",
-            interviewer: "Technical Evaluation Panel",
-            status: "Evaluation Pending",
-            meetingLink: "https://hackerrank.com/eval-priya-s",
-            notes: "Online Assessment submission under evaluation by placement panel."
-        },
-        {
-            id: "int_4",
-            studentName: "Ananya Roy",
-            email: "ananya.roy@gmail.com",
-            registerNumber: "22CSR110",
-            branch: "CSE",
-            cgpa: 9.1,
-            gradYear: 2026,
-            appliedDrive: "Cloud Engineer",
-            jobRole: "Cloud Engineer",
-            round: "Round 3: HR Bar Raiser",
-            dateTime: "26 Aug 2026, 4:00 PM IST",
-            mode: "On-site",
-            platform: "Placement Boardroom",
-            location: "Offline — Placement Cell Boardroom, Main Block",
-            interviewer: "HR Director",
-            status: "Completed",
-            notes: "HR Bar Raiser evaluation cleared successfully. Official placement offer released."
-        }
-    ];
+    // Interviews loaded exclusively from live database & scheduled interviews
+    const initialInterviews: RecruiterInterviewItem[] = [];
 
     // Load Applications / Interviews from MongoDB API
     const fetchInterviewsData = async () => {
         setIsLoading(true);
-        let list: RecruiterInterviewItem[] = [...initialInterviews];
+        let list: RecruiterInterviewItem[] = [];
 
         try {
             const res = await fetch(`http://localhost:5001/api/applications?company=${encodeURIComponent(companyNameShort)}`);

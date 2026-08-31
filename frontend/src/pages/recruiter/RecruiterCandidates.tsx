@@ -39,74 +39,13 @@ export const RecruiterCandidates: React.FC<RecruiterCandidatesProps> = ({ user, 
     ]);
     const [isLoading, setIsLoading] = useState<boolean>(true);
 
-    // Initial Mock Candidates data matching user's exact specification
-    const initialCandidates: CandidateItem[] = [
-        {
-            id: "cand_1",
-            registerNumber: "22CSR101",
-            name: "Rahul Kumar",
-            email: "rahul.k@gmail.com",
-            branch: "CSE",
-            cgpa: 8.4,
-            gradYear: 2026,
-            appliedDrive: "Software Developer",
-            applicationStatus: "Applied",
-            appliedDate: "24 Aug 2026"
-        },
-        {
-            id: "cand_2",
-            registerNumber: "22IT045",
-            name: "Priya Sharma",
-            email: "priya.sharma@gmail.com",
-            branch: "IT",
-            cgpa: 8.7,
-            gradYear: 2026,
-            appliedDrive: "Software Developer",
-            applicationStatus: "Shortlisted",
-            appliedDate: "23 Aug 2026"
-        },
-        {
-            id: "cand_3",
-            registerNumber: "22ECE032",
-            name: "Arun Kumar",
-            email: "arun.k@gmail.com",
-            branch: "ECE",
-            cgpa: 7.9,
-            gradYear: 2026,
-            appliedDrive: "Sales Development",
-            applicationStatus: "Applied",
-            appliedDate: "22 Aug 2026"
-        },
-        {
-            id: "cand_4",
-            registerNumber: "22CSR025",
-            name: "Ashwanth Kumar",
-            email: "ashwanth@gmail.com",
-            branch: "CSE",
-            cgpa: 8.45,
-            gradYear: 2026,
-            appliedDrive: "Cloud Engineer",
-            applicationStatus: "Interview Scheduled",
-            appliedDate: "21 Aug 2026"
-        },
-        {
-            id: "cand_5",
-            registerNumber: "22CSR110",
-            name: "Ananya Roy",
-            email: "ananya.roy@gmail.com",
-            branch: "CSE",
-            cgpa: 9.1,
-            gradYear: 2026,
-            appliedDrive: "Cloud Engineer",
-            applicationStatus: "Selected",
-            appliedDate: "20 Aug 2026"
-        }
-    ];
+    // Candidate Records loaded exclusively from live database & registered applications
+    const initialCandidates: CandidateItem[] = [];
 
     // Load Candidate Records from API + Local Storage
     const fetchCandidateRecords = async () => {
         setIsLoading(true);
-        let list: CandidateItem[] = [...initialCandidates];
+        let list: CandidateItem[] = [];
 
         try {
             // Fetch registered applications from MongoDB backend API

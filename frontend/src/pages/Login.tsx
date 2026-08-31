@@ -117,8 +117,8 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     };
 
     return (
-        <div style={styles.container}>
-            <div style={styles.card}>
+        <div style={styles.container} className="login-container">
+            <div style={styles.card} className="login-card">
                 {/* Header / Brand */}
                 <div style={styles.header}>
                     <div style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: "48px", height: "48px", backgroundColor: "#eff6ff", color: "#2563eb", borderRadius: "12px", marginBottom: "12px" }}>
@@ -170,12 +170,14 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "space-between",
+                        flexWrap: "wrap",
+                        gap: "8px",
                         fontSize: "12px",
                         color: "#475569"
                     }}>
-                        <div>
+                        <div style={{ flex: 1, minWidth: "180px" }}>
                             <strong>💡 Demo {role.charAt(0).toUpperCase() + role.slice(1)} Login:</strong>
-                            <div style={{ fontFamily: "monospace", color: "#2563eb", marginTop: "2px" }}>
+                            <div style={{ fontFamily: "monospace", color: "#2563eb", marginTop: "2px", wordBreak: "break-all", fontSize: "11px" }}>
                                 {DEMO_ACCOUNTS[role]?.email} | {DEMO_ACCOUNTS[role]?.pass}
                             </div>
                         </div>
@@ -187,11 +189,10 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                                 color: "#2563eb",
                                 border: "1px solid #bfdbfe",
                                 borderRadius: "6px",
-                                padding: "4px 10px",
+                                padding: "6px 12px",
                                 fontSize: "12px",
-                                fontWeight: "600",
+                                fontWeight: "700",
                                 cursor: "pointer",
-                                marginLeft: "8px",
                                 whiteSpace: "nowrap"
                             }}
                         >

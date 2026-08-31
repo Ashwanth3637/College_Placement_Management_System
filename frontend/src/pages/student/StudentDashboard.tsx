@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import jsPDF from "jspdf";
 import StudentProfile from "./StudentProfile";
 import { formatCleanRoundName, getPureRoundTitle } from "../../utils/roundUtils";
+import ClearDataButton from "../../components/ClearDataButton";
 
 interface User {
     id?: string;
@@ -92,8 +93,11 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
         return initialTab;
     });
 
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
+
     const setCurrentTab = (tab: "dashboard" | "companies" | "applications" | "schedule" | "results" | "profile") => {
         setCurrentTabState(tab);
+        setIsMobileMenuOpen(false);
         try {
             localStorage.setItem(`cpms_active_tab_student_${userKey}`, tab);
         } catch (e) { }
@@ -343,14 +347,15 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
     }, [selectedDriveCriteria, selectedApplicationModal, selectedOfferModal]);
 
     React.useEffect(() => {
+        const userEmail = (user?.email || "").toLowerCase().trim();
+
         const checkLocalVerification = () => {
-            const userEmail = (user?.email || "").toLowerCase().trim();
-            const pendingStatus =
+            const approvedStatus =
                 localStorage.getItem(`cpms_verification_status_${userEmail}`) ||
                 localStorage.getItem(`cpms_verification_status_${userId}`);
 
-            if (pendingStatus === "Pending" || pendingStatus === "Pending Officer Approval") {
-                setIsProfileVerified(false);
+            if (approvedStatus === "Approved" || approvedStatus === "Verified" || approvedStatus === "verified") {
+                setIsProfileVerified(true);
                 return;
             }
 
@@ -358,65 +363,84 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                 localStorage.getItem(`cpms_profile_verified_${userId}`) ||
                 localStorage.getItem(`cpms_profile_verified_${userEmail}`) ||
                 localStorage.getItem(`cpms_verified_student_${userId}`) ||
-                localStorage.getItem(`cpms_verified_student_${userEmail}`);
+                localStorage.getItem(`cpms_verified_student_${userEmail}`) ||
+                localStorage.getItem(`cpms_profile_verified_global`);
 
-            if (localVerified !== null) {
-                setIsProfileVerified(localVerified === "true");
+            if (localVerified === "true") {
+                setIsProfileVerified(true);
+                return;
+            }
+
+            if (approvedStatus === "Pending" || approvedStatus === "Pending Officer Approval") {
+                setIsProfileVerified(false);
+                return;
             }
         };
 
         const fetchProfile = async () => {
-            if (!userId) return;
+            const lookupKey = userId || userEmail || "student";
             try {
-                const res = await fetch(`http://localhost:5001/api/student/profile/${userId}`);
+                const res = await fetch(`http://localhost:5001/api/student/profile/${encodeURIComponent(lookupKey)}?email=${encodeURIComponent(userEmail)}`);
                 const data = await res.json();
                 let student = (res.ok && data) ? data : null;
 
                 if (!student) {
                     try {
-                        const localSaved = localStorage.getItem(`cpms_profile_${userId}`);
+                        const localSaved = localStorage.getItem(`cpms_profile_${userId}`) || localStorage.getItem(`cpms_profile_${userEmail}`);
                         if (localSaved) student = JSON.parse(localSaved);
                     } catch (e) { }
                 }
 
                 if (student) {
-                    // Database response is the authoritative source of truth for verification status
-                    if (student.isVerified !== undefined) {
-                        const dbVerified = Boolean(student.isVerified);
-                        setIsProfileVerified(dbVerified);
-                        // Sync localStorage with DB state
-                        const userEmail = (user?.email || "").toLowerCase().trim();
-                        try {
-                            localStorage.setItem(`cpms_profile_verified_${userId}`, String(dbVerified));
-                            localStorage.setItem(`cpms_profile_verified_${userEmail}`, String(dbVerified));
-                            localStorage.setItem(`cpms_profile_verified_global`, String(dbVerified));
-                        } catch (e) { }
-                    } else {
-                        checkLocalVerification();
-                    }
+                    // Database response is authoritative
+                    const dbVerified = Boolean(
+                        student.isVerified === true ||
+                        student.verificationStatus === "verified" ||
+                        student.verificationStatus === "Approved" ||
+                        student.verificationStatus === "Verified"
+                    );
+
+                    setIsProfileVerified(dbVerified);
+
+                    try {
+                        localStorage.setItem(`cpms_profile_verified_${userId}`, String(dbVerified));
+                        localStorage.setItem(`cpms_profile_verified_${userEmail}`, String(dbVerified));
+                        localStorage.setItem(`cpms_profile_verified_global`, String(dbVerified));
+                        if (dbVerified) {
+                            localStorage.setItem(`cpms_verification_status_${userEmail}`, "Approved");
+                            localStorage.setItem(`cpms_verification_status_${userId}`, "Approved");
+                        }
+                    } catch (e) { }
 
                     if (student.personal?.department) setStudentDepartment(student.personal.department);
                     if (student.personal?.registerNumber) setStudentRegNo(student.personal.registerNumber);
                     if (student.personal?.phone) setStudentPhone(student.personal.phone);
                     if (student.academic) {
-                        if (student.academic.cgpa !== undefined) setStudentCgpa(Number(student.academic.cgpa));
-                        if (student.academic.backlogs !== undefined) setStudentBacklogs(Number(student.academic.backlogs));
-                        if (student.academic.tenthPercentage !== undefined) setStudentTenth(Number(student.academic.tenthPercentage));
-                        if (student.academic.twelfthPercentage !== undefined) setStudentTwelfth(Number(student.academic.twelfthPercentage));
-                        if (student.academic.graduationYear !== undefined) setStudentGradYear(Number(student.academic.graduationYear));
+                        if (student.academic.cgpa !== undefined && student.academic.cgpa !== null) setStudentCgpa(Number(student.academic.cgpa));
+                        if (student.academic.backlogs !== undefined && student.academic.backlogs !== null) setStudentBacklogs(Number(student.academic.backlogs));
+                        if (student.academic.tenthPercentage !== undefined && student.academic.tenthPercentage !== null) setStudentTenth(Number(student.academic.tenthPercentage));
+                        if (student.academic.twelfthPercentage !== undefined && student.academic.twelfthPercentage !== null) setStudentTwelfth(Number(student.academic.twelfthPercentage));
+                        if (student.academic.graduationYear !== undefined && student.academic.graduationYear !== null) setStudentGradYear(Number(student.academic.graduationYear));
                     }
                     if (student.professional?.skills) {
                         setStudentSkills(Array.isArray(student.professional.skills) ? student.professional.skills : []);
                     }
                     if (student.professional?.resumeName) setStudentResumeName(student.professional.resumeName);
                     if (student.professional?.resumeUrl) setStudentResumeUrl(student.professional.resumeUrl);
+                } else {
+                    checkLocalVerification();
                 }
             } catch (err) {
                 console.error("Error fetching student profile for dashboard:", err);
                 checkLocalVerification();
             }
         };
+
         fetchProfile();
+        checkLocalVerification();
+
+        // 2-second real-time auto-sync interval to catch Officer actions immediately
+        const syncInterval = setInterval(fetchProfile, 2000);
 
         const handleProfileUpdated = () => {
             checkLocalVerification();
@@ -427,24 +451,32 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
         try {
             channel = new BroadcastChannel("cpms_profile_channel");
             channel.onmessage = (event) => {
-                if (event.data && event.data.type === "PROFILE_VERIFIED") {
+                if (event.data && (event.data.type === "PROFILE_VERIFIED" || event.data.type === "PROFILE_UPDATED")) {
                     setIsProfileVerified(Boolean(event.data.isVerified));
                     try {
                         localStorage.setItem(`cpms_profile_verified_${userId}`, String(event.data.isVerified));
+                        localStorage.setItem(`cpms_profile_verified_${userEmail}`, String(event.data.isVerified));
                         localStorage.setItem(`cpms_profile_verified_global`, String(event.data.isVerified));
                     } catch (e) { }
+                    fetchProfile();
                 }
             };
         } catch (e) { }
 
         window.addEventListener("cpms_profile_updated", handleProfileUpdated);
+        window.addEventListener("cpms_verification_updated", handleProfileUpdated);
         window.addEventListener("storage", handleProfileUpdated);
+        window.addEventListener("focus", handleProfileUpdated);
+
         return () => {
+            clearInterval(syncInterval);
             if (channel) channel.close();
             window.removeEventListener("cpms_profile_updated", handleProfileUpdated);
+            window.removeEventListener("cpms_verification_updated", handleProfileUpdated);
             window.removeEventListener("storage", handleProfileUpdated);
+            window.removeEventListener("focus", handleProfileUpdated);
         };
-    }, [userId, currentTab]);
+    }, [userId, user?.email, currentTab]);
 
     const [dbInterviews, setDbInterviews] = useState<any[]>([]);
     const [interviewsLoading, setInterviewsLoading] = useState<boolean>(true);
@@ -557,24 +589,6 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                 }
             } catch (e) { }
 
-            // If rawDrives is empty and cpms_drives_cleared is not set, include fallback Amazon Development Center drive
-            if (rawDrives.length === 0 && localStorage.getItem("cpms_drives_cleared") !== "true") {
-                rawDrives = [{
-                    id: "drive_amazon_1",
-                    companyName: "Amazon Development Center",
-                    jobRole: "software developer",
-                    salaryPackage: "₹18.0 LPA",
-                    location: "Bangalore, India",
-                    driveDate: "28 Aug 2026",
-                    status: "Approved",
-                    isCreatedByOfficer: true,
-                    isOfficerPublished: true,
-                    createdBy: "Placement Officer",
-                    eligibleBranches: ["CSE", "IT", "ECE"],
-                    minCgpa: 6.5
-                }];
-            }
-
             let approvedCompaniesSet = new Set<string>();
             let rejectedCompaniesSet = new Set<string>();
             try {
@@ -656,13 +670,29 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                 }
             });
 
-            const map = new Map();
+            const map = new Map<string, PlacementDrive>();
             dynamicApproved.forEach(d => {
-                const key = `${(d.company || "").toLowerCase().trim()}_${(d.role || "").toLowerCase().trim()}`;
-                if (!map.has(key) || d.statusTag === "Opted-In" || d.statusTag === "Eligible") {
-                    map.set(key, d);
+                const rawComp = (d.company || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+                let compKey = rawComp;
+                if (rawComp.includes("tcs") || rawComp.includes("tataconsultancy")) {
+                    compKey = "tcs";
+                } else if (rawComp.includes("amazon")) {
+                    compKey = "amazon";
+                } else {
+                    compKey = rawComp.slice(0, 12);
+                }
+
+                const existing = map.get(compKey);
+                if (!existing) {
+                    map.set(compKey, d);
+                } else {
+                    // If current item is Opted-In or Eligible, prefer it over an ineligible duplicate
+                    if (d.statusTag === "Opted-In" || (d.statusTag === "Eligible" && existing.statusTag !== "Opted-In")) {
+                        map.set(compKey, d);
+                    }
                 }
             });
+
             setPlacementDrives(Array.from(map.values()));
         };
 
@@ -1354,18 +1384,33 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
 
     return (
         <div style={{ display: "flex", minHeight: "100vh", backgroundColor: "#f4f6f8", fontFamily: "Inter, -apple-system, BlinkMacSystemFont, sans-serif" }}>
+            {/* Mobile Menu Backdrop */}
+            <div
+                className={`app-menu-backdrop ${isMobileMenuOpen ? "open" : ""}`}
+                onClick={() => setIsMobileMenuOpen(false)}
+            />
+
             {/* Sidebar matching exact placement portal design */}
-            <aside style={{ width: "240px", backgroundColor: "#ffffff", borderRight: "1px solid #eaedf0", display: "flex", flexDirection: "column", justifyContent: "space-between", flexShrink: 0, minHeight: "100vh", position: "sticky", top: 0, height: "100vh" }}>
+            <aside className={`app-drawer-sidebar ${isMobileMenuOpen ? "open" : ""}`} style={{ width: "240px", backgroundColor: "#ffffff", borderRight: "1px solid #eaedf0", display: "flex", flexDirection: "column", justifyContent: "space-between", flexShrink: 0, minHeight: "100vh", position: "sticky", top: 0, height: "100vh" }}>
                 <div>
                     {/* Brand */}
-                    <div style={{ padding: "20px 24px", borderBottom: "1px solid #f0f2f5", display: "flex", alignItems: "center", gap: "12px" }}>
-                        <div style={{ width: "38px", height: "38px", backgroundColor: "#0f172a", borderRadius: "10px", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "800", fontSize: "16px" }}>
-                            CP
+                    <div style={{ padding: "20px 24px", borderBottom: "1px solid #f0f2f5", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                            <div style={{ width: "38px", height: "38px", backgroundColor: "#0f172a", borderRadius: "10px", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "800", fontSize: "16px" }}>
+                                CP
+                            </div>
+                            <div>
+                                <div style={{ fontWeight: "800", color: "#0f172a", fontSize: "15px", letterSpacing: "-0.3px" }}>Placement Portal</div>
+                                <div style={{ fontSize: "10px", color: "#94a3b8", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.5px" }}>PLACEMENT SPACE</div>
+                            </div>
                         </div>
-                        <div>
-                            <div style={{ fontWeight: "800", color: "#0f172a", fontSize: "15px", letterSpacing: "-0.3px" }}>Placement Portal</div>
-                            <div style={{ fontSize: "10px", color: "#94a3b8", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.5px" }}>PLACEMENT SPACE</div>
-                        </div>
+                        <button
+                            onClick={() => setIsMobileMenuOpen(false)}
+                            className="mobile-drawer-close"
+                            style={{ display: "none", background: "none", border: "none", fontSize: "20px", color: "#64748b", cursor: "pointer", padding: "4px" }}
+                        >
+                            ✕
+                        </button>
                     </div>
 
                     {/* Navigation Menu */}
@@ -1378,8 +1423,6 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                                 { id: "applications", label: "My Applications", svg: <path d="M9 11l3 3L22 4M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" /> },
                                 { id: "schedule", label: "Interview Schedule", svg: <path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z" /> },
                                 { id: "results", label: "Results & Offer Letter", svg: <path d="M6 9H4.5a2.5 2.5 0 010-5H6M18 9h1.5a2.5 2.5 0 000-5H18M4 22h16M10 14.66V17M14 14.66V17M18 4H6v7a6 6 0 0012 0V4z" /> },
-
-
                                 { id: "profile", label: "My Profile", svg: <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" /> },
                             ].map((item) => {
                                 const isActive = currentTab === item.id;
@@ -1457,16 +1500,27 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
             </aside>
 
             {/* Main Area */}
-            <main style={{ flex: 1, padding: "24px 32px", overflowY: "auto" }}>
+            <main style={{ flex: 1, padding: "clamp(14px, 4vw, 24px) clamp(12px, 4vw, 32px)", overflowY: "auto", overflowX: "hidden" }}>
                 {/* Header Bar */}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
-                    <div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px", flexWrap: "wrap", gap: "10px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                        <button
+                            onClick={() => setIsMobileMenuOpen(true)}
+                            className="mobile-hamburger-toggle"
+                            style={{ display: "none", alignItems: "center", justifyContent: "center", width: "36px", height: "36px", borderRadius: "8px", border: "1px solid #e2e8f0", backgroundColor: "#ffffff", cursor: "pointer", fontSize: "18px", color: "#0f172a" }}
+                            aria-label="Open Menu"
+                        >
+                            ☰
+                        </button>
                         <h1 style={{ fontSize: "20px", fontWeight: "800", color: "#0f172a", margin: 0 }}>
                             Student Placement Dashboard
                         </h1>
                     </div>
 
-                    <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+                        {/* 🗑️ Universal Clear System Data Button */}
+                        <ClearDataButton />
+
                         <div style={{ width: "36px", height: "36px", borderRadius: "50%", backgroundColor: "#fef3c7", color: "#d97706", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "16px", cursor: "pointer", position: "relative" }}>
                             🔔
                             <span style={{ position: "absolute", top: "4px", right: "4px", width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "#ef4444" }}></span>
@@ -1487,19 +1541,19 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                 {currentTab === "dashboard" && (
                     <div>
                         {/* Dark Welcome Hero Banner (Matching Placement Officer Dashboard) */}
-                        <div style={{ backgroundColor: "#0f172a", borderRadius: "16px", padding: "28px 32px", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "28px", boxShadow: "0 10px 15px -3px rgba(15, 23, 42, 0.15)" }}>
-                            <div>
+                        <div style={{ backgroundColor: "#0f172a", borderRadius: "16px", padding: "24px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "16px", marginBottom: "28px", boxShadow: "0 10px 15px -3px rgba(15, 23, 42, 0.15)" }}>
+                            <div style={{ minWidth: 0 }}>
                                 <div style={{ fontSize: "11px", fontWeight: "800", color: "#eab308", letterSpacing: "1px", textTransform: "uppercase", marginBottom: "6px", display: "flex", alignItems: "center", gap: "6px" }}>
                                     👋 STUDENT SPACE
                                 </div>
-                                <h2 style={{ margin: "0 0 8px 0", fontSize: "26px", fontWeight: "800", color: "#ffffff", letterSpacing: "-0.5px" }}>
+                                <h2 style={{ margin: "0 0 8px 0", fontSize: "24px", fontWeight: "800", color: "#ffffff", letterSpacing: "-0.5px", overflowWrap: "break-word" }}>
                                     Welcome, {displayName}
                                 </h2>
                                 <div style={{ color: "#9ca3af", fontSize: "13px", fontWeight: "500" }}>
                                     Season: <strong style={{ color: "#ffffff" }}>2026 Drive Active ✓</strong> | Last Sync: {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
                                 </div>
                             </div>
-                            <div style={{ backgroundColor: "rgba(255, 255, 255, 0.08)", padding: "10px 18px", borderRadius: "30px", border: "1px solid rgba(255, 255, 255, 0.1)", display: "flex", alignItems: "center", gap: "10px" }}>
+                            <div style={{ backgroundColor: "rgba(255, 255, 255, 0.08)", padding: "10px 18px", borderRadius: "30px", border: "1px solid rgba(255, 255, 255, 0.1)", display: "flex", alignItems: "center", gap: "10px", flexShrink: 0, whiteSpace: "nowrap" }}>
                                 <span style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "#10b981" }}></span>
                                 <span style={{ fontSize: "12px", fontWeight: "700", color: "#f9fafb" }}>Drive Season 2026 Active</span>
                             </div>
@@ -1695,7 +1749,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                 {currentTab === "companies" && (
                     <div>
                         {/* 5 Filter Pills */}
-                        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "14px", marginBottom: "24px" }}>
+                        <div className="student-drive-filters">
                             {[
                                 { key: "Opted-In", label: "✓ Opted-In", count: filterCounts["Opted-In"], activeBg: "#f0fdf4", activeBorder: "2px solid #16a34a", activeColor: "#16a34a" },
                                 { key: "Opted-Out", label: "🚫 Opted-Out", count: filterCounts["Opted-Out"], activeBg: "#fef2f2", activeBorder: "2px solid #ef4444", activeColor: "#dc2626" },
@@ -3054,7 +3108,15 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                     </div>
                     <span>Apps</span>
                 </button>
-
+                <button
+                    onClick={() => setCurrentTab("results")}
+                    className={`mobile-tab-item ${currentTab === "results" ? "active" : ""}`}
+                >
+                    <div className="tab-icon">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6M18 9h1.5a2.5 2.5 0 0 0 0-5H18M4 22h16M10 14.66V17M14 14.66V17M18 4H6v7a6 6 0 0 0 12 0V4z" /></svg>
+                    </div>
+                    <span>Offers</span>
+                </button>
                 <button
                     onClick={() => setCurrentTab("profile")}
                     className={`mobile-tab-item ${currentTab === "profile" ? "active" : ""}`}

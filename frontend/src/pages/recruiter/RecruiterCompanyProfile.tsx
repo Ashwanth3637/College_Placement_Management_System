@@ -257,9 +257,10 @@ export const RecruiterCompanyProfile: React.FC = () => {
             <div style={{
                 backgroundColor: "#ffffff",
                 borderRadius: "16px",
-                padding: "28px 32px",
+                padding: "clamp(16px, 4vw, 28px) clamp(14px, 4vw, 32px)",
                 border: "1px solid #eaedf0",
-                boxShadow: "0 1px 3px rgba(0,0,0,0.02)"
+                boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
+                overflow: "hidden"
             }}>
 
                 {/* Header Row */}
@@ -575,7 +576,7 @@ export const RecruiterCompanyProfile: React.FC = () => {
                                         )}
                                     </div>
 
-                                    <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "8px" }}>
+                                    <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "8px", minWidth: 0 }}>
                                         <input
                                             type="text"
                                             value={profile.logoPreview}
@@ -592,13 +593,13 @@ export const RecruiterCompanyProfile: React.FC = () => {
                                                 backgroundColor: "#ffffff"
                                             }}
                                         />
-                                        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                                            <span style={{ fontSize: "12px", color: "#64748b", fontWeight: "600" }}>Or upload logo image:</span>
+                                        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                                            <span style={{ fontSize: "12px", color: "#64748b", fontWeight: "600", whiteSpace: "nowrap" }}>Or upload logo image:</span>
                                             <input
                                                 type="file"
                                                 accept="image/*"
                                                 onChange={handleLogoUpload}
-                                                style={{ fontSize: "12px", color: "#475569" }}
+                                                style={{ fontSize: "12px", color: "#475569", maxWidth: "100%" }}
                                             />
                                         </div>
                                     </div>

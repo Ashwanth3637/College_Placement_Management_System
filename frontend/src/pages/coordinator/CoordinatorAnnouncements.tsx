@@ -54,69 +54,8 @@ export const CoordinatorAnnouncements: React.FC<CoordinatorAnnouncementsProps> =
         return dateStr;
     };
 
-    // Initial Clean Default Data
-    const initialAnnouncements: AnnouncementItem[] = [
-        {
-            id: "ann_1",
-            title: "Amazon SDE-1 Drive Shortlist & Technical Round Schedule",
-            description: "All shortlisted students for Amazon SDE-1 must report to Computer Lab 3 at 09:30 AM with college ID card and printed copies of their resume. Online technical assessment credentials will be shared on-site.",
-            targetAudience: "Eligible Students",
-            publishDate: "2026-08-30",
-            expiryDate: "2026-09-05",
-            status: "Published",
-            author: "Prof. Rajesh Sharma (Coordinator)",
-            priority: "Urgent",
-            referenceLink: "https://amazon.jobs/students"
-        },
-        {
-            id: "ann_2",
-            title: "TCS Pre-Placement Talk & Mandatory Registration Deadline",
-            description: "TCS Campus Recruitment 2026 Pre-placement talk will be held in the Main Auditorium on Sep 3 at 11:00 AM. Attendance is strictly mandatory for all registered 2026 batch candidates.",
-            targetAudience: "Selected Batch",
-            targetBatch: "CSE 2026 - Batch A",
-            publishDate: "2026-08-29",
-            expiryDate: "2026-09-03",
-            status: "Published",
-            author: "Prof. Rajesh Sharma (Coordinator)",
-            priority: "High",
-            referenceLink: "https://forms.google.com/tcs-registration"
-        },
-        {
-            id: "ann_3",
-            title: "Resume Building & Technical Mock Interview Workshop",
-            description: "Department of Training & Placement is organizing a dedicated resume review session for all final year placement-registered students in Conference Hall B.",
-            targetAudience: "All Students",
-            publishDate: "2026-08-25",
-            expiryDate: "2026-09-10",
-            status: "Published",
-            author: "Placement Cell",
-            priority: "Normal"
-        },
-        {
-            id: "ann_4",
-            title: "Google Cloud Tech Challenge Guidelines & Registration Link",
-            description: "Draft guidelines containing test environment links, IDE instructions, and eligibility criteria for Google Cloud challenge.",
-            targetAudience: "Eligible Students",
-            publishDate: "2026-08-31",
-            expiryDate: "2026-09-15",
-            status: "Draft",
-            author: "Prof. Rajesh Sharma (Coordinator)",
-            priority: "Normal",
-            referenceLink: "https://cloud.google.com/edu"
-        },
-        {
-            id: "ann_5",
-            title: "Infosys Systems Engineer Drive Concluded — Offer Letters Released",
-            description: "The campus placement drive for Infosys has been concluded. Selected candidates can collect their official physical offer letters from the Placement Office.",
-            targetAudience: "Selected Batch",
-            targetBatch: "All 2026 Batches",
-            publishDate: "2026-08-20",
-            expiryDate: "2026-08-28",
-            status: "Archived",
-            author: "Placement Cell",
-            priority: "Normal"
-        }
-    ];
+    // Clean Announcements Data loaded exclusively from live database
+    const initialAnnouncements: AnnouncementItem[] = [];
 
     // State
     const [announcements, setAnnouncements] = useState<AnnouncementItem[]>(() => {
