@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import jsPDF from "jspdf";
+import { formatCleanRoundName, getPureRoundTitle } from "../../utils/roundUtils";
 
 export interface ApplicationRecord {
     id: string;
@@ -313,6 +314,38 @@ const ApplicationManagement: React.FC = () => {
                     });
                 };
 
+                // 0. Fetch MongoDB Applications from API
+                try {
+                    const apiRes = await fetch("http://localhost:5001/api/applications");
+                    if (apiRes.ok) {
+                        const apiData = await apiRes.json();
+                        if (Array.isArray(apiData) && apiData.length > 0) {
+                            apiData.forEach((a: any) => {
+                                addUniqueApp({
+                                    id: a._id || a.id,
+                                    studentName: a.studentName || "Ashwanth S",
+                                    regNo: a.regNo || "22CSR025",
+                                    department: a.department || "CSE",
+                                    email: a.email || "ashwanth@gmail.com",
+                                    phone: a.phone || "+91 98765 43210",
+                                    companyName: a.companyName,
+                                    jobRole: a.jobRole,
+                                    appliedDate: a.appliedDate || "24 Aug 2026",
+                                    status: a.status,
+                                    currentRound: a.currentRound || 1,
+                                    roundStatus: a.roundStatus || "In Progress",
+                                    roundName: a.roundName || "Round 1: Technical Assessment",
+                                    history: a.history || [],
+                                    interviewSchedule: a.interviewSchedule || {},
+                                    remarks: a.remarks || "",
+                                    cgpa: a.cgpa || 8.0,
+                                    gradYear: a.gradYear || 2026
+                                });
+                            });
+                        }
+                    }
+                } catch (e) { console.error("Error fetching MongoDB applications:", e); }
+
                 // 1. Scan cpms_applications
                 try {
                     const savedAppsStr = localStorage.getItem("cpms_applications");
@@ -467,7 +500,6 @@ const ApplicationManagement: React.FC = () => {
             updatedApps = prev.map(a => {
                 const isMatch = a.id === appId;
 
-
                 if (isMatch) {
                     return {
                         ...a,
@@ -487,6 +519,24 @@ const ApplicationManagement: React.FC = () => {
             return updatedApps;
         });
 
+        // Persist update in MongoDB via API
+        fetch(`http://localhost:5001/api/applications/${appId}/status`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                status: newStatus,
+                currentRound,
+                roundStatus,
+                roundName,
+                historyItem: {
+                    date: nowStr,
+                    title: logTitle,
+                    desc: logDesc,
+                    status: newStatus === "Selected" ? "Selected 🎉" : (newStatus === "Not Shortlisted" ? "Not Selected ✕" : "Passed ✓"),
+                    roundNumber: currentRound || 1
+                }
+            })
+        }).catch(err => console.error("Error persisting status to MongoDB:", err));
 
         if (selectedApp) {
             setSelectedApp(prev => prev ? {
@@ -841,7 +891,7 @@ const ApplicationManagement: React.FC = () => {
                                                         boxShadow: "0 1px 3px rgba(15, 23, 42, 0.2)"
                                                     }}
                                                 >
-                                                    View
+                                                    View / Record
                                                 </button>
 
                                                 <button
@@ -1296,9 +1346,8 @@ const ApplicationManagement: React.FC = () => {
                             let nextRoundButtonText = "✓ Select Candidate & Issue Offer";
                             if (!isFinalRound && nextRoundObj) {
                                 const rNum = nextRoundObj.roundNumber || (currentRoundStep + 1);
-                                const rName = nextRoundObj.roundName || "";
-                                const cleanName = rName.replace(/^Round\s*\d+\s*:\s*/i, "").trim();
-                                nextRoundButtonText = `✓ Pass to Round ${rNum}: ${cleanName || rName}`;
+                                const pureTitle = getPureRoundTitle(nextRoundObj.roundName, "Next Selection Round");
+                                nextRoundButtonText = `✓ Pass to Round ${rNum}: ${pureTitle}`;
                             }
 
                             return (
@@ -1323,7 +1372,8 @@ const ApplicationManagement: React.FC = () => {
                                                             else if (nextRoundNum === 3) nextStage = "Technical Round";
                                                             else nextStage = "HR Round";
 
-                                                            const targetName = nextRoundObj?.roundName || `Round ${nextRoundNum}`;
+                                                            const pureTitle = getPureRoundTitle(nextRoundObj?.roundName, `Round ${nextRoundNum}`);
+                                                            const targetName = formatCleanRoundName(nextRoundNum, pureTitle);
 
                                                             handleUpdateStatus(
                                                                 selectedApp.id,

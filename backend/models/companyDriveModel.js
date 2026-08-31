@@ -64,6 +64,14 @@ const companyDriveSchema = new mongoose.Schema(
             type: Number,
             default: 7.0,
         },
+        minTenth: {
+            type: Number,
+            default: 60.0,
+        },
+        minTwelfth: {
+            type: Number,
+            default: 60.0,
+        },
         gradYear: {
             type: Number,
             default: 2026,
@@ -81,6 +89,15 @@ const companyDriveSchema = new mongoose.Schema(
             type: String,
             default: "Aptitude Test → Technical Interview → HR Round",
         },
+        rounds: [
+            {
+                roundNumber: { type: Number, default: 1 },
+                roundName: { type: String, default: "Round 1: Online Assessment" },
+                mode: { type: String, enum: ["Online", "Offline", "Hybrid"], default: "Online" },
+                date: { type: String, default: "" },
+                description: { type: String, default: "" },
+            }
+        ],
         workMode: {
             type: String,
             enum: ["On-site", "Hybrid", "Remote"],

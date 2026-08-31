@@ -1,6 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { addRecruiterActivity } from "../../utils/recruiterActivityUtils";
 
+export interface SelectionRound {
+    roundNumber: number;
+    roundName: string;
+    mode: "Online" | "Offline" | "Hybrid";
+    date?: string;
+    description?: string;
+}
+
 export interface PlacementDrive {
     id: string;
     company: string;
@@ -20,11 +28,14 @@ export interface PlacementDrive {
     openings?: number;
     eligibleBranches?: string[];
     minCgpa?: number;
+    minTenth?: number;
+    minTwelfth?: number;
     gradYear?: number;
     maxBacklogs?: number;
     requiredSkills?: string[];
     jobDescription?: string;
     selectionProcess?: string;
+    rounds?: SelectionRound[];
     bondAgreement?: string;
     benefitsPerks?: string;
     additionalInstructions?: string;
@@ -114,11 +125,12 @@ export const RecruiterPlacementDrives: React.FC<RecruiterPlacementDrivesProps> =
     // Form State
     const [formData, setFormData] = useState<Omit<PlacementDrive, "id">>({
         company: recruiterCompany,
-        jobTitle: "",
+        jobTitle: "Software Development Engineer (SDE-1)",
         jobType: "Full-Time (FTE)",
         location: "Bangalore, India",
         packageCtc: "₹18.0 LPA",
-        deadline: "",
+        deadline: "03 Sep 2026",
+        driveDate: "05 Sep 2026",
         status: "Active",
         logo: "https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg",
         appliedCount: 0,
@@ -346,28 +358,74 @@ export const RecruiterPlacementDrives: React.FC<RecruiterPlacementDrivesProps> =
         setFormData({ ...formData, eligibleBranches: selected });
     };
 
+    const DEFAULT_ROUNDS: SelectionRound[] = [
+        { roundNumber: 1, roundName: "Round 1: Online Coding & Aptitude Assessment", mode: "Online", date: "05 Sep 2026", description: "Online coding test and quantitative aptitude" },
+        { roundNumber: 2, roundName: "Round 2: Technical Interview (DSA & Core)", mode: "Online", date: "07 Sep 2026", description: "Data structures, problem solving, system design" },
+        { roundNumber: 3, roundName: "Round 3: HR & Management Discussion", mode: "Online", date: "09 Sep 2026", description: "Behavioral assessment and culture fit" }
+    ];
+
+    const handleAddRound = () => {
+        const currentRounds = formData.rounds && formData.rounds.length > 0 ? [...formData.rounds] : [...DEFAULT_ROUNDS];
+        const nextNum = currentRounds.length + 1;
+        const newRound: SelectionRound = {
+            roundNumber: nextNum,
+            roundName: `Round ${nextNum}: Technical Round`,
+            mode: "Online",
+            date: formData.driveDate || "05 Sep 2026",
+            description: "Technical evaluation"
+        };
+        const updated = [...currentRounds, newRound];
+        const summary = updated.map(r => r.roundName.replace(/Round\s*\d+\s*:\s*/i, "")).join(" → ");
+        setFormData({ ...formData, rounds: updated, selectionProcess: summary });
+    };
+
+    const handleRemoveRound = (index: number) => {
+        if (!formData.rounds || formData.rounds.length <= 1) {
+            setFormError("At least one selection round is required.");
+            return;
+        }
+        const updated = formData.rounds.filter((_, i) => i !== index).map((r, i) => ({
+            ...r,
+            roundNumber: i + 1,
+            roundName: r.roundName.includes("Round") ? `Round ${i + 1}: ${r.roundName.split(":")[1]?.trim() || r.roundName}` : r.roundName
+        }));
+        const summary = updated.map(r => r.roundName.replace(/Round\s*\d+\s*:\s*/i, "")).join(" → ");
+        setFormData({ ...formData, rounds: updated, selectionProcess: summary });
+    };
+
+    const handleRoundChange = (index: number, field: keyof SelectionRound, value: any) => {
+        const currentRounds = formData.rounds && formData.rounds.length > 0 ? [...formData.rounds] : [...DEFAULT_ROUNDS];
+        currentRounds[index] = { ...currentRounds[index], [field]: value };
+        const summary = currentRounds.map(r => r.roundName.replace(/Round\s*\d+\s*:\s*/i, "")).join(" → ");
+        setFormData({ ...formData, rounds: currentRounds, selectionProcess: summary });
+    };
+
     // Open Create Modal
     const handleOpenCreateModal = () => {
         setModalMode("create");
         setSelectedDriveId(null);
         setFormData({
             company: recruiterCompany,
-            jobTitle: "",
+            jobTitle: "Software Development Engineer (SDE-1)",
             jobType: "Full-Time (FTE)",
             location: "Bangalore, India",
             packageCtc: "₹18.0 LPA",
-            deadline: "",
+            deadline: "03 Sep 2026",
+            driveDate: "05 Sep 2026",
             status: "Pending Approval",
             logo: "https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg",
             appliedCount: 0,
             openings: 10,
             eligibleBranches: ["CSE", "IT", "ECE"],
             minCgpa: 7.0,
+            minTenth: 60.0,
+            minTwelfth: 60.0,
             gradYear: 2026,
             maxBacklogs: 0,
             requiredSkills: ["Java", "React", "Python"],
             jobDescription: "Responsible for software development, technical problem solving, and building scalable applications.",
-            selectionProcess: "Aptitude Test → Technical Interview → HR Round"
+            selectionProcess: "Online Coding & Aptitude Assessment → Technical Interview (DSA & Core) → HR & Management Discussion",
+            rounds: DEFAULT_ROUNDS
         });
         setSkillsInput("Java, React, Python");
         setFormError(null);
@@ -378,6 +436,7 @@ export const RecruiterPlacementDrives: React.FC<RecruiterPlacementDrivesProps> =
     const handleOpenEditModal = (drive: PlacementDrive) => {
         setModalMode("edit");
         setSelectedDriveId(drive.id);
+        const driveRounds = Array.isArray(drive.rounds) && drive.rounds.length > 0 ? drive.rounds : DEFAULT_ROUNDS;
         setFormData({
             company: drive.company || recruiterCompany,
             jobTitle: drive.jobTitle,
@@ -385,17 +444,21 @@ export const RecruiterPlacementDrives: React.FC<RecruiterPlacementDrivesProps> =
             location: drive.location,
             packageCtc: drive.packageCtc,
             deadline: drive.deadline,
+            driveDate: drive.driveDate || "05 Sep 2026",
             status: drive.status,
             logo: drive.logo || "https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg",
             appliedCount: drive.appliedCount || 0,
             openings: drive.openings || 10,
             eligibleBranches: drive.eligibleBranches || ["CSE", "IT"],
             minCgpa: drive.minCgpa || 7.0,
+            minTenth: drive.minTenth || 60.0,
+            minTwelfth: drive.minTwelfth || 60.0,
             gradYear: drive.gradYear || 2026,
             maxBacklogs: drive.maxBacklogs || 0,
             requiredSkills: drive.requiredSkills || ["Java", "React"],
             jobDescription: drive.jobDescription || "Responsible for software development.",
-            selectionProcess: drive.selectionProcess || "Aptitude Test → Technical Interview → HR Round"
+            selectionProcess: drive.selectionProcess || "Online Coding & Aptitude Assessment → Technical Interview (DSA & Core) → HR & Management Discussion",
+            rounds: driveRounds
         });
         setSkillsInput((drive.requiredSkills || ["Java", "React"]).join(", "));
         setFormError(null);
@@ -481,11 +544,15 @@ export const RecruiterPlacementDrives: React.FC<RecruiterPlacementDrivesProps> =
                             openings: createdMongoDrive.openings || formData.openings,
                             eligibleBranches: createdMongoDrive.eligibleBranches || formData.eligibleBranches,
                             minCgpa: createdMongoDrive.minCgpa || formData.minCgpa,
+                            minTenth: createdMongoDrive.minTenth || formData.minTenth || 60.0,
+                            minTwelfth: createdMongoDrive.minTwelfth || formData.minTwelfth || 60.0,
+                            driveDate: createdMongoDrive.driveDate || formData.driveDate,
                             gradYear: createdMongoDrive.gradYear || formData.gradYear,
                             maxBacklogs: createdMongoDrive.maxBacklogs || formData.maxBacklogs,
                             requiredSkills: createdMongoDrive.requiredSkills || skillsArr,
                             jobDescription: createdMongoDrive.jobDescription || formData.jobDescription,
-                            selectionProcess: createdMongoDrive.selectionProcess || formData.selectionProcess
+                            selectionProcess: createdMongoDrive.selectionProcess || formData.selectionProcess,
+                            rounds: createdMongoDrive.rounds || formData.rounds
                         };
                     }
                 } catch (apiErr) { }
@@ -1003,15 +1070,15 @@ export const RecruiterPlacementDrives: React.FC<RecruiterPlacementDrivesProps> =
                                     </div>
                                     <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
                                         <div>
-                                            <label style={{ display: "block", fontSize: "12px", fontWeight: "700", color: "#334155", marginBottom: "4px" }}>Job Title / Designation</label>
-                                            <input
-                                                type="text"
-                                                required
-                                                placeholder="e.g. Software Development Engineer (SDE-1)"
-                                                value={formData.jobTitle}
-                                                onChange={e => setFormData({ ...formData, jobTitle: e.target.value })}
-                                                style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px", boxSizing: "border-box" }}
-                                            />
+                                             <label style={{ display: "block", fontSize: "12px", fontWeight: "700", color: "#334155", marginBottom: "4px" }}>Job Title / Designation</label>
+                                             <input
+                                                 type="text"
+                                                 required
+                                                 placeholder="e.g. Software Development Engineer (SDE-1)"
+                                                 value={formData.jobTitle || "Software Development Engineer (SDE-1)"}
+                                                 onChange={e => setFormData({ ...formData, jobTitle: e.target.value })}
+                                                 style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px", boxSizing: "border-box" }}
+                                             />
                                         </div>
 
                                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
@@ -1163,22 +1230,22 @@ export const RecruiterPlacementDrives: React.FC<RecruiterPlacementDrivesProps> =
                                             </div>
                                         </div>
 
-                                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px" }}>
+                                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
                                             <div>
-                                                <label style={{ display: "block", fontSize: "12px", fontWeight: "700", color: "#334155", marginBottom: "4px" }}>Minimum CGPA</label>
+                                                <label style={{ display: "block", fontSize: "12px", fontWeight: "700", color: "#334155", marginBottom: "4px" }}>Minimum CGPA *</label>
                                                 <input
                                                     type="number"
                                                     step="0.1"
                                                     min="0"
                                                     max="10"
-                                                    value={formData.minCgpa || 7.0}
+                                                    value={formData.minCgpa ?? 7.0}
                                                     onChange={e => setFormData({ ...formData, minCgpa: parseFloat(e.target.value) || 0 })}
                                                     style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px", boxSizing: "border-box" }}
                                                 />
                                             </div>
 
                                             <div>
-                                                <label style={{ display: "block", fontSize: "12px", fontWeight: "700", color: "#334155", marginBottom: "4px" }}>Graduation Year</label>
+                                                <label style={{ display: "block", fontSize: "12px", fontWeight: "700", color: "#334155", marginBottom: "4px" }}>Graduation Year *</label>
                                                 <input
                                                     type="number"
                                                     value={formData.gradYear || 2026}
@@ -1186,11 +1253,41 @@ export const RecruiterPlacementDrives: React.FC<RecruiterPlacementDrivesProps> =
                                                     style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px", boxSizing: "border-box" }}
                                                 />
                                             </div>
+                                        </div>
+
+                                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px" }}>
+                                            <div>
+                                                <label style={{ display: "block", fontSize: "12px", fontWeight: "700", color: "#334155", marginBottom: "4px" }}>10th Standard %</label>
+                                                <input
+                                                    type="number"
+                                                    step="0.1"
+                                                    min="0"
+                                                    max="100"
+                                                    placeholder="e.g. 60.0%"
+                                                    value={formData.minTenth ?? 60.0}
+                                                    onChange={e => setFormData({ ...formData, minTenth: parseFloat(e.target.value) || 0 })}
+                                                    style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px", boxSizing: "border-box" }}
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <label style={{ display: "block", fontSize: "12px", fontWeight: "700", color: "#334155", marginBottom: "4px" }}>12th / Diploma %</label>
+                                                <input
+                                                    type="number"
+                                                    step="0.1"
+                                                    min="0"
+                                                    max="100"
+                                                    placeholder="e.g. 60.0%"
+                                                    value={formData.minTwelfth ?? 60.0}
+                                                    onChange={e => setFormData({ ...formData, minTwelfth: parseFloat(e.target.value) || 0 })}
+                                                    style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px", boxSizing: "border-box" }}
+                                                />
+                                            </div>
 
                                             <div>
                                                 <label style={{ display: "block", fontSize: "12px", fontWeight: "700", color: "#334155", marginBottom: "4px" }}>Active Backlogs</label>
                                                 <select
-                                                    value={formData.maxBacklogs || 0}
+                                                    value={formData.maxBacklogs ?? 0}
                                                     onChange={e => setFormData({ ...formData, maxBacklogs: parseInt(e.target.value) || 0 })}
                                                     style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px", backgroundColor: "#fff", boxSizing: "border-box" }}
                                                 >
@@ -1203,10 +1300,132 @@ export const RecruiterPlacementDrives: React.FC<RecruiterPlacementDrivesProps> =
                                     </div>
                                 </div>
 
-                                {/* 📝 4. RECRUITMENT DETAILS */}
+                                {/* 🔄 4. SELECTION ROUNDS BUILDER */}
+                                <div>
+                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px", borderBottom: "1px solid #f1f5f9", paddingBottom: "6px" }}>
+                                        <div style={{ fontSize: "12px", fontWeight: "800", color: "#0f172a", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                                            🔄 Selection Rounds Workflow
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={handleAddRound}
+                                            style={{
+                                                padding: "4px 10px",
+                                                backgroundColor: "#eff6ff",
+                                                color: "#2563eb",
+                                                border: "1px solid #bfdbfe",
+                                                borderRadius: "6px",
+                                                fontSize: "11.5px",
+                                                fontWeight: "700",
+                                                cursor: "pointer",
+                                                display: "inline-flex",
+                                                alignItems: "center",
+                                                gap: "4px"
+                                            }}
+                                        >
+                                            + Add Selection Round
+                                        </button>
+                                    </div>
+
+                                    <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                                        {(formData.rounds && formData.rounds.length > 0 ? formData.rounds : DEFAULT_ROUNDS).map((round, rIdx) => (
+                                            <div
+                                                key={rIdx}
+                                                style={{
+                                                    backgroundColor: "#f8fafc",
+                                                    borderRadius: "10px",
+                                                    border: "1px solid #e2e8f0",
+                                                    padding: "12px",
+                                                    display: "flex",
+                                                    flexDirection: "column",
+                                                    gap: "8px"
+                                                }}
+                                            >
+                                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                                    <span style={{ fontSize: "12px", fontWeight: "800", color: "#1e40af", backgroundColor: "#dbeafe", padding: "2px 8px", borderRadius: "12px" }}>
+                                                        Round {round.roundNumber || rIdx + 1}
+                                                    </span>
+                                                    {(formData.rounds || DEFAULT_ROUNDS).length > 1 && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleRemoveRound(rIdx)}
+                                                            style={{
+                                                                background: "none",
+                                                                border: "none",
+                                                                color: "#dc2626",
+                                                                fontSize: "12px",
+                                                                fontWeight: "700",
+                                                                cursor: "pointer",
+                                                                padding: "2px 6px"
+                                                            }}
+                                                            title="Delete this round"
+                                                        >
+                                                            ✕ Remove
+                                                        </button>
+                                                    )}
+                                                </div>
+
+                                                <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: "8px" }}>
+                                                    <div>
+                                                        <label style={{ display: "block", fontSize: "11px", fontWeight: "700", color: "#475569", marginBottom: "2px" }}>Round Name / Title</label>
+                                                        <input
+                                                            type="text"
+                                                            required
+                                                            placeholder="e.g. Round 1: Online Coding Test"
+                                                            value={round.roundName}
+                                                            onChange={e => handleRoundChange(rIdx, "roundName", e.target.value)}
+                                                            style={{ width: "100%", padding: "7px 10px", borderRadius: "6px", border: "1px solid #cbd5e1", fontSize: "12.5px", boxSizing: "border-box" }}
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label style={{ display: "block", fontSize: "11px", fontWeight: "700", color: "#475569", marginBottom: "2px" }}>Evaluation Mode</label>
+                                                        <select
+                                                            value={round.mode}
+                                                            onChange={e => handleRoundChange(rIdx, "mode", e.target.value as any)}
+                                                            style={{ width: "100%", padding: "7px 10px", borderRadius: "6px", border: "1px solid #cbd5e1", fontSize: "12.5px", backgroundColor: "#fff", boxSizing: "border-box" }}
+                                                        >
+                                                            <option value="Online">Online 🌐</option>
+                                                            <option value="Offline">Offline 🏢</option>
+                                                            <option value="Hybrid">Hybrid 🔄</option>
+                                                        </select>
+                                                    </div>
+                                                    <div>
+                                                        <label style={{ display: "block", fontSize: "11px", fontWeight: "700", color: "#475569", marginBottom: "2px" }}>Round Date</label>
+                                                        <input
+                                                            type="text"
+                                                            placeholder="e.g. 05 Sep 2026"
+                                                            value={round.date || ""}
+                                                            onChange={e => handleRoundChange(rIdx, "date", e.target.value)}
+                                                            style={{ width: "100%", padding: "7px 10px", borderRadius: "6px", border: "1px solid #cbd5e1", fontSize: "12.5px", boxSizing: "border-box" }}
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                <div>
+                                                    <label style={{ display: "block", fontSize: "11px", fontWeight: "700", color: "#475569", marginBottom: "2px" }}>Description / Assessment Format (Optional)</label>
+                                                    <input
+                                                        type="text"
+                                                        placeholder="e.g. 60 mins coding on HackerRank (DSA, SQL, Aptitude)"
+                                                        value={round.description || ""}
+                                                        onChange={e => handleRoundChange(rIdx, "description", e.target.value)}
+                                                        style={{ width: "100%", padding: "7px 10px", borderRadius: "6px", border: "1px solid #cbd5e1", fontSize: "12px", boxSizing: "border-box" }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        ))}
+
+                                        {/* Process Summary Preview */}
+                                        <div style={{ backgroundColor: "#eff6ff", borderRadius: "8px", padding: "8px 12px", border: "1px solid #bfdbfe", fontSize: "12px", color: "#1e40af", display: "flex", alignItems: "center", gap: "6px" }}>
+                                            <span style={{ fontWeight: "800" }}>Pipeline Preview:</span>
+                                            <span>{formData.selectionProcess || "Online Assessment → Technical Interview → HR Round"}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* 📝 5. RECRUITMENT DETAILS */}
                                 <div>
                                     <div style={{ fontSize: "12px", fontWeight: "800", color: "#0f172a", marginBottom: "10px", textTransform: "uppercase", letterSpacing: "0.5px", borderBottom: "1px solid #f1f5f9", paddingBottom: "4px" }}>
-                                        📝 Recruitment Details
+                                        📝 Role & Skills Overview
                                     </div>
                                     <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
                                         <div>
@@ -1216,17 +1435,6 @@ export const RecruiterPlacementDrives: React.FC<RecruiterPlacementDrivesProps> =
                                                 placeholder="e.g. Java, Python, SQL, AWS, Data Structures"
                                                 value={skillsInput}
                                                 onChange={e => setSkillsInput(e.target.value)}
-                                                style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px", boxSizing: "border-box" }}
-                                            />
-                                        </div>
-
-                                        <div>
-                                            <label style={{ display: "block", fontSize: "12px", fontWeight: "700", color: "#334155", marginBottom: "4px" }}>Selection Process</label>
-                                            <input
-                                                type="text"
-                                                placeholder="e.g. Aptitude → Technical → HR"
-                                                value={formData.selectionProcess || ""}
-                                                onChange={e => setFormData({ ...formData, selectionProcess: e.target.value })}
                                                 style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px", boxSizing: "border-box" }}
                                             />
                                         </div>
@@ -1244,7 +1452,7 @@ export const RecruiterPlacementDrives: React.FC<RecruiterPlacementDrivesProps> =
                                     </div>
                                 </div>
 
-                                {/* ⚙️ 5. DRIVE SETTINGS & DEADLINES */}
+                                {/* ⚙️ 6. DRIVE SETTINGS & DEADLINES */}
                                 <div>
                                     <div style={{ fontSize: "12px", fontWeight: "800", color: "#0f172a", marginBottom: "10px", textTransform: "uppercase", letterSpacing: "0.5px", borderBottom: "1px solid #f1f5f9", paddingBottom: "4px" }}>
                                         ⚙️ Drive Settings & Deadlines
@@ -1255,8 +1463,8 @@ export const RecruiterPlacementDrives: React.FC<RecruiterPlacementDrivesProps> =
                                             <input
                                                 type="text"
                                                 required
-                                                placeholder="e.g. 28 Aug 2026"
-                                                value={formData.deadline}
+                                                placeholder="e.g. 03 Sep 2026"
+                                                value={formData.deadline || "03 Sep 2026"}
                                                 onChange={e => setFormData({ ...formData, deadline: e.target.value })}
                                                 style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px", boxSizing: "border-box" }}
                                             />
@@ -1275,8 +1483,16 @@ export const RecruiterPlacementDrives: React.FC<RecruiterPlacementDrivesProps> =
                                     </div>
                                 </div>
 
+                                {/* WORKFLOW NOTICE BANNER */}
+                                <div style={{ backgroundColor: "#f8fafc", borderRadius: "8px", padding: "10px 14px", border: "1px solid #e2e8f0", fontSize: "12px", color: "#475569", display: "flex", alignItems: "flex-start", gap: "8px" }}>
+                                    <span style={{ fontSize: "16px" }}>ℹ️</span>
+                                    <span>
+                                        <strong>Placement Officer Verification:</strong> Recruiters cannot directly publish drives to students. When submitted, the drive will be routed to the Placement Officer for verification and official publishing.
+                                    </span>
+                                </div>
+
                                 {/* FORM MODAL ACTION BUTTONS */}
-                                <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "12px", paddingTop: "14px", borderTop: "1px solid #f1f5f9" }}>
+                                <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "4px", paddingTop: "14px", borderTop: "1px solid #f1f5f9" }}>
                                     <button
                                         type="button"
                                         onClick={() => setIsFormModalOpen(false)}
@@ -1298,7 +1514,7 @@ export const RecruiterPlacementDrives: React.FC<RecruiterPlacementDrivesProps> =
                                         onClick={() => setSubmitAction("Pending Approval")}
                                         style={{ padding: "9px 20px", backgroundColor: "#2563eb", color: "#ffffff", border: "none", borderRadius: "8px", fontSize: "13px", fontWeight: "700", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "6px", boxShadow: "0 2px 4px rgba(37,99,235,0.2)" }}
                                     >
-                                        <span>🚀</span> {formData.status === "Rejected" ? "Resubmit for Approval" : "Submit for Approval"}
+                                        <span>🚀</span> {formData.status === "Rejected" ? "Resubmit for Officer Verification" : "Submit for Officer Verification"}
                                     </button>
                                 </div>
                             </form>
@@ -1462,40 +1678,73 @@ export const RecruiterPlacementDrives: React.FC<RecruiterPlacementDrivesProps> =
                                     </div>
                                 </div>
 
-                                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: "12px", paddingTop: "12px", borderTop: "1px solid #f1f5f9" }}>
+                                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))", gap: "10px", paddingTop: "12px", borderTop: "1px solid #f1f5f9" }}>
                                     <div>
                                         <div style={{ color: "#64748b", fontSize: "11px", fontWeight: "700", textTransform: "uppercase" }}>MIN CGPA</div>
-                                        <div style={{ color: "#0f172a", fontWeight: "800", fontSize: "15px", marginTop: "2px" }}>{viewDrive.minCgpa || 7.0} CGPA</div>
+                                        <div style={{ color: "#0f172a", fontWeight: "800", fontSize: "14px", marginTop: "2px" }}>{viewDrive.minCgpa ?? 7.0} CGPA</div>
                                     </div>
                                     <div>
-                                        <div style={{ color: "#64748b", fontSize: "11px", fontWeight: "700", textTransform: "uppercase" }}>MAX BACKLOGS</div>
-                                        <div style={{ color: "#0f172a", fontWeight: "800", fontSize: "15px", marginTop: "2px" }}>{viewDrive.maxBacklogs ?? 0} Allowed</div>
+                                        <div style={{ color: "#64748b", fontSize: "11px", fontWeight: "700", textTransform: "uppercase" }}>10TH %</div>
+                                        <div style={{ color: "#0f172a", fontWeight: "800", fontSize: "14px", marginTop: "2px" }}>{viewDrive.minTenth ?? 60.0}% Min</div>
                                     </div>
                                     <div>
-                                        <div style={{ color: "#64748b", fontSize: "11px", fontWeight: "700", textTransform: "uppercase" }}>GRADUATION YEAR</div>
-                                        <div style={{ color: "#0f172a", fontWeight: "800", fontSize: "15px", marginTop: "2px" }}>{viewDrive.gradYear || 2026} Batch</div>
+                                        <div style={{ color: "#64748b", fontSize: "11px", fontWeight: "700", textTransform: "uppercase" }}>12TH / DIP %</div>
+                                        <div style={{ color: "#0f172a", fontWeight: "800", fontSize: "14px", marginTop: "2px" }}>{viewDrive.minTwelfth ?? 60.0}% Min</div>
                                     </div>
+                                    <div>
+                                        <div style={{ color: "#64748b", fontSize: "11px", fontWeight: "700", textTransform: "uppercase" }}>BACKLOGS</div>
+                                        <div style={{ color: "#0f172a", fontWeight: "800", fontSize: "14px", marginTop: "2px" }}>{viewDrive.maxBacklogs ?? 0} Max</div>
+                                    </div>
+                                    <div>
+                                        <div style={{ color: "#64748b", fontSize: "11px", fontWeight: "700", textTransform: "uppercase" }}>GRAD YEAR</div>
+                                        <div style={{ color: "#0f172a", fontWeight: "800", fontSize: "14px", marginTop: "2px" }}>{viewDrive.gradYear || 2026} Batch</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Selection Rounds Breakdown */}
+                            <div style={{ border: "1px solid #eaedf0", borderRadius: "12px", padding: "16px", backgroundColor: "#ffffff" }}>
+                                <div style={{ fontSize: "12px", fontWeight: "800", color: "#0f172a", marginBottom: "10px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                                    🔄 Selection Rounds Pipeline ({(viewDrive.rounds || []).length > 0 ? (viewDrive.rounds || []).length : 3} Rounds)
+                                </div>
+                                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                                    {((viewDrive.rounds && viewDrive.rounds.length > 0) ? viewDrive.rounds : [
+                                        { roundNumber: 1, roundName: "Round 1: Online Coding & Aptitude Assessment", mode: "Online" as const, date: viewDrive.deadline || "05 Sep 2026", description: "Online assessment" },
+                                        { roundNumber: 2, roundName: "Round 2: Technical Interview (DSA)", mode: "Online" as const, date: viewDrive.driveDate || "07 Sep 2026", description: "Data structures & coding" },
+                                        { roundNumber: 3, roundName: "Round 3: HR & Cultural Fitment", mode: "Online" as const, date: "09 Sep 2026", description: "Behavioral round" }
+                                    ]).map((rnd, i) => (
+                                        <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", backgroundColor: "#f8fafc", padding: "10px 12px", borderRadius: "8px", border: "1px solid #f1f5f9", fontSize: "12.5px" }}>
+                                            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                                                <span style={{ backgroundColor: "#dbeafe", color: "#1d4ed8", fontWeight: "800", padding: "2px 8px", borderRadius: "6px", fontSize: "11px" }}>
+                                                    R{rnd.roundNumber || i + 1}
+                                                </span>
+                                                <div>
+                                                    <div style={{ fontWeight: "700", color: "#0f172a" }}>{rnd.roundName}</div>
+                                                    {rnd.description && <div style={{ fontSize: "11px", color: "#64748b" }}>{rnd.description}</div>}
+                                                </div>
+                                            </div>
+                                            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                                {rnd.date && <span style={{ fontSize: "11px", color: "#64748b", fontWeight: "600" }}>📅 {rnd.date}</span>}
+                                                <span style={{ backgroundColor: rnd.mode === "Online" ? "#eff6ff" : (rnd.mode === "Offline" ? "#fef3c7" : "#f5f3ff"), color: rnd.mode === "Online" ? "#2563eb" : (rnd.mode === "Offline" ? "#b45309" : "#7c3aed"), fontWeight: "700", fontSize: "11px", padding: "2px 8px", borderRadius: "10px" }}>
+                                                    {rnd.mode}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
 
                             {/* Skills & Process */}
                             <div style={{ border: "1px solid #eaedf0", borderRadius: "12px", padding: "16px" }}>
                                 <div style={{ fontSize: "12px", fontWeight: "800", color: "#0f172a", marginBottom: "10px", textTransform: "uppercase" }}>
-                                    📝 Skills & Selection Process
+                                    📝 Required Skills
                                 </div>
-                                <div style={{ marginBottom: "10px" }}>
-                                    <div style={{ color: "#64748b", fontSize: "11px", fontWeight: "600", marginBottom: "4px" }}>REQUIRED SKILLS</div>
-                                    <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-                                        {(viewDrive.requiredSkills || ["Java", "React"]).map((skill, i) => (
-                                            <span key={i} style={{ backgroundColor: "#eff6ff", color: "#2563eb", border: "1px solid #bfdbfe", padding: "3px 10px", borderRadius: "12px", fontSize: "12px", fontWeight: "700" }}>
-                                                {skill}
-                                            </span>
-                                        ))}
-                                    </div>
-                                </div>
-                                <div>
-                                    <div style={{ color: "#64748b", fontSize: "11px", fontWeight: "600", marginBottom: "2px" }}>SELECTION PROCESS</div>
-                                    <div style={{ color: "#334155", fontSize: "13px", fontWeight: "600" }}>{viewDrive.selectionProcess || "Aptitude → Technical → HR"}</div>
+                                <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                                    {(viewDrive.requiredSkills || ["Java", "React"]).map((skill, i) => (
+                                        <span key={i} style={{ backgroundColor: "#eff6ff", color: "#2563eb", border: "1px solid #bfdbfe", padding: "3px 10px", borderRadius: "12px", fontSize: "12px", fontWeight: "700" }}>
+                                            {skill}
+                                        </span>
+                                    ))}
                                 </div>
                             </div>
 

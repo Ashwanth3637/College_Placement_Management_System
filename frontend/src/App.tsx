@@ -4,6 +4,7 @@ import Login from './pages/Login';
 import OfficerDashboard from './pages/officer/OfficerDashboard';
 import RecruiterDashboard from './pages/recruiter/RecruiterDashboard';
 import StudentDashboard from './pages/student/StudentDashboard';
+import CoordinatorDashboard from './pages/coordinator/CoordinatorDashboard';
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -61,10 +62,13 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
 function AppContent() {
   const [user, setUser] = useState<any>(() => {
     try {
+      const savedToken = localStorage.getItem("token");
       const savedUser = localStorage.getItem("user");
-      if (!savedUser || savedUser === "undefined" || savedUser === "null") return null;
+      if (!savedToken || !savedUser || savedUser === "undefined" || savedUser === "null") return null;
       const parsed = JSON.parse(savedUser);
-      if (parsed && typeof parsed === "object" && parsed.email) return parsed;
+      if (parsed && typeof parsed === "object" && parsed.email && parsed.role) {
+        return parsed;
+      }
       return null;
     } catch (e) {
       return null;
@@ -74,9 +78,10 @@ function AppContent() {
   const navigate = useNavigate();
 
   const userRole = (user?.role || '').toLowerCase().trim();
-  const isStudent = userRole === 'student' || (!userRole && user !== null);
+  const isStudent = userRole === 'student';
   const isRecruiter = userRole === 'recruiter';
-  const isOfficer = userRole === 'officer' || userRole === 'admin' || userRole === 'coordinator' || userRole === 'tpo';
+  const isCoordinator = userRole === 'coordinator';
+  const isOfficer = ['officer', 'admin', 'tpo'].includes(userRole);
 
   const handleLoginSuccess = (userData: any) => {
     setUser(userData);
@@ -86,7 +91,9 @@ function AppContent() {
     const role = (userData?.role || '').toLowerCase().trim();
     if (role === 'recruiter') {
       navigate('/recruiter/dashboard');
-    } else if (role === 'officer' || role === 'admin' || role === 'coordinator' || role === 'tpo') {
+    } else if (role === 'coordinator') {
+      navigate('/coordinator/dashboard');
+    } else if (['officer', 'admin', 'tpo'].includes(role)) {
       navigate('/officer/dashboard');
     } else {
       navigate('/student/dashboard');
@@ -104,21 +111,23 @@ function AppContent() {
 
   const getDashboardRedirect = () => {
     if (isRecruiter) return <Navigate to="/recruiter/dashboard" replace />;
+    if (isCoordinator) return <Navigate to="/coordinator/dashboard" replace />;
     if (isOfficer) return <Navigate to="/officer/dashboard" replace />;
-    return <Navigate to="/student/dashboard" replace />;
+    if (isStudent) return <Navigate to="/student/dashboard" replace />;
+    return <Navigate to="/login" replace />;
   };
 
   const renderLogin = <Login onLoginSuccess={handleLoginSuccess} />;
 
   return (
     <Routes>
-      {/* Root Route: Always show Login page if logged out */}
+      {/* Root Route: Always show Login page first when visiting localhost link */}
       <Route
         path="/"
-        element={user ? getDashboardRedirect() : renderLogin}
+        element={renderLogin}
       />
 
-      {/* Login Page: Always renders Login form cleanly */}
+      {/* Login Page */}
       <Route
         path="/login"
         element={renderLogin}
@@ -127,19 +136,7 @@ function AppContent() {
       {/* Generic Dashboard (Protected) */}
       <Route
         path="/dashboard"
-        element={
-          user ? (
-            isRecruiter ? (
-              <Navigate to="/recruiter/dashboard" replace />
-            ) : isOfficer ? (
-              <Navigate to="/officer/dashboard" replace />
-            ) : (
-              <StudentDashboard user={user} onLogout={handleLogout} />
-            )
-          ) : (
-            renderLogin
-          )
-        }
+        element={user ? getDashboardRedirect() : renderLogin}
       />
 
       {/* Student Portal Protected Routes */}
@@ -242,6 +239,36 @@ function AppContent() {
         }
       />
 
+      {/* Coordinator Protected Routes */}
+      <Route
+        path="/coordinator/dashboard"
+        element={
+          user ? (
+            isCoordinator ? (
+              <CoordinatorDashboard initialTab="dashboard" user={user} onLogout={handleLogout} />
+            ) : (
+              getDashboardRedirect()
+            )
+          ) : (
+            renderLogin
+          )
+        }
+      />
+      <Route
+        path="/coordinator/:tab"
+        element={
+          user ? (
+            isCoordinator ? (
+              <CoordinatorDashboard user={user} onLogout={handleLogout} />
+            ) : (
+              getDashboardRedirect()
+            )
+          ) : (
+            renderLogin
+          )
+        }
+      />
+
       {/* Placement Officer Protected Routes */}
       <Route
         path="/officer/dashboard"
@@ -304,7 +331,21 @@ function AppContent() {
         element={
           user ? (
             isOfficer ? (
-              <OfficerDashboard initialTab="students" user={user} onLogout={handleLogout} />
+              <OfficerDashboard initialTab="verification" user={user} onLogout={handleLogout} />
+            ) : (
+              getDashboardRedirect()
+            )
+          ) : (
+            renderLogin
+          )
+        }
+      />
+      <Route
+        path="/officer/verification"
+        element={
+          user ? (
+            isOfficer ? (
+              <OfficerDashboard initialTab="verification" user={user} onLogout={handleLogout} />
             ) : (
               getDashboardRedirect()
             )
@@ -370,11 +411,11 @@ function AppContent() {
         }
       />
       <Route
-        path="/officer/:tab"
+        path="/officer"
         element={
           user ? (
             isOfficer ? (
-              <OfficerDashboard user={user} onLogout={handleLogout} />
+              <OfficerDashboard initialTab="stats" user={user} onLogout={handleLogout} />
             ) : (
               getDashboardRedirect()
             )
@@ -442,11 +483,53 @@ function AppContent() {
         }
       />
       <Route
-        path="/recruiter/:tab"
+        path="/recruiter/applications"
         element={
           user ? (
             isRecruiter ? (
-              <RecruiterDashboard user={user} onLogout={handleLogout} />
+              <RecruiterDashboard initialTab="applications" user={user} onLogout={handleLogout} />
+            ) : (
+              getDashboardRedirect()
+            )
+          ) : (
+            renderLogin
+          )
+        }
+      />
+      <Route
+        path="/recruiter/interviews"
+        element={
+          user ? (
+            isRecruiter ? (
+              <RecruiterDashboard initialTab="interviews" user={user} onLogout={handleLogout} />
+            ) : (
+              getDashboardRedirect()
+            )
+          ) : (
+            renderLogin
+          )
+        }
+      />
+      <Route
+        path="/recruiter/selections"
+        element={
+          user ? (
+            isRecruiter ? (
+              <RecruiterDashboard initialTab="selections" user={user} onLogout={handleLogout} />
+            ) : (
+              getDashboardRedirect()
+            )
+          ) : (
+            renderLogin
+          )
+        }
+      />
+      <Route
+        path="/recruiter"
+        element={
+          user ? (
+            isRecruiter ? (
+              <RecruiterDashboard initialTab="stats" user={user} onLogout={handleLogout} />
             ) : (
               getDashboardRedirect()
             )
@@ -456,7 +539,7 @@ function AppContent() {
         }
       />
 
-      {/* Catch-all fallback route: Always shows Login */}
+      {/* Catch-all fallback route: Always shows Login or user's dashboard */}
       <Route
         path="*"
         element={user ? getDashboardRedirect() : renderLogin}

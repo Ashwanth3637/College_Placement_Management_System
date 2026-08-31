@@ -77,10 +77,6 @@ const saveStudentProfile = async (req, res) => {
             }
 
             if (!userDoc) {
-                userDoc = await User.findOne({ role: "student" });
-            }
-
-            if (!userDoc) {
                 const defaultPassword = await bcrypt.hash("password123", 10);
                 userDoc = new User({
                     name: personalData.fullName || req.body.fullName || "Student",
@@ -205,12 +201,8 @@ const getStudentProfile = async (req, res) => {
                 }
             }
             if (!student) {
-                userDoc = await User.findOne({
-                    $or: [
-                        { email: userId.toLowerCase().trim() },
-                        { role: "student" }
-                    ]
-                });
+                const searchEmail = userId.toLowerCase().trim();
+                userDoc = await User.findOne({ email: searchEmail });
                 if (userDoc) {
                     student = await Student.findOne({ user: userDoc._id }).populate("user", "name email role");
                 }
@@ -222,8 +214,8 @@ const getStudentProfile = async (req, res) => {
         }
 
         return res.status(200).json({
-            user: { _id: userId, name: "Student", email: "student@college.edu", role: "student" },
-            personal: { phone: "", department: "Computer Science & Engineering", registerNumber: "" },
+            user: { _id: userId, name: "Student", email: userId.includes("@") ? userId : "student@college.edu", role: "student" },
+            personal: { fullName: "", phone: "", department: "Computer Science & Engineering", registerNumber: "" },
             academic: { tenthPercentage: 0, twelfthPercentage: 0, cgpa: 0, backlogs: 0, graduationYear: 2026 },
             professional: { skills: [], certifications: [], projects: [], internships: [], resumeName: "", resumeUrl: "" },
             isVerified: false,

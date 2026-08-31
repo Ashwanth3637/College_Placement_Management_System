@@ -47,6 +47,12 @@ const OfficerDashboard: React.FC<DashboardProps> = ({ user, onLogout, initialTab
         } catch (e) {}
     };
 
+    useEffect(() => {
+        if (initialTab) {
+            setActiveTabState(initialTab);
+        }
+    }, [initialTab]);
+
     const [appliedDrives, setAppliedDrives] = useState<string[]>(() => {
         try {
             const saved = localStorage.getItem(`cpms_applied_drives_${userKey}`);

@@ -1,6 +1,13 @@
 export interface RecruiterActivityItem {
     id: string;
-    type: "PLACEMENT_DRIVE_APPROVED" | "PLACEMENT_DRIVE_REJECTED" | "PLACEMENT_DRIVE_SUBMITTED";
+    type: 
+        | "PLACEMENT_DRIVE_APPROVED" 
+        | "PLACEMENT_DRIVE_REJECTED" 
+        | "PLACEMENT_DRIVE_SUBMITTED"
+        | "APPLICATION_RECEIVED"
+        | "CANDIDATE_SHORTLISTED"
+        | "INTERVIEW_SCHEDULED"
+        | "CANDIDATE_SELECTED";
     title: string;
     message: string;
     company: string;
@@ -29,6 +36,24 @@ export const getRecruiterActivities = (): RecruiterActivityItem[] => {
             company: "Amazon Development Center",
             driveRole: "Software Developer",
             createdAt: new Date().toISOString()
+        },
+        {
+            id: "act_default_2",
+            type: "APPLICATION_RECEIVED",
+            title: "New Application Received",
+            message: "Rahul Kumar applied for Software Developer placement drive.",
+            company: "Amazon Development Center",
+            driveRole: "Software Developer",
+            createdAt: new Date(Date.now() - 3600000).toISOString()
+        },
+        {
+            id: "act_default_3",
+            type: "CANDIDATE_SHORTLISTED",
+            title: "Candidate Shortlisted",
+            message: "Ashwanth S was shortlisted for Round 2 Technical Interview.",
+            company: "Amazon Development Center",
+            driveRole: "Cloud Engineer",
+            createdAt: new Date(Date.now() - 7200000).toISOString()
         }
     ];
 };

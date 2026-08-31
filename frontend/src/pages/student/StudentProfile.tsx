@@ -32,7 +32,7 @@ const StudentProfile: React.FC<StudentProfileProps> = ({
             if (cleaned) return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
             return user.name;
         }
-        return "Ashwanth";
+        return "Student";
     })();
 
     const [fullName, setFullName] = useState(initialName);

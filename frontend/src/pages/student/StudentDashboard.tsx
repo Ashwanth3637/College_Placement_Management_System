@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import jsPDF from "jspdf";
 import StudentProfile from "./StudentProfile";
+import { formatCleanRoundName, getPureRoundTitle } from "../../utils/roundUtils";
 
 interface User {
     id?: string;
@@ -44,7 +45,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
     const userId = user?.id || user?._id || "";
 
     const getFormattedName = (rawName?: string) => {
-        if (!rawName) return "Ashwanth";
+        if (!rawName) return "Student";
         const cleaned = rawName.split('@')[0].replace(/[0-9]/g, "").trim();
         if (cleaned) {
             return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
@@ -98,6 +99,12 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
         } catch (e) { }
     };
 
+    useEffect(() => {
+        if (initialTab) {
+            setCurrentTabState(initialTab);
+        }
+    }, [initialTab]);
+
     const [driveFilter, setDriveFilterState] = useState<"Opted-In" | "Opted-Out" | "Eligible" | "Not Eligible" | "Completed">(() => {
         try {
             const saved = localStorage.getItem(`cpms_drive_filter_student_${userKey}`);
@@ -137,59 +144,88 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
         };
     }, []);
 
+    React.useEffect(() => {
+        const fetchDbApps = async () => {
+            try {
+                const studentEmail = user?.email || "ashwanth@gmail.com";
+                const res = await fetch(`http://localhost:5001/api/applications?email=${encodeURIComponent(studentEmail)}`);
+                if (res.ok) {
+                    const dbApps = await res.json();
+                    if (Array.isArray(dbApps) && dbApps.length > 0) {
+                        const localStr = localStorage.getItem("cpms_applications");
+                        let localArr = localStr ? JSON.parse(localStr) : [];
+                        if (!Array.isArray(localArr)) localArr = [];
+
+                        dbApps.forEach((dbA: any) => {
+                            const idx = localArr.findIndex((l: any) =>
+                                (l.companyName || l.company || "").toLowerCase().includes((dbA.companyName || "").toLowerCase()) &&
+                                (l.jobRole || l.role || "").toLowerCase().includes((dbA.jobRole || "").toLowerCase())
+                            );
+                            if (idx >= 0) {
+                                localArr[idx] = {
+                                    ...localArr[idx],
+                                    ...dbA,
+                                    currentRound: dbA.currentRound || localArr[idx].currentRound || 1,
+                                    status: dbA.status || localArr[idx].status || "Opted-In",
+                                    roundStatus: dbA.roundStatus || localArr[idx].roundStatus,
+                                    roundName: dbA.roundName || localArr[idx].roundName,
+                                    history: dbA.history && dbA.history.length > 0 ? dbA.history : localArr[idx].history,
+                                    interviewSchedule: dbA.interviewSchedule || localArr[idx].interviewSchedule
+                                };
+                            } else {
+                                localArr.push(dbA);
+                            }
+                        });
+
+                        localStorage.setItem("cpms_applications", JSON.stringify(localArr));
+                    }
+                }
+            } catch (e) {
+                console.error("Error fetching MongoDB student applications:", e);
+            }
+        };
+
+        fetchDbApps();
+    }, [user?.email, appsUpdatedCounter]);
+
 
 
     const loadAllAppliedDrives = (): string[] => {
         const set = new Set<string>();
-
-        // 1. Scan all localStorage keys starting with cpms_applied_drives
-        for (let i = 0; i < localStorage.length; i++) {
-            const k = localStorage.key(i);
-            if (k && k.includes("cpms_applied_drives")) {
-                try {
-                    const val = localStorage.getItem(k);
-                    if (val) {
-                        const parsed = JSON.parse(val);
-                        if (Array.isArray(parsed)) {
-                            parsed.forEach(item => {
-                                if (typeof item === "string" && item.trim()) {
-                                    set.add(item.trim().toLowerCase());
-                                } else if (item && typeof item === "object") {
-                                    if (item.id) set.add(String(item.id).toLowerCase());
-                                    if (item.driveId) set.add(String(item.driveId).toLowerCase());
-                                    if (item.companyName || item.company) {
-                                        const c = String(item.companyName || item.company).toLowerCase().trim();
-                                        set.add(c);
-                                        if (item.role || item.jobRole) {
-                                            const r = String(item.role || item.jobRole).toLowerCase().trim();
-                                            set.add(`${c}_${r}`);
-                                        }
-                                    }
-                                }
-                            });
-                        }
-                    }
-                } catch (e) {}
+        // 1. User-specific applied drives
+        try {
+            const userVal = localStorage.getItem(`cpms_applied_drives_${userKey}`) || localStorage.getItem(`cpms_applied_drives_${userId}`);
+            if (userVal) {
+                const parsed = JSON.parse(userVal);
+                if (Array.isArray(parsed)) {
+                    parsed.forEach(item => {
+                        if (typeof item === "string" && item.trim()) set.add(item.trim().toLowerCase());
+                    });
+                }
             }
-        }
+        } catch (e) {}
 
-        // 2. Scan cpms_applications
+        // 2. User-specific applications from cpms_applications
         try {
             const appsVal = localStorage.getItem("cpms_applications");
             if (appsVal) {
                 const appsArr = JSON.parse(appsVal);
                 if (Array.isArray(appsArr)) {
                     appsArr.forEach((rec: any) => {
-                        const recStatus = String(rec.status || "").toLowerCase();
-                        if (recStatus !== "rejected" && recStatus !== "not shortlisted") {
-                            if (rec.driveId) set.add(String(rec.driveId).toLowerCase());
-                            if (rec.id) set.add(String(rec.id).toLowerCase());
-                            if (rec.companyName || rec.company) {
-                                const c = String(rec.companyName || rec.company).toLowerCase().trim();
-                                set.add(c);
-                                if (rec.jobRole || rec.role) {
-                                    const r = String(rec.jobRole || rec.role).toLowerCase().trim();
-                                    set.add(`${c}_${r}`);
+                        const recEmail = String(rec.email || rec.studentEmail || "").toLowerCase().trim();
+                        const recStudentId = String(rec.studentId || "").trim();
+                        // Match ONLY the logged-in student
+                        if ((recEmail && recEmail === userEmailLower) || (recStudentId && recStudentId === userId)) {
+                            const recStatus = String(rec.status || "").toLowerCase();
+                            if (recStatus !== "rejected" && recStatus !== "not shortlisted") {
+                                if (rec.driveId) set.add(String(rec.driveId).toLowerCase());
+                                if (rec.companyName || rec.company) {
+                                    const c = String(rec.companyName || rec.company).toLowerCase().trim();
+                                    set.add(c);
+                                    if (rec.jobRole || rec.role) {
+                                        const r = String(rec.jobRole || rec.role).toLowerCase().trim();
+                                        set.add(`${c}_${r}`);
+                                    }
                                 }
                             }
                         }
@@ -203,22 +239,17 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
 
     const loadAllOptedOutDrives = (): string[] => {
         const set = new Set<string>();
-        for (let i = 0; i < localStorage.length; i++) {
-            const k = localStorage.key(i);
-            if (k && k.includes("cpms_opted_out_drives")) {
-                try {
-                    const val = localStorage.getItem(k);
-                    if (val) {
-                        const parsed = JSON.parse(val);
-                        if (Array.isArray(parsed)) {
-                            parsed.forEach(item => {
-                                if (typeof item === "string" && item.trim()) set.add(item.trim().toLowerCase());
-                            });
-                        }
-                    }
-                } catch (e) {}
+        try {
+            const userVal = localStorage.getItem(`cpms_opted_out_drives_${userKey}`) || localStorage.getItem(`cpms_opted_out_drives_${userId}`);
+            if (userVal) {
+                const parsed = JSON.parse(userVal);
+                if (Array.isArray(parsed)) {
+                    parsed.forEach(item => {
+                        if (typeof item === "string" && item.trim()) set.add(item.trim().toLowerCase());
+                    });
+                }
             }
-        }
+        } catch (e) {}
         return Array.from(set);
     };
 
@@ -274,14 +305,18 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
         };
     }, [userKey, userEmailLower, displayName]);
 
-    const [studentCgpa, setStudentCgpa] = useState<number>(8.5);
+    const [studentCgpa, setStudentCgpa] = useState<number>(0.0);
     const [studentBacklogs, setStudentBacklogs] = useState<number>(0);
     const [studentDepartment, setStudentDepartment] = useState<string>("Computer Science & Engineering");
-    const [studentTenth, setStudentTenth] = useState<number>(88.0);
-    const [studentTwelfth, setStudentTwelfth] = useState<number>(90.0);
+    const [studentTenth, setStudentTenth] = useState<number>(0.0);
+    const [studentTwelfth, setStudentTwelfth] = useState<number>(0.0);
     const [studentGradYear, setStudentGradYear] = useState<number>(2026);
-    const [studentSkills, setStudentSkills] = useState<string[]>(["React", "Python", "Data Structures", "Git", "SQL"]);
-    const [isProfileVerified, setIsProfileVerified] = useState<boolean>(true);
+    const [studentRegNo, setStudentRegNo] = useState<string>("");
+    const [studentPhone, setStudentPhone] = useState<string>("");
+    const [studentResumeName, setStudentResumeName] = useState<string>("");
+    const [studentResumeUrl, setStudentResumeUrl] = useState<string>("");
+    const [studentSkills, setStudentSkills] = useState<string[]>([]);
+    const [isProfileVerified, setIsProfileVerified] = useState<boolean>(false);
     const [selectedDriveCriteria, setSelectedDriveCriteria] = useState<PlacementDrive | null>(null);
 
     useEffect(() => {
@@ -361,6 +396,8 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                     }
 
                     if (student.personal?.department) setStudentDepartment(student.personal.department);
+                    if (student.personal?.registerNumber) setStudentRegNo(student.personal.registerNumber);
+                    if (student.personal?.phone) setStudentPhone(student.personal.phone);
                     if (student.academic) {
                         if (student.academic.cgpa !== undefined) setStudentCgpa(Number(student.academic.cgpa));
                         if (student.academic.backlogs !== undefined) setStudentBacklogs(Number(student.academic.backlogs));
@@ -371,6 +408,8 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                     if (student.professional?.skills) {
                         setStudentSkills(Array.isArray(student.professional.skills) ? student.professional.skills : []);
                     }
+                    if (student.professional?.resumeName) setStudentResumeName(student.professional.resumeName);
+                    if (student.professional?.resumeUrl) setStudentResumeUrl(student.professional.resumeUrl);
                 }
             } catch (err) {
                 console.error("Error fetching student profile for dashboard:", err);
@@ -432,25 +471,19 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
             const sReg = (localStorage.getItem("cpms_student_regno") || "").toLowerCase().trim();
             const sEmail = (user?.email || "").toLowerCase().trim();
 
-            // Filter officerInterviews for logged-in student (or drive general schedules)
+            // Filter officerInterviews strictly for logged-in student
             const studentInterviews = officerInterviews.filter((item: any) => {
                 const cName = (item.candidateName || item.studentName || item.name || "").toLowerCase().trim();
                 const cReg = (item.regNo || item.registerNo || item.regNum || "").toLowerCase().trim();
                 const cEmail = (item.email || "").toLowerCase().trim();
 
-                if (cReg && sReg && (cReg === sReg || sReg.includes(cReg) || cReg.includes(sReg))) return true;
-                if (cName && sName && (cName.includes(sName) || sName.includes(cName) || cName.split(" ")[0] === sName.split(" ")[0])) return true;
                 if (cEmail && sEmail && cEmail === sEmail) return true;
-
-                // Match by company if student applied to this company
-                const itemComp = (item.company || item.companyName || "").toLowerCase().trim();
-                const isAppliedComp = applicationsData.some(a => (a.company || "").toLowerCase().trim().includes(itemComp) || itemComp.includes((a.company || "").toLowerCase().trim()));
-                if (isAppliedComp && !cName && !cReg) return true;
-
+                if (cReg && sReg && (cReg === sReg || sReg.includes(cReg) || cReg.includes(sReg))) return true;
+                if (cName && sName && (cName === sName || cName.includes(sName) || sName.includes(cName))) return true;
                 return false;
             });
 
-            const listToUse = studentInterviews.length > 0 ? studentInterviews : (officerInterviews.length > 0 ? officerInterviews : []);
+            const listToUse = studentInterviews;
 
             const uniqueMap = new Map<string, any>();
             listToUse.forEach((item: any) => {
@@ -574,25 +607,29 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                 const creator = String(pd.createdBy || "").toLowerCase();
                 const st = (pd.status || "").toLowerCase();
                 const isPendingOrRejected = st === "pending" || st === "pending approval" || st === "rejected" || st === "draft";
-                const isPublished = !isPendingOrRejected && (
-                    pd.isCreatedByOfficer === true ||
-                    pd.createdExplicitlyByOfficer === true ||
-                    pd.isOfficerPublished === true ||
-                    creator === "placement officer" ||
-                    isOptedIn
-                );
+                const isOfficerApproved = st === "approved" || st === "active" || st === "published" || st === "open" || st === "upcoming" || st === "ongoing" || pd.isOfficerPublished === true || pd.isCreatedByOfficer === true || creator === "placement officer";
+                const isPublished = !isPendingOrRejected && (isOfficerApproved || isOptedIn);
 
                 if (isPublished || isOptedIn) {
                     const minCgpaVal = Number(pd.minCgpa) || 6.5;
                     const minTenthVal = Number(pd.minTenth) || 60;
                     const minTwelfthVal = Number(pd.minTwelfth) || 60;
                     const maxBacklogsVal = Number(pd.maxBacklogs) ?? 1;
+                    const reqGradYear = Number(pd.gradYear) || 2026;
+                    const eligibleBranches: string[] = pd.eligibleBranches || pd.departments || ["CSE", "IT", "ECE"];
 
                     const cgpaOk = studentCgpa >= minCgpaVal;
                     const tenthOk = studentTenth >= minTenthVal;
                     const twelfthOk = studentTwelfth >= minTwelfthVal;
                     const backlogsOk = studentBacklogs <= maxBacklogsVal;
-                    const isEligible = cgpaOk && tenthOk && twelfthOk && backlogsOk;
+                    const gradYearOk = !studentGradYear || studentGradYear === reqGradYear;
+                    const deptOk = eligibleBranches.length === 0 || eligibleBranches.some(b => 
+                        b.toLowerCase() === (studentDepartment || "").toLowerCase() ||
+                        (studentDepartment || "").toLowerCase().includes(b.toLowerCase()) ||
+                        b.toLowerCase().includes((studentDepartment || "").toLowerCase())
+                    );
+
+                    const isEligible = cgpaOk && tenthOk && twelfthOk && backlogsOk && gradYearOk && deptOk;
 
                     const roleStr = (pd.jobRole || pd.jobTitle || pd.role || "").toLowerCase().trim();
                     const driveKey = `${compStr}_${roleStr}`;
@@ -754,7 +791,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
 
                 return {
                     round: `Round ${rNum}`,
-                    name: rObj.roundName || `Round ${rNum}: Selection Assessment`,
+                    name: formatCleanRoundName(rNum, rObj.roundName || "Selection Assessment"),
                     date: rObj.date || d.deadline || "28 Aug 2026",
                     mode: rObj.mode || rObj.venueOrLink || "Online",
                     status: roundBadgeText
@@ -773,8 +810,8 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                 activeRoundTitle = `Not Shortlisted in Round ${activeRoundIdx}`;
             } else {
                 const currentRoundObj = driveRoundsList[activeRoundIdx - 1] || driveRoundsList[0];
-                const roundNameClean = currentRoundObj?.roundName || `Round ${activeRoundIdx}`;
-                activeRoundTitle = roundNameClean;
+                const pureTitle = getPureRoundTitle(currentRoundObj?.roundName, "Selection Round");
+                activeRoundTitle = formatCleanRoundName(activeRoundIdx, pureTitle);
                 currentStageText = `Round ${activeRoundIdx}`;
             }
 
@@ -830,15 +867,201 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
         return [];
     });
 
+    // Profile completeness calculation
+    const profileCompletenessPercent = React.useMemo(() => {
+        let score = 0;
+        if (displayName || user?.name) score += 20;
+        if (studentRegNo) score += 15;
+        if (studentDepartment) score += 15;
+        if (studentCgpa > 0) score += 20;
+        if (studentTenth > 0 && studentTwelfth > 0) score += 15;
+        if (studentSkills && studentSkills.length > 0) score += 10;
+        if (studentResumeUrl || studentResumeName) score += 5;
+        return Math.min(100, Math.max(score, 10));
+    }, [displayName, user?.name, studentRegNo, studentDepartment, studentCgpa, studentTenth, studentTwelfth, studentSkills, studentResumeUrl, studentResumeName]);
+
+    // Dynamically aggregated Live Original Activities strictly from real data & deduplicated
+    const liveActivities = React.useMemo(() => {
+        const list: Array<{
+            id: string;
+            icon: string;
+            date: string;
+            title: string;
+            subtitle: string;
+            tag: string;
+            tagBg: string;
+            tagColor: string;
+            tagBorder: string;
+            targetTab: "schedule" | "applications" | "results" | "companies";
+        }> = [];
+
+        const seenKeys = new Set<string>();
+
+        // 1. Live Scheduled Interviews for logged-in student (Highest priority)
+        dbInterviews.forEach((sch: any, idx: number) => {
+            const comp = String(sch.company || sch.companyName || "").trim();
+            const role = String(sch.role || sch.jobRole || "").trim();
+            const round = String(sch.roundTitle || sch.round || "Interview Assessment").trim();
+            if (!comp) return;
+
+            const key = `interview_${comp.toLowerCase()}_${role.toLowerCase()}`;
+            if (seenKeys.has(key)) return;
+            seenKeys.add(key);
+
+            const st = (sch.status || "").toLowerCase();
+            const isPassed = st.includes("passed") || st.includes("selected") || st.includes("cleared");
+            const isToday = st === "today";
+
+            let tagLabel = "Scheduled Interview";
+            let tagBg = "#f0fdf4";
+            let tagColor = "#16a34a";
+            let tagBorder = "#bbf7d0";
+
+            if (isPassed) {
+                tagLabel = "Passed ✓";
+                tagBg = "#f0fdf4";
+                tagColor = "#16a34a";
+                tagBorder = "#bbf7d0";
+            } else if (isToday) {
+                tagLabel = "Interview Today 🟠";
+                tagBg = "#fffbeb";
+                tagColor = "#d97706";
+                tagBorder = "#fde68a";
+            }
+
+            list.push({
+                id: sch.id || `sch_${idx}`,
+                icon: "💻",
+                date: sch.date ? `${sch.date}${sch.time ? ` • ${sch.time}` : ""}` : "Scheduled Interview",
+                title: `${comp} — ${round}`,
+                subtitle: `${sch.mode || "Online"} (${sch.venue || sch.platform || "Placement Cell"})${sch.interviewer ? ` • Panel: ${sch.interviewer}` : ""}`,
+                tag: tagLabel,
+                tagBg,
+                tagColor,
+                tagBorder,
+                targetTab: "schedule"
+            });
+        });
+
+        // 2. Live Confirmed Offers
+        offersList.forEach((off: any, idx: number) => {
+            const comp = String(off.company || "").trim();
+            const role = String(off.role || "").trim();
+            if (!comp) return;
+
+            const key = `offer_${comp.toLowerCase()}_${role.toLowerCase()}`;
+            if (seenKeys.has(key)) return;
+            seenKeys.add(key);
+
+            list.push({
+                id: off.id || `off_${idx}`,
+                icon: "🏆",
+                date: off.date || "Offer Released",
+                title: `${comp} — Placement Offer`,
+                subtitle: `${role ? `${role} • ` : ""}Package: ${off.ctc || "Confirmed CTC"}`,
+                tag: off.status === "Offer Accepted" ? "Offer Accepted ✓" : "Confirmed Offer 🎉",
+                tagBg: "#ecfdf5",
+                tagColor: "#059669",
+                tagBorder: "#a7f3d0",
+                targetTab: "results"
+            });
+        });
+
+        // 3. Live Submitted Applications & Opted-In Drives
+        applicationsData.forEach((app: any, idx: number) => {
+            const comp = String(app.company || "").trim();
+            const role = String(app.role || "").trim();
+            if (!comp) return;
+
+            // If already shown under interviews or offers, skip duplicate
+            if (seenKeys.has(`interview_${comp.toLowerCase()}_${role.toLowerCase()}`) || seenKeys.has(`offer_${comp.toLowerCase()}_${role.toLowerCase()}`)) {
+                return;
+            }
+
+            const key = `app_${comp.toLowerCase()}_${role.toLowerCase()}`;
+            if (seenKeys.has(key)) return;
+            seenKeys.add(key);
+
+            const isSelected = app.statusTag === "Selected";
+            const isNotShortlisted = app.statusTag === "Not Eligible" || app.isNotShortlisted;
+
+            let tagLabel = "Applied & Opted-In";
+            let tagBg = "#eff6ff";
+            let tagColor = "#2563eb";
+            let tagBorder = "#bfdbfe";
+
+            if (isSelected) {
+                tagLabel = "Selected 🎉";
+                tagBg = "#f0fdf4";
+                tagColor = "#16a34a";
+                tagBorder = "#bbf7d0";
+            } else if (isNotShortlisted) {
+                tagLabel = "Not Shortlisted";
+                tagBg = "#fef2f2";
+                tagColor = "#dc2626";
+                tagBorder = "#fecaca";
+            }
+
+            list.push({
+                id: app.id || `app_${idx}`,
+                icon: "✓",
+                date: app.deadline ? `Deadline: ${app.deadline}` : "Application Active",
+                title: `${comp} — ${role || "Campus Drive"}`,
+                subtitle: `Package: ${app.ctc || "N/A"} • Location: ${app.location || "On-Campus"}`,
+                tag: tagLabel,
+                tagBg,
+                tagColor,
+                tagBorder,
+                targetTab: "applications"
+            });
+        });
+
+        // 4. Live Eligible / Open Campus Drives with Approaching Deadlines
+        placementDrives
+            .filter(d => !isDriveOptedOut(d) && !isDriveOptedIn(d) && d.statusTag === "Eligible")
+            .slice(0, 3)
+            .forEach((drive: any, idx: number) => {
+                const comp = String(drive.company || "").trim();
+                const role = String(drive.role || "").trim();
+                if (!comp) return;
+
+                const key = `drive_${comp.toLowerCase()}_${role.toLowerCase()}`;
+                if (
+                    seenKeys.has(key) ||
+                    seenKeys.has(`interview_${comp.toLowerCase()}_${role.toLowerCase()}`) ||
+                    seenKeys.has(`offer_${comp.toLowerCase()}_${role.toLowerCase()}`) ||
+                    seenKeys.has(`app_${comp.toLowerCase()}_${role.toLowerCase()}`)
+                ) {
+                    return;
+                }
+                seenKeys.add(key);
+
+                list.push({
+                    id: drive.id || `drive_${idx}`,
+                    icon: "📢",
+                    date: drive.deadline ? `Closes: ${drive.deadline}` : "Registration Open",
+                    title: `${comp} — ${role}`,
+                    subtitle: `Package: ${drive.ctc || "N/A"} • Location: ${drive.location || "On-Campus"}`,
+                    tag: "Eligible Drive 🔵",
+                    tagBg: "#fffbeb",
+                    tagColor: "#b45309",
+                    tagBorder: "#fde68a",
+                    targetTab: "companies"
+                });
+            });
+
+        return list;
+    }, [dbInterviews, offersList, applicationsData, placementDrives, appliedDrives, optedOutDrives]);
+
     const handleDownloadPDF = (offer: any) => {
         const doc = new jsPDF();
-        const studentName = displayName || user?.name || "Ashwanth S";
-        const regNo = user?.regNo || "22CSR025";
-        const refNo = offer.refNo || "CPMS/OFFER/2026/SEL-001";
-        const issueDate = offer.date || "20 Sep 2026";
-        const companyName = offer.company || "Amazon Development Center";
-        const roleTitle = offer.role || "Software Development Engineer";
-        const ctcPackage = offer.ctc || "₹18.0 LPA";
+        const studentName = displayName || user?.name || "Student Candidate";
+        const regNo = studentRegNo || (user as any)?.regNo || "N/A";
+        const refNo = offer.refNo || `CPMS/OFFER/2026/SEL-${Math.floor(Math.random() * 900 + 100)}`;
+        const issueDate = offer.date || new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+        const companyName = offer.company || "Placement Recruitment Partner";
+        const roleTitle = offer.role || "Graduate Engineer Trainee";
+        const ctcPackage = offer.ctc || "₹10.0 LPA";
 
         // Header Background Accent Bar
         doc.setFillColor(15, 23, 42); // Dark Slate Blue #0f172a
@@ -983,11 +1206,11 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
 
             const newRecord = {
                 userKey,
-                email: user?.email || "ashwanth@gmail.com",
-                name: displayName || user?.name || "Ashwanth",
+                email: user?.email || "",
+                name: displayName || user?.name || "Student",
                 driveId: String(driveId),
-                companyName: driveComp || "Amazon Development Center",
-                role: driveRole || "Software Developer",
+                companyName: driveComp || "",
+                role: driveRole || "",
                 optedInAt: new Date().toISOString()
             };
 
@@ -1014,44 +1237,67 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
 
             const appRecord = {
                 id: `app_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
-                studentId: userId || "student_1",
-                studentName: displayName || user?.name || "Ashwanth S",
-                regNo: "22CSR025",
+                studentId: userId || `std_${Date.now()}`,
+                studentName: displayName || user?.name || "Student",
+                regNo: studentRegNo || (user as any)?.regNo || "N/A",
                 department: studentDepartment || "Computer Science & Engineering",
-                email: user?.email || "ashwanth@gmail.com",
-                studentEmail: user?.email || "ashwanth@gmail.com",
-                phone: "+91 98765 43210",
+                email: user?.email || "",
+                studentEmail: user?.email || "",
+                phone: studentPhone || "",
                 driveId: String(driveId),
-                company: driveComp || "Amazon Development Center",
-                companyName: driveComp || "Amazon Development Center",
+                company: driveComp || "Placement Drive",
+                companyName: driveComp || "Placement Drive",
                 jobRole: driveRole || "Software Developer",
                 role: driveRole || "Software Developer",
-                appliedDate: "27 Aug 2026",
+                appliedDate: new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
                 status: "Opted-In",
                 currentRound: 1,
                 currentWorkflowStage: "Opted-In",
                 activeRoundType: "Round 1: Technical Assessment",
-                cgpa: studentCgpa || 7.00,
-                minCgpa: Number(selectedDriveCriteria?.minCgpa) || 6.5,
-                tenth: studentTenth || 87,
+                cgpa: studentCgpa || 0,
+                minCgpa: Number(selectedDriveCriteria?.minCgpa) || 6.0,
+                tenth: studentTenth || 0,
                 minTenth: Number(selectedDriveCriteria?.minTenth) || 60,
-                twelfth: studentTwelfth || 77.33,
+                twelfth: studentTwelfth || 0,
                 minTwelfth: Number(selectedDriveCriteria?.minTwelfth) || 60,
                 backlogs: studentBacklogs || 0,
                 maxBacklogs: Number(selectedDriveCriteria?.maxBacklogs) ?? 1,
-                gradYear: 2026,
+                gradYear: studentGradYear || 2026,
                 reqGradYear: 2026,
-                resumeName: "Ashwanth_S_Resume.pdf",
-                resumeUrl: "http://localhost:5001/uploads/resumes/Ashwanth_S_Resume.pdf"
+                resumeName: studentResumeName || `${(displayName || user?.name || "Student").replace(/\s+/g, "_")}_Resume.pdf`,
+                resumeUrl: studentResumeUrl || ""
             };
 
             appsArr.push(appRecord);
             localStorage.setItem("cpms_applications", JSON.stringify(appsArr));
+
+            // Persist application to MongoDB backend
+            fetch("http://localhost:5001/api/applications", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    studentId: appRecord.studentId,
+                    studentName: appRecord.studentName,
+                    regNo: appRecord.regNo,
+                    department: appRecord.department,
+                    email: appRecord.email,
+                    phone: appRecord.phone,
+                    cgpa: appRecord.cgpa,
+                    tenthPercentage: appRecord.tenth,
+                    twelfthPercentage: appRecord.twelfth,
+                    backlogs: appRecord.backlogs,
+                    gradYear: appRecord.gradYear,
+                    companyName: appRecord.companyName,
+                    jobRole: appRecord.jobRole,
+                    driveId: appRecord.driveId,
+                    status: "Applied"
+                })
+            }).catch(err => console.error("Error creating application in MongoDB:", err));
         } catch (e) {}
 
         window.dispatchEvent(new Event("storage"));
         window.dispatchEvent(new CustomEvent("cpms_drives_updated"));
-        alert("Opt-In response recorded successfully!");
+        alert("Opt-In application submitted successfully!");
     };
 
     const handleOptOut = (driveId: string, driveComp?: string, driveRole?: string) => {
@@ -1261,7 +1507,10 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
 
                         {/* 4 Stat Metric Cards (Matching Officer Dashboard Layout & Card Dimensions) */}
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px", marginBottom: "28px" }}>
-                            <div style={{ backgroundColor: "#ffffff", padding: "20px", borderRadius: "14px", border: "1px solid #eaedf0", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
+                            <div
+                                onClick={() => setCurrentTab("profile")}
+                                style={{ backgroundColor: "#ffffff", padding: "20px", borderRadius: "14px", border: "1px solid #eaedf0", boxShadow: "0 2px 4px rgba(0,0,0,0.02)", cursor: "pointer", transition: "transform 0.15s ease, boxShadow 0.15s ease" }}
+                            >
                                 <div style={{ width: "42px", height: "42px", borderRadius: "12px", backgroundColor: "#dcfce7", color: "#16a34a", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "12px" }}>
                                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                                         <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
@@ -1269,8 +1518,10 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                                     </svg>
                                 </div>
                                 <div style={{ fontSize: "11px", fontWeight: "700", color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px" }}>PROFILE COMPLETENESS</div>
-                                <div style={{ fontSize: "28px", fontWeight: "800", color: "#0f172a", margin: "4px 0 2px 0" }}>100%</div>
-                                <div style={{ fontSize: "12px", color: "#16a34a", fontWeight: "600" }}>✓ Verified & Ready</div>
+                                <div style={{ fontSize: "28px", fontWeight: "800", color: "#0f172a", margin: "4px 0 2px 0" }}>{profileCompletenessPercent}%</div>
+                                <div style={{ fontSize: "12px", color: profileCompletenessPercent >= 80 ? "#16a34a" : "#d97706", fontWeight: "600" }}>
+                                    {profileCompletenessPercent === 100 ? "✓ Verified & Ready" : `${profileCompletenessPercent}% Profile Complete`}
+                                </div>
                             </div>
 
                             <div style={{ backgroundColor: "#ffffff", padding: "20px", borderRadius: "14px", border: "1px solid #eaedf0", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
@@ -1316,134 +1567,126 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                                     </svg>
                                 </div>
                                 <div style={{ fontSize: "11px", fontWeight: "700", color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px" }}>SELECTED OFFERS</div>
-                                <div style={{ fontSize: "28px", fontWeight: "800", color: "#16a34a", margin: "4px 0 2px 0" }}>2</div>
-                                <div style={{ fontSize: "12px", color: "#16a34a", fontWeight: "600" }}>Confirmed placement offers</div>
+                                <div style={{ fontSize: "28px", fontWeight: "800", color: "#16a34a", margin: "4px 0 2px 0" }}>{offersList.length}</div>
+                                <div style={{ fontSize: "12px", color: "#16a34a", fontWeight: "600" }}>
+                                    {offersList.length === 1 ? "Confirmed placement offer" : "Confirmed placement offers"}
+                                </div>
                             </div>
                         </div>
 
-                        {/* Upcoming Activity Card */}
+                        {/* Live Activity & Recent Updates Section */}
                         <div style={{ backgroundColor: "#ffffff", borderRadius: "14px", padding: "22px 24px", border: "1px solid #eaedf0", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", paddingBottom: "14px", borderBottom: "1px solid #f1f5f9" }}>
                                 <div style={{ fontWeight: "800", color: "#0f172a", fontSize: "16px", display: "flex", alignItems: "center", gap: "8px" }}>
-                                    <span>📌</span> Upcoming Activity & Recent Updates
+                                    <span>📌</span> Live Activity & Recent Updates
                                 </div>
                                 <button onClick={() => setCurrentTab("applications")} style={{ border: "none", background: "none", color: "#2563eb", fontWeight: "700", fontSize: "13px", cursor: "pointer", display: "flex", alignItems: "center", gap: "4px" }}>
                                     View Applications &rarr;
                                 </button>
-
                             </div>
 
-                            {/* Activity Items Grid - Side by Side Cards */}
-                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "14px" }}>
-                                {[
-                                    {
-                                        id: 1,
-                                        icon: "🗓",
-                                        date: "Aug 28, 2026",
-                                        title: "Accenture — Online Assessment",
-                                        subtitle: "10:00 AM IST • Online Coding & Aptitude Test",
-                                        tag: "Upcoming Assessment",
-                                        tagBg: "#eff6ff",
-                                        tagColor: "#2563eb",
-                                        tagBorder: "#bfdbfe"
-                                    },
-                                    {
-                                        id: 2,
-                                        icon: "⏰",
-                                        date: "Aug 30, 2026",
-                                        title: "Cognizant — Application Deadline",
-                                        subtitle: "11:59 PM • GenC & GenC Next Submission",
-                                        tag: "Deadline Approaching",
-                                        tagBg: "#fffbeb",
-                                        tagColor: "#b45309",
-                                        tagBorder: "#fde68a"
-                                    },
-                                    {
-                                        id: 3,
-                                        icon: "💻",
-                                        date: "Aug 31, 2026",
-                                        title: "Microsoft India — Technical Interview",
-                                        subtitle: "10:00 AM IST • Round 1: Codility (CC 2)",
-                                        tag: "Scheduled Interview",
-                                        tagBg: "#f0fdf4",
-                                        tagColor: "#16a34a",
-                                        tagBorder: "#bbf7d0"
-                                    },
-                                    {
-                                        id: 4,
-                                        icon: "✓",
-                                        date: "Aug 27, 2026",
-                                        title: "Wipro Technologies — Application",
-                                        subtitle: "Project Engineer Role (Package ₹6.5 LPA)",
-                                        tag: "Applied & Verified",
-                                        tagBg: "#f8fafc",
-                                        tagColor: "#475569",
-                                        tagBorder: "#cbd5e1"
-                                    }
-                                ].map((item) => (
-                                    <div
-                                        key={item.id}
-                                        className="dash-card-hover"
+                            {/* Activity Items Grid - Dynamic Live Cards or Clean Empty State */}
+                            {liveActivities.length === 0 ? (
+                                <div style={{
+                                    textAlign: "center",
+                                    padding: "36px 20px",
+                                    backgroundColor: "#f8fafc",
+                                    borderRadius: "12px",
+                                    border: "1px dashed #cbd5e1"
+                                }}>
+                                    <div style={{ fontSize: "36px", marginBottom: "8px" }}>📋</div>
+                                    <h3 style={{ fontSize: "15px", fontWeight: "800", color: "#0f172a", margin: "0 0 6px 0" }}>
+                                        No Active Recruitment Activities
+                                    </h3>
+                                    <p style={{ fontSize: "13px", color: "#64748b", margin: "0 0 16px 0", maxWidth: "420px", marginInline: "auto" }}>
+                                        You currently have no scheduled interviews or ongoing application updates. Explore available campus drives and opt in to get started.
+                                    </p>
+                                    <button
+                                        onClick={() => setCurrentTab("companies")}
                                         style={{
-                                            display: "flex",
-                                            flexDirection: "column",
-                                            justifyContent: "space-between",
-                                            padding: "16px 18px",
-                                            borderRadius: "12px",
-                                            backgroundColor: "#f8fafc",
-                                            border: "1px solid #e2e8f0",
-                                            boxShadow: "0 2px 4px rgba(0,0,0,0.02)",
-                                            gap: "14px"
+                                            backgroundColor: "#2563eb",
+                                            color: "#ffffff",
+                                            border: "none",
+                                            borderRadius: "8px",
+                                            padding: "9px 20px",
+                                            fontWeight: "700",
+                                            fontSize: "13px",
+                                            cursor: "pointer",
+                                            boxShadow: "0 2px 4px rgba(37,99,235,0.2)"
                                         }}
                                     >
-                                        <div style={{ display: "flex", alignItems: "flex-start", gap: "12px" }}>
-                                            <div style={{
-                                                width: "42px",
-                                                height: "42px",
-                                                borderRadius: "10px",
-                                                backgroundColor: "#ffffff",
-                                                border: "1px solid #cbd5e1",
+                                        Browse Campus Drives &rarr;
+                                    </button>
+                                </div>
+                            ) : (
+                                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "14px" }}>
+                                    {liveActivities.map((item) => (
+                                        <div
+                                            key={item.id}
+                                            onClick={() => setCurrentTab(item.targetTab)}
+                                            className="dash-card-hover"
+                                            style={{
                                                 display: "flex",
-                                                alignItems: "center",
-                                                justifyContent: "center",
-                                                fontSize: "20px",
-                                                flexShrink: 0,
-                                                boxShadow: "0 1px 3px rgba(0,0,0,0.05)"
-                                            }}>
-                                                {item.icon}
-                                            </div>
-                                            <div>
-                                                <h4 style={{ margin: "0 0 4px 0", fontSize: "14px", fontWeight: "800", color: "#0f172a" }}>
-                                                    {item.title}
-                                                </h4>
-                                                <div style={{ fontSize: "12px", color: "#64748b", lineHeight: "1.4" }}>
-                                                    {item.subtitle}
+                                                flexDirection: "column",
+                                                justifyContent: "space-between",
+                                                padding: "16px 18px",
+                                                borderRadius: "12px",
+                                                backgroundColor: "#f8fafc",
+                                                border: "1px solid #e2e8f0",
+                                                boxShadow: "0 2px 4px rgba(0,0,0,0.02)",
+                                                gap: "14px",
+                                                cursor: "pointer"
+                                            }}
+                                        >
+                                            <div style={{ display: "flex", alignItems: "flex-start", gap: "12px" }}>
+                                                <div style={{
+                                                    width: "42px",
+                                                    height: "42px",
+                                                    borderRadius: "10px",
+                                                    backgroundColor: "#ffffff",
+                                                    border: "1px solid #cbd5e1",
+                                                    display: "flex",
+                                                    alignItems: "center",
+                                                    justifyContent: "center",
+                                                    fontSize: "20px",
+                                                    flexShrink: 0,
+                                                    boxShadow: "0 1px 3px rgba(0,0,0,0.05)"
+                                                }}>
+                                                    {item.icon}
+                                                </div>
+                                                <div>
+                                                    <h4 style={{ margin: "0 0 4px 0", fontSize: "14px", fontWeight: "800", color: "#0f172a" }}>
+                                                        {item.title}
+                                                    </h4>
+                                                    <div style={{ fontSize: "12px", color: "#64748b", lineHeight: "1.4" }}>
+                                                        {item.subtitle}
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
 
-                                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: "12px", borderTop: "1px solid #e2e8f0" }}>
-                                            <span style={{ fontSize: "12px", fontWeight: "700", color: "#64748b" }}>
-                                                🗓 {item.date}
-                                            </span>
-                                            <span
-                                                style={{
-                                                    padding: "4px 10px",
-                                                    borderRadius: "12px",
-                                                    backgroundColor: item.tagBg,
-                                                    color: item.tagColor,
-                                                    border: `1px solid ${item.tagBorder}`,
-                                                    fontSize: "11px",
-                                                    fontWeight: "700",
-                                                    whiteSpace: "nowrap"
-                                                }}
-                                            >
-                                                {item.tag}
-                                            </span>
+                                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: "12px", borderTop: "1px solid #e2e8f0" }}>
+                                                <span style={{ fontSize: "12px", fontWeight: "700", color: "#64748b" }}>
+                                                    🗓 {item.date}
+                                                </span>
+                                                <span
+                                                    style={{
+                                                        padding: "4px 10px",
+                                                        borderRadius: "12px",
+                                                        backgroundColor: item.tagBg,
+                                                        color: item.tagColor,
+                                                        border: `1px solid ${item.tagBorder}`,
+                                                        fontSize: "11px",
+                                                        fontWeight: "700",
+                                                        whiteSpace: "nowrap"
+                                                    }}
+                                                >
+                                                    {item.tag}
+                                                </span>
+                                            </div>
                                         </div>
-                                    </div>
-                                ))}
-                            </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}

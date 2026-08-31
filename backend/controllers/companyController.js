@@ -77,11 +77,16 @@ const createDrive = async (req, res) => {
             openings: body.openings ? Number(body.openings) : 10,
             eligibleBranches: Array.isArray(body.eligibleBranches) ? body.eligibleBranches : (body.eligibleBranches ? body.eligibleBranches.split(",").map(b => b.trim()) : ["CSE", "IT"]),
             minCgpa: body.minCgpa ? Number(body.minCgpa) : 7.0,
+            minTenth: body.minTenth ? Number(body.minTenth) : 60.0,
+            minTwelfth: body.minTwelfth ? Number(body.minTwelfth) : 60.0,
             gradYear: body.gradYear ? Number(body.gradYear) : 2026,
             maxBacklogs: body.maxBacklogs ? Number(body.maxBacklogs) : 0,
             requiredSkills: Array.isArray(body.requiredSkills) ? body.requiredSkills : (body.requiredSkills ? body.requiredSkills.split(",").map(s => s.trim()) : ["Java", "React"]),
             jobDescription: body.jobDescription || "Design, develop, and maintain software applications.",
             selectionProcess: body.selectionProcess || "Aptitude Test → Technical Interview → HR Round",
+            rounds: Array.isArray(body.rounds) && body.rounds.length > 0 ? body.rounds : [
+                { roundNumber: 1, roundName: "Round 1: Online Assessment", mode: "Online", date: body.deadline || "", description: "Coding & Aptitude assessment" }
+            ],
             workMode: body.workMode || "On-site",
             bondAgreement: body.bondAgreement || "None",
             benefitsPerks: body.benefitsPerks || "",

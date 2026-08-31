@@ -79,7 +79,10 @@ const DriveManagement: React.FC = () => {
                     isOfficerPublished: rd.isOfficerPublished !== undefined ? rd.isOfficerPublished : false,
                     recruiterEmail: rd.recruiterEmail || "arya@amazon.com",
                     eligibleBranches: rd.eligibleBranches || ["CSE", "IT", "ECE"],
-                    minCgpa: rd.minCgpa || 6.5,
+                    minCgpa: rd.minCgpa ?? 6.5,
+                    minTenth: rd.minTenth ?? 60,
+                    minTwelfth: rd.minTwelfth ?? 60,
+                    maxBacklogs: rd.maxBacklogs ?? 0,
                     gradYear: rd.gradYear || 2026,
                     rejectionReason: rd.rejectionReason || "",
                     rounds: rd.rounds && Array.isArray(rd.rounds) && rd.rounds.length > 0 ? rd.rounds : [
