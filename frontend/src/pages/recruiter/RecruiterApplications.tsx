@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { API_BASE_URL } from "../../config/api";
 import { formatCleanRoundName, getPureRoundTitle } from "../../utils/roundUtils";
 
 export interface RecruiterApplicationItem {
@@ -92,7 +93,7 @@ export const RecruiterApplications: React.FC<RecruiterApplicationsProps> = ({ us
         let list: RecruiterApplicationItem[] = [];
 
         try {
-            const res = await fetch(`http://localhost:5001/api/applications?company=${encodeURIComponent(companyNameShort)}`);
+            const res = await fetch(`${API_BASE_URL}/api/applications?company=${encodeURIComponent(companyNameShort)}`);
             if (res.ok) {
                 const apiApps = await res.json();
                 if (Array.isArray(apiApps) && apiApps.length > 0) {
@@ -316,7 +317,7 @@ export const RecruiterApplications: React.FC<RecruiterApplicationsProps> = ({ us
 
         // Call MongoDB API Endpoint PUT /api/applications/:id/status
         try {
-            await fetch(`http://localhost:5001/api/applications/${appId}/status`, {
+            await fetch(`${API_BASE_URL}/api/applications/${appId}/status`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -345,7 +346,7 @@ export const RecruiterApplications: React.FC<RecruiterApplicationsProps> = ({ us
         const rName = selectedApplication.roundName || `Round ${rNum}: Technical Assessment`;
 
         try {
-            await fetch(`http://localhost:5001/api/applications/${appId}/round-result`, {
+            await fetch(`${API_BASE_URL}/api/applications/${appId}/round-result`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({

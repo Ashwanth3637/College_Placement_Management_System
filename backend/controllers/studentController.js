@@ -104,12 +104,15 @@ const saveStudentProfile = async (req, res) => {
             if (student) {
                 student.user = userDoc._id;
                 student.personal = {
-                    ...student.personal,
+                    ...(student.personal ? (typeof student.personal.toObject === "function" ? student.personal.toObject() : student.personal) : {}),
                     ...personalData,
                 };
-                student.academic = academicData;
+                student.academic = {
+                    ...(student.academic ? (typeof student.academic.toObject === "function" ? student.academic.toObject() : student.academic) : {}),
+                    ...academicData,
+                };
                 student.professional = {
-                    ...(student.professional ? student.professional.toObject() : {}),
+                    ...(student.professional ? (typeof student.professional.toObject === "function" ? student.professional.toObject() : student.professional) : {}),
                     ...professionalData,
                 };
                 student.isProfileComplete = true;
@@ -194,42 +197,43 @@ const getStudentProfile = async (req, res) => {
         let student = null;
 
         if (mongoose.connection.readyState === 1) {
-            let userDoc = null;
-            if (userId && mongoose.Types.ObjectId.isValid(userId)) {
-                student = await Student.findOne({ user: userId }).populate("user", "name email role");
+            const isValidId = userId && mongoose.Types.ObjectId.isValid(userId);
+            const searchEmail = (queryEmail || (userId && userId.includes("@") ? userId : "")).toLowerCase().trim();
+
+            // 1. Direct fast lookup by User ID or Student ID
+            if (isValidId) {
+                student = await Student.findOne({ user: userId }).populate("user", "name email role").lean();
                 if (!student) {
-                    student = await Student.findById(userId).populate("user", "name email role");
-                }
-                if (!student) {
-                    userDoc = await User.findById(userId);
+                    student = await Student.findById(userId).populate("user", "name email role").lean();
                 }
             }
 
-            const searchEmail = (queryEmail || (userId && userId.includes("@") ? userId : "")).toLowerCase().trim();
-
+            // 2. Direct fast lookup by Email or User document
             if (!student && searchEmail) {
-                userDoc = await User.findOne({ email: new RegExp(`^${searchEmail}$`, "i") });
+                const userDoc = await User.findOne({ email: searchEmail }).lean();
                 if (userDoc) {
-                    student = await Student.findOne({ user: userDoc._id }).populate("user", "name email role");
+                    student = await Student.findOne({ user: userDoc._id }).populate("user", "name email role").lean();
                 }
                 if (!student) {
                     student = await Student.findOne({
                         $or: [
-                            { "personal.email": new RegExp(`^${searchEmail}$`, "i") },
+                            { "personal.email": searchEmail },
                             { "personal.registerNumber": searchEmail }
                         ]
-                    }).populate("user", "name email role");
+                    }).populate("user", "name email role").lean();
                 }
             }
 
-            if (!student && userId && !mongoose.Types.ObjectId.isValid(userId)) {
+            // 3. Fallback register number / full name search if non-standard ID passed
+            if (!student && userId && !isValidId) {
+                const cleanId = userId.trim();
                 student = await Student.findOne({
                     $or: [
-                        { "personal.email": new RegExp(`^${userId.trim()}$`, "i") },
-                        { "personal.registerNumber": userId.trim() },
-                        { "personal.fullName": new RegExp(`^${userId.trim()}$`, "i") }
+                        { "personal.email": cleanId },
+                        { "personal.registerNumber": cleanId },
+                        { "personal.fullName": cleanId }
                     ]
-                }).populate("user", "name email role");
+                }).populate("user", "name email role").lean();
             }
         }
 
@@ -267,23 +271,36 @@ const getAllStudents = async (req, res) => {
         
         let students = await Student.find()
             .populate("user", "name email role")
-            .sort({ createdAt: -1 });
+            .sort({ createdAt: -1 })
+            .lean();
+
+        // Collect missing user IDs to batch fetch in one DB query instead of loop
+        const missingUserIds = [];
+        for (let s of students) {
+            if (!s.user || typeof s.user !== "object" || !s.user.name) {
+                if (s.user && mongoose.Types.ObjectId.isValid(s.user)) {
+                    missingUserIds.push(s.user);
+                }
+            }
+        }
+
+        let userMap = new Map();
+        if (missingUserIds.length > 0) {
+            const fetchedUsers = await User.find({ _id: { $in: missingUserIds } }, "name email role").lean();
+            for (let u of fetchedUsers) {
+                userMap.set(u._id.toString(), u);
+            }
+        }
 
         // Ensure user object exists for every student profile
         const realStudents = [];
         for (let s of students) {
-            let sObj = s.toObject();
+            let sObj = s;
             sObj.verificationStatus = s.verificationStatus || (s.isVerified ? "verified" : "pending");
             sObj.isVerified = sObj.verificationStatus === "verified";
             if (!sObj.user || typeof sObj.user !== "object" || !sObj.user.name) {
-                // Look up user or build user from personal info
-                let uDoc = null;
-                if (s.user && mongoose.Types.ObjectId.isValid(s.user)) {
-                    uDoc = await User.findById(s.user);
-                }
-                if (!uDoc && s.personal?.registerNumber) {
-                    uDoc = await User.findOne({ name: new RegExp(s.personal.registerNumber, "i") });
-                }
+                let uIdStr = s.user ? s.user.toString() : "";
+                let uDoc = userMap.get(uIdStr) || null;
                 sObj.user = {
                     _id: uDoc?._id || s._id,
                     name: uDoc?.name || s.personal?.fullName || "Student",

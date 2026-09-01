@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { API_BASE_URL as BASE_URL } from "../../config/api";
 
 export interface StudentAttendanceRow {
     registerNo: string;
@@ -12,7 +13,7 @@ export interface CoordinatorAttendanceProps {
     onBackToDashboard?: () => void;
 }
 
-const API_BASE_URL = "http://localhost:5001/api/coordinator";
+const API_BASE_URL = `${BASE_URL}/api/coordinator`;
 
 export const CoordinatorAttendance: React.FC<CoordinatorAttendanceProps> = ({
     onBackToDashboard
@@ -362,7 +363,7 @@ export const CoordinatorAttendance: React.FC<CoordinatorAttendanceProps> = ({
                         </label>
                         <input
                             type="text"
-                            placeholder="🔍 Search..."
+                            placeholder="Search..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             style={{

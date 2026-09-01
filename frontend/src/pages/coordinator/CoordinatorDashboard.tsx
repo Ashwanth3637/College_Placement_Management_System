@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { API_BASE_URL } from "../../config/api";
 import { useParams } from "react-router-dom";
 import CoordinatorEvents from "./CoordinatorEvents";
 import CoordinatorAttendance from "./CoordinatorAttendance";
@@ -78,7 +79,7 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
             } catch (e) {}
 
             try {
-                const res = await fetch("http://localhost:5001/api/student/all");
+                const res = await fetch(`${API_BASE_URL}/api/student/all`);
                 if (res.ok) {
                     const data = await res.json();
                     if (Array.isArray(data)) setStudentsCount(data.length);
@@ -361,9 +362,6 @@ export const CoordinatorDashboard: React.FC<CoordinatorDashboardProps> = ({
                     </div>
 
                     <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                        {/* 🗑️ Universal Clear System Data Button */}
-                        <ClearDataButton />
-
                         <div style={{ position: "relative" }}>
                         <button
                             type="button"

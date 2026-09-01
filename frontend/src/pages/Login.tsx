@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { API_BASE_URL } from "../config/api";
 
 interface LoginProps {
     onLoginSuccess?: (user: any) => void;
@@ -16,32 +17,9 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
 
-    const DEMO_ACCOUNTS: Record<string, { email: string; pass: string; label: string }> = {
-        student: { email: "student@college.edu", pass: "password123", label: "Student Demo" },
-        recruiter: { email: "recruiter@company.com", pass: "password123", label: "Recruiter Demo" },
-        coordinator: { email: "coordinator@college.edu", pass: "password123", label: "Coordinator Demo" },
-        admin: { email: "admin@college.edu", pass: "password123", label: "Admin Demo" },
-    };
-
-    const handleQuickFill = (targetRole?: string) => {
-        const r = targetRole || role;
-        const demo = DEMO_ACCOUNTS[r];
-        if (demo) {
-            setEmail(demo.email);
-            setPassword(demo.pass);
-            setError(null);
-        }
-    };
-
     const handleRoleChange = (selectedRole: string) => {
         setRole(selectedRole);
         setError(null);
-        // If current email is empty or matches a demo account email, auto-update email/password to new role demo
-        const isCurrentDemoEmail = Object.values(DEMO_ACCOUNTS).some(d => d.email === email);
-        if (!email || isCurrentDemoEmail) {
-            setEmail(DEMO_ACCOUNTS[selectedRole]?.email || "");
-            setPassword(DEMO_ACCOUNTS[selectedRole]?.pass || "");
-        }
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -62,8 +40,8 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
         setLoading(true);
 
         const endpoint = isRegister
-            ? "http://localhost:5001/api/auth/register"
-            : "http://localhost:5001/api/auth/login";
+            ? `${API_BASE_URL}/api/auth/register`
+            : `${API_BASE_URL}/api/auth/login`;
 
         const payload = isRegister
             ? { name, email, password, role }
@@ -158,48 +136,6 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                         </button>
                     ))}
                 </div>
-
-                {/* Quick Auto-Fill Demo Credentials Helper */}
-                {!isRegister && (
-                    <div style={{
-                        backgroundColor: "#f8fafc",
-                        border: "1px dashed #cbd5e1",
-                        borderRadius: "8px",
-                        padding: "10px 12px",
-                        marginBottom: "18px",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        flexWrap: "wrap",
-                        gap: "8px",
-                        fontSize: "12px",
-                        color: "#475569"
-                    }}>
-                        <div style={{ flex: 1, minWidth: "180px" }}>
-                            <strong>💡 Demo {role.charAt(0).toUpperCase() + role.slice(1)} Login:</strong>
-                            <div style={{ fontFamily: "monospace", color: "#2563eb", marginTop: "2px", wordBreak: "break-all", fontSize: "11px" }}>
-                                {DEMO_ACCOUNTS[role]?.email} | {DEMO_ACCOUNTS[role]?.pass}
-                            </div>
-                        </div>
-                        <button
-                            type="button"
-                            onClick={() => handleQuickFill(role)}
-                            style={{
-                                backgroundColor: "#eff6ff",
-                                color: "#2563eb",
-                                border: "1px solid #bfdbfe",
-                                borderRadius: "6px",
-                                padding: "6px 12px",
-                                fontSize: "12px",
-                                fontWeight: "700",
-                                cursor: "pointer",
-                                whiteSpace: "nowrap"
-                            }}
-                        >
-                            Auto-Fill
-                        </button>
-                    </div>
-                )}
 
                 {/* Error / Success Alerts */}
                 {error && <div style={styles.errorAlert}>{error}</div>}

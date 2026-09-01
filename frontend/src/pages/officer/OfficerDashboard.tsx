@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import jsPDF from "jspdf";
+import { API_BASE_URL } from "../../config/api";
 import StudentProfile from "../student/StudentProfile";
 import StudentManagement from "./StudentManagement";
 import CompanyManagement, { INITIAL_COMPANIES } from "./CompanyManagement";
@@ -88,14 +89,28 @@ const OfficerDashboard: React.FC<DashboardProps> = ({ user, onLogout, initialTab
     const [selectedRoundModal, setSelectedRoundModal] = useState<{ round: any; companyName: string; currentStatus: string; isNotShortlisted: boolean; currentRoundNum?: number; roundName?: string } | null>(null);
     const [selectedAppModal, setSelectedAppModal] = useState<{ app: any; drive: any } | null>(null);
 
-    const [stats, setStats] = useState({
-        totalStudents: 0,
-        eligibleStudents: 0,
-        totalCompanies: 0,
-        activeDrives: 0,
-        totalApplications: 0,
-        selectedStudents: 0,
-        placementPercentage: "0%",
+    const [stats, setStats] = useState(() => {
+        let initialStudents = 0;
+        let initialPlaced = 0;
+        try {
+            const cached = localStorage.getItem("cpms_cached_students_all");
+            if (cached) {
+                const parsed = JSON.parse(cached);
+                if (Array.isArray(parsed)) {
+                    initialStudents = parsed.length;
+                    initialPlaced = parsed.filter((s: any) => s.isPlaced || s.placementStatus === "Placed").length;
+                }
+            }
+        } catch (e) {}
+        return {
+            totalStudents: initialStudents,
+            eligibleStudents: initialStudents,
+            totalCompanies: 0,
+            activeDrives: 0,
+            totalApplications: 0,
+            selectedStudents: initialPlaced,
+            placementPercentage: initialStudents > 0 ? Math.round((initialPlaced / initialStudents) * 100) + "%" : "0%",
+        };
     });
 
     const userId = user.id || user._id || "";
@@ -129,8 +144,20 @@ const OfficerDashboard: React.FC<DashboardProps> = ({ user, onLogout, initialTab
             // 3. Live Total Students & Placed Students Count
             let studentCount = 0;
             let placedCount = 0;
+
             try {
-                const res = await fetch("http://localhost:5001/api/student/all");
+                const cached = localStorage.getItem("cpms_cached_students_all");
+                if (cached) {
+                    const parsed = JSON.parse(cached);
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                        studentCount = parsed.length;
+                        placedCount = parsed.filter((s: any) => s.isPlaced || s.placementStatus === "Placed").length;
+                    }
+                }
+            } catch (e) {}
+
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/student/all`);
                 if (res.ok) {
                     const data = await res.json();
                     if (Array.isArray(data)) {
@@ -143,13 +170,16 @@ const OfficerDashboard: React.FC<DashboardProps> = ({ user, onLogout, initialTab
                         );
                         studentCount = validStudents.length;
                         placedCount = validStudents.filter((s: any) => s.isPlaced).length;
+                        try {
+                            localStorage.setItem("cpms_cached_students_all", JSON.stringify(validStudents));
+                        } catch (e) {}
                     }
                 }
             } catch (e) { }
 
             // 3b. Query selections for confirmed offer accepted count
             try {
-                const selRes = await fetch("http://localhost:5001/api/selections");
+                const selRes = await fetch(`${API_BASE_URL}/api/selections`);
                 if (selRes.ok) {
                     const selectionsData = await selRes.json();
                     if (Array.isArray(selectionsData)) {
@@ -215,7 +245,7 @@ const OfficerDashboard: React.FC<DashboardProps> = ({ user, onLogout, initialTab
         const fetchProfile = async () => {
             if (!userId) return;
             try {
-                const res = await fetch(`http://localhost:5001/api/student/profile/${userId}`);
+                const res = await fetch(`${API_BASE_URL}/api/student/profile/${userId}`);
                 if (res.ok) {
                     const student = await res.json();
                     if (student) {
@@ -691,9 +721,6 @@ const OfficerDashboard: React.FC<DashboardProps> = ({ user, onLogout, initialTab
                         </h1>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
-                        {/* 🗑️ Universal Clear System Data Button */}
-                        <ClearDataButton />
-
                         {/* 🔔 Notifications Bell Drawer */}
                         <div style={{ position: "relative" }}>
                             <button

@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import jsPDF from 'jspdf';
+import { API_BASE_URL } from '../../config/api';
 
 export interface SelectionCandidateRecord {
     id: string;
@@ -145,7 +146,7 @@ const SelectionsManagement: React.FC<SelectionsManagementProps> = ({ user: propU
     useEffect(() => {
         const fetchSelectionsFromAPI = async () => {
             try {
-                const res = await fetch("http://localhost:5001/api/selections");
+                const res = await fetch(`${API_BASE_URL}/api/selections`);
                 if (res.ok) {
                     const data = await res.json();
                     if (Array.isArray(data)) {
@@ -234,7 +235,7 @@ const SelectionsManagement: React.FC<SelectionsManagementProps> = ({ user: propU
 
         // Persist to MongoDB backend API
         try {
-            const res = await fetch(`http://localhost:5001/api/selections/${candidateId}/status`, {
+            const res = await fetch(`${API_BASE_URL}/api/selections/${candidateId}/status`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ status: targetStatus }),
@@ -575,7 +576,7 @@ const SelectionsManagement: React.FC<SelectionsManagementProps> = ({ user: propU
                             type="text"
                             value={searchQuery}
                             onChange={e => setSearchQuery(e.target.value)}
-                            placeholder="🔍 Search student name, reg no..."
+                            placeholder="Search student name, reg no..."
                             style={{ padding: "9px 14px", borderRadius: "10px", border: "1px solid #cbd5e1", fontSize: "13px", outline: "none", backgroundColor: "#f8fafc" }}
                         />
                         <select

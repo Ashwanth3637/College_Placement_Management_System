@@ -3,6 +3,7 @@ import jsPDF from "jspdf";
 import StudentProfile from "./StudentProfile";
 import { formatCleanRoundName, getPureRoundTitle } from "../../utils/roundUtils";
 import ClearDataButton from "../../components/ClearDataButton";
+import { API_BASE_URL } from "../../config/api";
 
 interface User {
     id?: string;
@@ -62,24 +63,36 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
         return getFormattedName(user?.name);
     });
 
+    const [userAvatarImg, setUserAvatarImg] = useState<string | null>(() => {
+        return (
+            localStorage.getItem(`cpms_student_avatar_${userId}`) ||
+            localStorage.getItem(`cpms_student_avatar_${userKey}`) ||
+            null
+        );
+    });
+
     useEffect(() => {
-        const syncName = () => {
+        const syncNameAndAvatar = () => {
             const savedName = localStorage.getItem(`cpms_student_fullname_${userId}`) || localStorage.getItem("cpms_student_fullname");
             if (savedName && savedName.trim()) {
                 setDisplayName(savedName.trim());
             } else if (user?.name) {
                 setDisplayName(getFormattedName(user?.name));
             }
+            const avatar =
+                localStorage.getItem(`cpms_student_avatar_${userId}`) ||
+                localStorage.getItem(`cpms_student_avatar_${userKey}`);
+            setUserAvatarImg(avatar || null);
         };
 
-        syncName();
-        window.addEventListener("cpms_profile_updated", syncName);
-        window.addEventListener("storage", syncName);
+        syncNameAndAvatar();
+        window.addEventListener("cpms_profile_updated", syncNameAndAvatar);
+        window.addEventListener("storage", syncNameAndAvatar);
         return () => {
-            window.removeEventListener("cpms_profile_updated", syncName);
-            window.removeEventListener("storage", syncName);
+            window.removeEventListener("cpms_profile_updated", syncNameAndAvatar);
+            window.removeEventListener("storage", syncNameAndAvatar);
         };
-    }, [userId, user?.name]);
+    }, [userId, user?.name, userKey]);
 
     const [currentTab, setCurrentTabState] = useState<
         "dashboard" | "companies" | "applications" | "schedule" | "results" | "profile"
@@ -152,7 +165,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
         const fetchDbApps = async () => {
             try {
                 const studentEmail = user?.email || "ashwanth@gmail.com";
-                const res = await fetch(`http://localhost:5001/api/applications?email=${encodeURIComponent(studentEmail)}`);
+                const res = await fetch(`${API_BASE_URL}/api/applications?email=${encodeURIComponent(studentEmail)}`);
                 if (res.ok) {
                     const dbApps = await res.json();
                     if (Array.isArray(dbApps) && dbApps.length > 0) {
@@ -222,14 +235,11 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                         if ((recEmail && recEmail === userEmailLower) || (recStudentId && recStudentId === userId)) {
                             const recStatus = String(rec.status || "").toLowerCase();
                             if (recStatus !== "rejected" && recStatus !== "not shortlisted") {
-                                if (rec.driveId) set.add(String(rec.driveId).toLowerCase());
-                                if (rec.companyName || rec.company) {
-                                    const c = String(rec.companyName || rec.company).toLowerCase().trim();
-                                    set.add(c);
-                                    if (rec.jobRole || rec.role) {
-                                        const r = String(rec.jobRole || rec.role).toLowerCase().trim();
-                                        set.add(`${c}_${r}`);
-                                    }
+                                if (rec.driveId) set.add(String(rec.driveId).toLowerCase().trim());
+                                const c = String(rec.companyName || rec.company || "").toLowerCase().trim();
+                                const r = String(rec.jobRole || rec.role || "").toLowerCase().trim();
+                                if (c && r) {
+                                    set.add(`${c}_${r}`);
                                 }
                             }
                         }
@@ -262,7 +272,6 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
 
     const isDriveOptedIn = (d: PlacementDrive | any) => {
         if (!d) return false;
-        if (d.statusTag === "Opted-In") return true;
         const driveId = String(d.id || d._id || "").toLowerCase().trim();
         const comp = String(d.company || d.companyName || "").toLowerCase().trim();
         const role = String(d.role || d.jobRole || d.jobTitle || "").toLowerCase().trim();
@@ -271,17 +280,14 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
         return appliedDrives.some(item => {
             if (!item) return false;
             const str = String(item).toLowerCase().trim();
-            if (driveId && (str === driveId || str.includes(driveId) || driveId.includes(str))) return true;
-            if (compRole && (str === compRole || str.includes(compRole) || compRole.includes(str))) return true;
-            if (comp && (str.includes(comp) || comp.includes(str))) return true;
+            if (driveId && str === driveId) return true;
+            if (compRole && str === compRole) return true;
             return false;
         });
     };
 
-
     const isDriveOptedOut = (d: PlacementDrive | any) => {
         if (!d) return false;
-        if (d.statusTag === "Opted-Out") return true;
         const driveId = String(d.id || d._id || "").toLowerCase().trim();
         const comp = (d.company || d.companyName || "").toLowerCase().trim();
         const role = (d.role || d.jobRole || d.jobTitle || "").toLowerCase().trim();
@@ -309,12 +315,27 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
         };
     }, [userKey, userEmailLower, displayName]);
 
-    const [studentCgpa, setStudentCgpa] = useState<number>(0.0);
-    const [studentBacklogs, setStudentBacklogs] = useState<number>(0);
-    const [studentDepartment, setStudentDepartment] = useState<string>("Computer Science & Engineering");
-    const [studentTenth, setStudentTenth] = useState<number>(0.0);
-    const [studentTwelfth, setStudentTwelfth] = useState<number>(0.0);
-    const [studentGradYear, setStudentGradYear] = useState<number>(2026);
+    const getLocalProfileData = () => {
+        try {
+            const keys = Object.keys(localStorage).filter(k => k.startsWith("cpms_profile_"));
+            for (const k of keys) {
+                const val = localStorage.getItem(k);
+                if (val) {
+                    const parsed = JSON.parse(val);
+                    if (parsed && (parsed.academic || parsed.personal)) return parsed;
+                }
+            }
+        } catch (e) {}
+        return null;
+    };
+    const localProfile = getLocalProfileData();
+
+    const [studentCgpa, setStudentCgpa] = useState<number>(() => Number(localProfile?.academic?.cgpa) || 8.5);
+    const [studentBacklogs, setStudentBacklogs] = useState<number>(() => Number(localProfile?.academic?.backlogs) ?? 0);
+    const [studentDepartment, setStudentDepartment] = useState<string>(() => localProfile?.personal?.department || "Computer Science & Engineering");
+    const [studentTenth, setStudentTenth] = useState<number>(() => Number(localProfile?.academic?.tenthPercentage) || 85.0);
+    const [studentTwelfth, setStudentTwelfth] = useState<number>(() => Number(localProfile?.academic?.twelfthPercentage) || 85.0);
+    const [studentGradYear, setStudentGradYear] = useState<number>(() => Number(localProfile?.academic?.graduationYear) || 2026);
     const [studentRegNo, setStudentRegNo] = useState<string>("");
     const [studentPhone, setStudentPhone] = useState<string>("");
     const [studentResumeName, setStudentResumeName] = useState<string>("");
@@ -322,9 +343,21 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
     const [studentSkills, setStudentSkills] = useState<string[]>([]);
     const [isProfileVerified, setIsProfileVerified] = useState<boolean>(false);
     const [selectedDriveCriteria, setSelectedDriveCriteria] = useState<PlacementDrive | null>(null);
+    const [optInConfirmDrive, setOptInConfirmDrive] = useState<any>(null);
+    const [optOutConfirmDrive, setOptOutConfirmDrive] = useState<any>(null);
+    const [alertBanner, setAlertBanner] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+    // Auto-dismiss alert banner after 4 seconds
+    useEffect(() => {
+        if (!alertBanner) return;
+        const timer = setTimeout(() => {
+            setAlertBanner(null);
+        }, 4000);
+        return () => clearTimeout(timer);
+    }, [alertBanner]);
 
     useEffect(() => {
-        const isModalOpen = Boolean(selectedDriveCriteria || selectedApplicationModal || selectedOfferModal);
+        const isModalOpen = Boolean(selectedDriveCriteria || selectedApplicationModal || selectedOfferModal || optInConfirmDrive || optOutConfirmDrive);
         if (isModalOpen) {
             document.body.style.overflow = "hidden";
         } else {
@@ -336,6 +369,8 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                 setSelectedDriveCriteria(null);
                 setSelectedApplicationModal(null);
                 setSelectedOfferModal(null);
+                setOptInConfirmDrive(null);
+                setOptOutConfirmDrive(null);
             }
         };
 
@@ -380,7 +415,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
         const fetchProfile = async () => {
             const lookupKey = userId || userEmail || "student";
             try {
-                const res = await fetch(`http://localhost:5001/api/student/profile/${encodeURIComponent(lookupKey)}?email=${encodeURIComponent(userEmail)}`);
+                const res = await fetch(`${API_BASE_URL}/api/student/profile/${encodeURIComponent(lookupKey)}?email=${encodeURIComponent(userEmail)}`);
                 const data = await res.json();
                 let student = (res.ok && data) ? data : null;
 
@@ -555,8 +590,79 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
         return () => window.removeEventListener("keydown", handleKeyDown);
     }, []);
 
-    // Drive listings populated EXCLUSIVELY by Placement Officer published drives
-    const [placementDrives, setPlacementDrives] = useState<PlacementDrive[]>([]);
+    const isOfficerDrive = (pd: any) => {
+        if (!pd) return false;
+        const creator = String(pd.createdBy || "").toLowerCase();
+        return pd.isOfficerPublished === true || 
+               pd.isCreatedByOfficer === true || 
+               pd.createdExplicitlyByOfficer === true || 
+               creator.includes("officer") || 
+               creator === "placement officer";
+    };
+
+    const isDeptMatch = (branch: string, studentDept: string) => {
+        if (!branch || !studentDept) return true;
+        const b = branch.toLowerCase().trim();
+        const d = studentDept.toLowerCase().trim();
+        if (b === "all" || b === "all departments" || b === "" || d === "") return true;
+        if (b === d || b.includes(d) || d.includes(b)) return true;
+
+        const aliasMap: Record<string, string[]> = {
+            cse: ["computer science", "cse"],
+            it: ["information technology", "it"],
+            ece: ["electronics & communication", "electronics and communication", "ece"],
+            eee: ["electrical & electronics", "electrical and electronics", "eee"],
+            mech: ["mechanical", "mechanical engineering", "mech"]
+        };
+
+        for (const aliases of Object.values(aliasMap)) {
+            const matchesBranch = aliases.some(a => b.includes(a) || a.includes(b));
+            const matchesDept = aliases.some(a => d.includes(a) || a.includes(d));
+            if (matchesBranch && matchesDept) return true;
+        }
+        return false;
+    };
+
+    const [placementDrives, setPlacementDrives] = useState<PlacementDrive[]>(() => {
+        try {
+            const saved = localStorage.getItem("cpms_drives");
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    const map = new Map<string, PlacementDrive>();
+                    parsed
+                        .filter(pd => isOfficerDrive(pd))
+                        .forEach((pd: any) => {
+                            const compStr = (pd.companyName || pd.company || "").toLowerCase().trim();
+                            const roleStr = (pd.jobRole || pd.jobTitle || pd.role || "").toLowerCase().trim();
+                            const key = `${compStr}_${roleStr}`;
+                            if (!map.has(key)) {
+                                map.set(key, {
+                                    id: pd.id || pd._id || key,
+                                    company: pd.companyName || pd.company || "Approved Company",
+                                    logo: pd.logoUrl || pd.logo || "https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg",
+                                    bgColor: "#ffffff",
+                                    role: pd.jobRole || pd.jobTitle || pd.role || "Software Developer",
+                                    ctc: pd.salaryPackage || pd.packageCtc || pd.ctc || "₹18.0 LPA",
+                                    minCgpa: Number(pd.minCgpa ?? pd.eligibility?.minCgpa) || 6.5,
+                                    minTenth: Number(pd.minTenth ?? pd.eligibility?.minTenth ?? pd.eligibility?.tenthCutoff) || 60,
+                                    minTwelfth: Number(pd.minTwelfth ?? pd.eligibility?.minTwelfth ?? pd.eligibility?.twelfthCutoff) || 60,
+                                    maxBacklogs: Number(pd.maxBacklogs ?? pd.eligibility?.maxBacklogs) ?? 1,
+                                    gradYear: Number(pd.gradYear ?? pd.eligibility?.gradYear) || 2026,
+                                    departments: pd.departments || pd.eligibleBranches || ["CSE", "IT", "ECE"],
+                                    requiredSkills: pd.requiredSkills || ["Problem Solving", "Coding"],
+                                    location: pd.location || "Bangalore",
+                                    deadline: pd.driveDate || pd.deadline || pd.applicationDeadline || "28 Aug 2026",
+                                    statusTag: "Eligible"
+                                } as any);
+                            }
+                        });
+                    return Array.from(map.values());
+                }
+            }
+        } catch (e) {}
+        return [];
+    });
 
     useEffect(() => {
         const syncApprovedDrives = async () => {
@@ -572,7 +678,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
             } catch (e) { }
 
             try {
-                const res = await fetch("http://localhost:5001/api/company/drives");
+                const res = await fetch(`${API_BASE_URL}/api/company/drives`);
                 if (res.ok) {
                     const remote = await res.json();
                     if (Array.isArray(remote)) {
@@ -589,68 +695,64 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                 }
             } catch (e) { }
 
-            let approvedCompaniesSet = new Set<string>();
-            let rejectedCompaniesSet = new Set<string>();
-            try {
-                const savedComps = localStorage.getItem("cpms_companies");
-                if (savedComps) {
-                    const parsedComps = JSON.parse(savedComps);
-                    if (Array.isArray(parsedComps) && parsedComps.length > 0) {
-                        parsedComps.forEach((c: any) => {
-                            const compName = (c.companyName || c.company || "").toLowerCase().trim();
-                            const isApproved = c.registrationStatus === "Approved" || c.status === "Approved";
-                            const isRejected = c.registrationStatus === "Rejected" || c.status === "Rejected";
-                            if (compName) {
-                                if (isApproved) approvedCompaniesSet.add(compName);
-                                if (isRejected) rejectedCompaniesSet.add(compName);
-                            }
-                        });
-                    }
-                }
-            } catch (e) { }
-
             let dynamicApproved: PlacementDrive[] = [];
             rawDrives.forEach((pd: any) => {
                 const compStr = (pd.companyName || pd.company || "").toLowerCase().trim();
+                if (!compStr) return;
+
                 const isOptedIn = isDriveOptedIn(pd);
                 const isOptedOut = isDriveOptedOut(pd);
 
-                const isRejected = compStr && rejectedCompaniesSet.has(compStr);
-                if (isRejected && !isOptedIn) return;
-
-                const creator = String(pd.createdBy || "").toLowerCase();
                 const st = (pd.status || "").toLowerCase();
-                const isPendingOrRejected = st === "pending" || st === "pending approval" || st === "rejected" || st === "draft";
-                const isOfficerApproved = st === "approved" || st === "active" || st === "published" || st === "open" || st === "upcoming" || st === "ongoing" || pd.isOfficerPublished === true || pd.isCreatedByOfficer === true || creator === "placement officer";
-                const isPublished = !isPendingOrRejected && (isOfficerApproved || isOptedIn);
+                const isDraftOrRejected = st === "rejected" || st === "draft";
+                const isPublished = isOfficerDrive(pd) && !isDraftOrRejected;
 
                 if (isPublished || isOptedIn) {
-                    const minCgpaVal = Number(pd.minCgpa) || 6.5;
-                    const minTenthVal = Number(pd.minTenth) || 60;
-                    const minTwelfthVal = Number(pd.minTwelfth) || 60;
-                    const maxBacklogsVal = Number(pd.maxBacklogs) ?? 1;
-                    const reqGradYear = Number(pd.gradYear) || 2026;
-                    const eligibleBranches: string[] = pd.eligibleBranches || pd.departments || ["CSE", "IT", "ECE"];
+                    const minCgpaVal = Number(pd.minCgpa ?? pd.eligibility?.minCgpa) || 6.5;
+                    const minTenthVal = Number(pd.minTenth ?? pd.eligibility?.minTenth ?? pd.eligibility?.tenthCutoff) || 60;
+                    const minTwelfthVal = Number(pd.minTwelfth ?? pd.eligibility?.minTwelfth ?? pd.eligibility?.twelfthCutoff) || 60;
+                    const maxBacklogsVal = Number(pd.maxBacklogs ?? pd.eligibility?.maxBacklogs) ?? 1;
+                    const reqGradYear = Number(pd.gradYear ?? pd.eligibility?.gradYear) || 2026;
+                    
+                    let eligibleBranches: string[] = [];
+                    if (Array.isArray(pd.eligibleBranches) && pd.eligibleBranches.length > 0) {
+                        eligibleBranches = pd.eligibleBranches;
+                    } else if (Array.isArray(pd.departments) && pd.departments.length > 0) {
+                        eligibleBranches = pd.departments;
+                    } else if (pd.eligibility?.departments) {
+                        eligibleBranches = typeof pd.eligibility.departments === "string" 
+                            ? pd.eligibility.departments.split(",").map((s: string) => s.trim()).filter(Boolean)
+                            : pd.eligibility.departments;
+                    } else {
+                        eligibleBranches = ["CSE", "IT", "ECE"];
+                    }
 
-                    const cgpaOk = studentCgpa >= minCgpaVal;
-                    const tenthOk = studentTenth >= minTenthVal;
-                    const twelfthOk = studentTwelfth >= minTwelfthVal;
+                    const effCgpa = studentCgpa > 0 ? studentCgpa : 8.5;
+                    const effTenth = studentTenth > 0 ? studentTenth : 85.0;
+                    const effTwelfth = studentTwelfth > 0 ? studentTwelfth : 85.0;
+
+                    const cgpaOk = effCgpa >= minCgpaVal;
+                    const tenthOk = effTenth >= minTenthVal;
+                    const twelfthOk = effTwelfth >= minTwelfthVal;
                     const backlogsOk = studentBacklogs <= maxBacklogsVal;
                     const gradYearOk = !studentGradYear || studentGradYear === reqGradYear;
-                    const deptOk = eligibleBranches.length === 0 || eligibleBranches.some(b => 
-                        b.toLowerCase() === (studentDepartment || "").toLowerCase() ||
-                        (studentDepartment || "").toLowerCase().includes(b.toLowerCase()) ||
-                        b.toLowerCase().includes((studentDepartment || "").toLowerCase())
-                    );
+                    const deptOk = eligibleBranches.length === 0 || eligibleBranches.some(b => isDeptMatch(b, studentDepartment));
 
                     const isEligible = cgpaOk && tenthOk && twelfthOk && backlogsOk && gradYearOk && deptOk;
 
+                    let ineligibilityReasons: string[] = [];
+                    if (!cgpaOk) ineligibilityReasons.push(`Min CGPA: ${minCgpaVal} (Your CGPA: ${studentCgpa})`);
+                    if (!tenthOk) ineligibilityReasons.push(`Min 10th: ${minTenthVal}% (Your 10th: ${studentTenth}%)`);
+                    if (!twelfthOk) ineligibilityReasons.push(`Min 12th: ${minTwelfthVal}% (Your 12th: ${studentTwelfth}%)`);
+                    if (!backlogsOk) ineligibilityReasons.push(`Max Backlogs: ${maxBacklogsVal} (Your Backlogs: ${studentBacklogs})`);
+                    if (!gradYearOk) ineligibilityReasons.push(`Graduation Year: ${reqGradYear} (Your Year: ${studentGradYear})`);
+                    if (!deptOk) ineligibilityReasons.push(`Eligible Depts: ${eligibleBranches.join(", ")} (Your Dept: ${studentDepartment || "N/A"})`);
+
                     const roleStr = (pd.jobRole || pd.jobTitle || pd.role || "").toLowerCase().trim();
-                    const driveKey = `${compStr}_${roleStr}`;
-                    const driveIdVal = pd.id || pd._id || driveKey;
+                    const driveKey = pd.id || pd._id || `${compStr}_${roleStr}`;
 
                     dynamicApproved.push({
-                        id: driveIdVal || `drive_${Date.now()}`,
+                        id: driveKey,
                         company: pd.companyName || pd.company || "Approved Company",
                         logo: pd.logoUrl || pd.logo || "https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg",
                         bgColor: "#ffffff",
@@ -660,33 +762,28 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                         minTenth: minTenthVal,
                         minTwelfth: minTwelfthVal,
                         maxBacklogs: maxBacklogsVal,
-                        gradYear: pd.gradYear || 2026,
-                        departments: pd.departments || pd.eligibleBranches || ["CSE", "IT", "ECE"],
+                        gradYear: reqGradYear,
+                        departments: eligibleBranches,
                         requiredSkills: pd.requiredSkills || ["Problem Solving", "Coding"],
                         location: pd.location || "Bangalore",
                         deadline: pd.driveDate || pd.deadline || pd.applicationDeadline || "28 Aug 2026",
-                        statusTag: isOptedIn ? "Opted-In" : (isOptedOut ? "Opted-Out" : (isEligible ? "Eligible" : "Not Eligible"))
-                    });
+                        statusTag: isOptedIn ? "Opted-In" : (isOptedOut ? "Opted-Out" : (isEligible ? "Eligible" : "Not Eligible")),
+                        isEligible,
+                        ineligibilityReason: ineligibilityReasons.join(" • ")
+                    } as any);
                 }
             });
 
             const map = new Map<string, PlacementDrive>();
             dynamicApproved.forEach(d => {
-                const rawComp = (d.company || "").toLowerCase().replace(/[^a-z0-9]/g, "");
-                let compKey = rawComp;
-                if (rawComp.includes("tcs") || rawComp.includes("tataconsultancy")) {
-                    compKey = "tcs";
-                } else if (rawComp.includes("amazon")) {
-                    compKey = "amazon";
-                } else {
-                    compKey = rawComp.slice(0, 12);
-                }
+                const rawComp = (d.company || "").toLowerCase().trim();
+                const rawRole = (d.role || (d as any).jobRole || (d as any).jobTitle || "").toLowerCase().trim();
+                const compKey = `${rawComp}_${rawRole}`;
 
                 const existing = map.get(compKey);
                 if (!existing) {
                     map.set(compKey, d);
                 } else {
-                    // If current item is Opted-In or Eligible, prefer it over an ineligible duplicate
                     if (d.statusTag === "Opted-In" || (d.statusTag === "Eligible" && existing.statusTag !== "Opted-In")) {
                         map.set(compKey, d);
                     }
@@ -706,10 +803,10 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
     }, [studentCgpa, studentTenth, studentTwelfth, studentBacklogs, studentDepartment, appliedDrives, optedOutDrives]);
 
     const filterCounts = {
-        "Opted-In": placementDrives.filter(d => isDriveOptedIn(d)).length,
-        "Opted-Out": placementDrives.filter(d => isDriveOptedOut(d)).length,
-        "Eligible": placementDrives.filter(d => d.statusTag === "Eligible" || isDriveOptedIn(d)).length,
-        "Not Eligible": placementDrives.filter(d => d.statusTag === "Not Eligible" && !isDriveOptedIn(d)).length,
+        "Opted-In": placementDrives.filter(d => isDriveOptedIn(d) || d.statusTag === "Opted-In").length,
+        "Opted-Out": placementDrives.filter(d => isDriveOptedOut(d) || d.statusTag === "Opted-Out").length,
+        "Eligible": placementDrives.filter(d => !isDriveOptedOut(d) && !isDriveOptedIn(d) && (d.statusTag === "Eligible" || (d as any).isEligible)).length,
+        "Not Eligible": placementDrives.filter(d => !isDriveOptedOut(d) && !isDriveOptedIn(d) && d.statusTag === "Not Eligible" && !(d as any).isEligible).length,
         "Completed": placementDrives.filter(d => d.statusTag === "Completed").length
     };
 
@@ -1302,7 +1399,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
             localStorage.setItem("cpms_applications", JSON.stringify(appsArr));
 
             // Persist application to MongoDB backend
-            fetch("http://localhost:5001/api/applications", {
+            fetch(`${API_BASE_URL}/api/applications`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -1327,7 +1424,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
 
         window.dispatchEvent(new Event("storage"));
         window.dispatchEvent(new CustomEvent("cpms_drives_updated"));
-        alert("Opt-In application submitted successfully!");
+        setAlertBanner({ type: "success", text: "✓ Opt-In application submitted successfully!" });
     };
 
     const handleOptOut = (driveId: string, driveComp?: string, driveRole?: string) => {
@@ -1379,7 +1476,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
 
         window.dispatchEvent(new Event("storage"));
         window.dispatchEvent(new CustomEvent("cpms_drives_updated"));
-        alert("Opt-Out response recorded successfully.");
+        setAlertBanner({ type: "success", text: "✓ Opt-Out response recorded successfully." });
     };
 
     return (
@@ -1390,18 +1487,18 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                 onClick={() => setIsMobileMenuOpen(false)}
             />
 
-            {/* Sidebar matching exact placement portal design */}
-            <aside className={`app-drawer-sidebar ${isMobileMenuOpen ? "open" : ""}`} style={{ width: "240px", backgroundColor: "#ffffff", borderRight: "1px solid #eaedf0", display: "flex", flexDirection: "column", justifyContent: "space-between", flexShrink: 0, minHeight: "100vh", position: "sticky", top: 0, height: "100vh" }}>
+            {/* Sidebar matching clean white placement portal design */}
+            <aside className={`app-drawer-sidebar ${isMobileMenuOpen ? "open" : ""}`} style={{ width: "240px", backgroundColor: "#ffffff", borderRight: "1px solid #e2e8f0", display: "flex", flexDirection: "column", justifyContent: "space-between", flexShrink: 0, minHeight: "100vh", position: "sticky", top: 0, height: "100vh" }}>
                 <div>
                     {/* Brand */}
-                    <div style={{ padding: "20px 24px", borderBottom: "1px solid #f0f2f5", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <div style={{ padding: "20px 20px", borderBottom: "1px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                            <div style={{ width: "38px", height: "38px", backgroundColor: "#0f172a", borderRadius: "10px", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "800", fontSize: "16px" }}>
-                                CP
+                            <div style={{ width: "38px", height: "38px", backgroundColor: "#2563eb", borderRadius: "10px", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "800", fontSize: "20px", boxShadow: "0 4px 12px rgba(37,99,235,0.25)" }}>
+                                🎓
                             </div>
                             <div>
-                                <div style={{ fontWeight: "800", color: "#0f172a", fontSize: "15px", letterSpacing: "-0.3px" }}>Placement Portal</div>
-                                <div style={{ fontSize: "10px", color: "#94a3b8", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.5px" }}>PLACEMENT SPACE</div>
+                                <div style={{ fontWeight: "800", color: "#0f172a", fontSize: "14px", letterSpacing: "-0.2px", lineHeight: "1.2" }}>College Placement</div>
+                                <div style={{ fontSize: "10px", color: "#2563eb", fontWeight: "800", textTransform: "uppercase", letterSpacing: "0.5px" }}>PORTAL</div>
                             </div>
                         </div>
                         <button
@@ -1414,16 +1511,14 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                     </div>
 
                     {/* Navigation Menu */}
-                    <div style={{ padding: "16px 12px" }}>
-                        <div style={{ fontSize: "11px", fontWeight: "700", color: "#94a3b8", letterSpacing: "1px", padding: "0 12px 14px 12px", textTransform: "uppercase" }}>MAIN SPACE</div>
+                    <div style={{ padding: "20px 14px" }}>
+                        <div style={{ fontSize: "11px", fontWeight: "700", color: "#94a3b8", letterSpacing: "1px", padding: "0 10px 12px 10px", textTransform: "uppercase" }}>NAVIGATION</div>
                         <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                             {[
-                                { id: "dashboard", label: "Dashboard", svg: <path d="M4 5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5zm10 0a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1V5M4 15a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-4zm10 0a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1v-4z" /> },
-                                { id: "companies", label: "Campus Drives", svg: <path d="M3 21h18M3 7v14M21 7v14M6 10h4M6 14h4M6 18h4M14 10h4M14 14h4M14 18h4M9 3h6v4H9z" /> },
-                                { id: "applications", label: "My Applications", svg: <path d="M9 11l3 3L22 4M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" /> },
-                                { id: "schedule", label: "Interview Schedule", svg: <path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z" /> },
-                                { id: "results", label: "Results & Offer Letter", svg: <path d="M6 9H4.5a2.5 2.5 0 010-5H6M18 9h1.5a2.5 2.5 0 000-5H18M4 22h16M10 14.66V17M14 14.66V17M18 4H6v7a6 6 0 0012 0V4z" /> },
-                                { id: "profile", label: "My Profile", svg: <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" /> },
+                                { id: "dashboard", label: "Home", svg: <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /> },
+                                { id: "companies", label: "Drives", svg: <path d="M3 21h18M3 7v14M21 7v14M6 10h4M6 14h4M6 18h4M14 10h4M14 14h4M14 18h4M9 3h6v4H9z" /> },
+                                { id: "applications", label: "My Application", svg: <path d="M9 11l3 3L22 4M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" /> },
+                                { id: "profile", label: "Profile", svg: <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" /> },
                             ].map((item) => {
                                 const isActive = currentTab === item.id;
                                 return (
@@ -1433,14 +1528,14 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                                         style={{
                                             display: "flex",
                                             alignItems: "center",
-                                            gap: "14px",
-                                            padding: "12px 18px",
-                                            borderRadius: "16px",
-                                            border: isActive ? "2px solid #0052cc" : "2px solid transparent",
-                                            backgroundColor: isActive ? "#f4f6f8" : "transparent",
-                                            color: isActive ? "#0f172a" : "#64748b",
-                                            fontWeight: isActive ? "700" : "400",
-                                            fontSize: "15px",
+                                            gap: "12px",
+                                            padding: "12px 16px",
+                                            borderRadius: "10px",
+                                            border: "none",
+                                            backgroundColor: isActive ? "#eff6ff" : "transparent",
+                                            color: isActive ? "#2563eb" : "#64748b",
+                                            fontWeight: isActive ? "700" : "500",
+                                            fontSize: "14px",
                                             fontFamily: "Inter, -apple-system, sans-serif",
                                             cursor: "pointer",
                                             textAlign: "left",
@@ -1449,10 +1544,10 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                                             width: "100%",
                                         }}
                                     >
-                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={isActive ? "#0f172a" : "#64748b"} strokeWidth={isActive ? "2.4" : "1.8"} strokeLinecap="round" strokeLinejoin="round">
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={isActive ? "#2563eb" : "#64748b"} strokeWidth={isActive ? "2.4" : "1.8"} strokeLinecap="round" strokeLinejoin="round">
                                             {item.svg}
                                         </svg>
-                                        <span style={{ fontWeight: isActive ? "700" : "400", color: isActive ? "#0f172a" : "#64748b" }}>{item.label}</span>
+                                        <span style={{ color: isActive ? "#2563eb" : "#64748b" }}>{item.label}</span>
                                     </button>
                                 );
                             })}
@@ -1461,10 +1556,16 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                 </div>
 
                 {/* Footer Account */}
-                <div style={{ padding: "16px", borderTop: "1px solid #f0f2f5" }}>
-                    <div style={{ backgroundColor: "#f8fafc", borderRadius: "10px", padding: "10px 12px", marginBottom: "12px", display: "flex", alignItems: "center", gap: "10px" }}>
-                        <div style={{ width: "34px", height: "34px", borderRadius: "50%", backgroundColor: "#0f172a", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "700", fontSize: "14px" }}>
-                            {(displayName || "A").charAt(0).toUpperCase()}
+                <div style={{ padding: "16px", borderTop: "1px solid #e2e8f0" }}>
+                    <div style={{ backgroundColor: "#f8fafc", borderRadius: "12px", padding: "10px 12px", marginBottom: "12px", display: "flex", alignItems: "center", gap: "10px", border: "1px solid #e2e8f0" }}>
+                        <div style={{ width: "34px", height: "34px", borderRadius: "50%", backgroundColor: "#f1f5f9", border: "1px solid #cbd5e1", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+                            {userAvatarImg ? (
+                                <img src={userAvatarImg} alt="Avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                            ) : (
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="#94a3b8">
+                                    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                                </svg>
+                            )}
                         </div>
                         <div style={{ overflow: "hidden" }}>
                             <div style={{ fontSize: "13px", fontWeight: "700", color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{displayName}</div>
@@ -1475,11 +1576,11 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                         onClick={onLogout}
                         style={{
                             width: "100%",
-                            padding: "9px 14px",
-                            backgroundColor: "#fff",
-                            color: "#ef4444",
-                            border: "1px solid #fee2e2",
-                            borderRadius: "8px",
+                            padding: "10px 14px",
+                            backgroundColor: "#fef2f2",
+                            color: "#dc2626",
+                            border: "1px solid #fecaca",
+                            borderRadius: "10px",
                             fontWeight: "700",
                             fontSize: "13px",
                             cursor: "pointer",
@@ -1487,55 +1588,124 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                             alignItems: "center",
                             justifyContent: "center",
                             gap: "8px",
+                            transition: "all 0.15s ease",
                         }}
                     >
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
                             <polyline points="16 17 21 12 16 7" />
                             <line x1="21" y1="12" x2="9" y2="12" />
                         </svg>
-                        <span>Logout</span>
+                        <span>Log Out</span>
                     </button>
                 </div>
             </aside>
 
             {/* Main Area */}
-            <main style={{ flex: 1, padding: "clamp(14px, 4vw, 24px) clamp(12px, 4vw, 32px)", overflowY: "auto", overflowX: "hidden" }}>
-                {/* Header Bar */}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px", flexWrap: "wrap", gap: "10px" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            <main style={{ flex: 1, padding: "clamp(14px, 4vw, 24px) clamp(12px, 4vw, 32px)", overflowY: "auto", overflowX: "hidden", backgroundColor: "#f8fafc" }}>
+                {/* Top Header Bar */}
+                {currentTab !== "profile" ? (
+                    <div className="student-top-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px", backgroundColor: "#ffffff", padding: "14px 18px", borderRadius: "12px", gap: "12px", flexWrap: "wrap", boxShadow: "0 1px 3px rgba(0,0,0,0.02)" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "12px", flex: "1 1 auto", minWidth: 0 }}>
+                            <button
+                                onClick={() => setIsMobileMenuOpen(true)}
+                                className="mobile-hamburger-toggle"
+                                style={{ display: "none", alignItems: "center", justifyContent: "center", width: "36px", height: "36px", borderRadius: "8px", border: "1px solid #e2e8f0", backgroundColor: "#ffffff", cursor: "pointer", fontSize: "18px", color: "#0f172a", flexShrink: 0 }}
+                                aria-label="Open Menu"
+                            >
+                                ☰
+                            </button>
+
+                            <div style={{ position: "relative", flex: "1 1 180px", maxWidth: "100%", minWidth: 0 }}>
+                                <input
+                                    type="text"
+                                    placeholder="Search drives, roles, companies..."
+                                    style={{
+                                        width: "100%",
+                                        padding: "8px 14px 8px 34px",
+                                        borderRadius: "20px",
+                                        backgroundColor: "#f1f5f9",
+                                        border: "1px solid #e2e8f0",
+                                        fontSize: "13px",
+                                        outline: "none",
+                                        color: "#0f172a",
+                                        boxSizing: "border-box",
+                                    }}
+                                />
+                                <span style={{ position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)", color: "#64748b", fontSize: "14px" }}>🔍</span>
+                            </div>
+                        </div>
+
+                        <div style={{ display: "flex", alignItems: "center", gap: "12px", flexShrink: 0 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                                <div style={{ width: "38px", height: "38px", borderRadius: "50%", backgroundColor: "#f1f5f9", border: "1px solid #cbd5e1", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", flexShrink: 0 }}>
+                                    {userAvatarImg ? (
+                                        <img src={userAvatarImg} alt="Avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                                    ) : (
+                                        <svg width="22" height="22" viewBox="0 0 24 24" fill="#94a3b8">
+                                            <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                                        </svg>
+                                    )}
+                                </div>
+                                <div>
+                                    <div style={{ fontSize: "14px", fontWeight: "700", color: "#0f172a", lineHeight: "1.2", whiteSpace: "nowrap" }}>{displayName}</div>
+                                    <div style={{ fontSize: "11px", color: "#64748b", marginTop: "1px", whiteSpace: "nowrap" }}>Let's land that offer.</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="mobile-hamburger-toggle" style={{ display: "none", alignItems: "center", justifyContent: "space-between", marginBottom: "16px", backgroundColor: "#ffffff", padding: "10px 16px", borderRadius: "12px", border: "1px solid #e2e8f0", boxShadow: "0 1px 3px rgba(0,0,0,0.02)" }}>
                         <button
                             onClick={() => setIsMobileMenuOpen(true)}
-                            className="mobile-hamburger-toggle"
-                            style={{ display: "none", alignItems: "center", justifyContent: "center", width: "36px", height: "36px", borderRadius: "8px", border: "1px solid #e2e8f0", backgroundColor: "#ffffff", cursor: "pointer", fontSize: "18px", color: "#0f172a" }}
+                            style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: "36px", height: "36px", borderRadius: "8px", border: "1px solid #e2e8f0", backgroundColor: "#ffffff", cursor: "pointer", fontSize: "18px", color: "#0f172a" }}
                             aria-label="Open Menu"
                         >
                             ☰
                         </button>
-                        <h1 style={{ fontSize: "20px", fontWeight: "800", color: "#0f172a", margin: 0 }}>
-                            Student Placement Dashboard
-                        </h1>
+                        <div style={{ fontSize: "14px", fontWeight: "700", color: "#0f172a" }}>My Profile</div>
                     </div>
+                )}
 
-                    <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
-                        {/* 🗑️ Universal Clear System Data Button */}
-                        <ClearDataButton />
-
-                        <div style={{ width: "36px", height: "36px", borderRadius: "50%", backgroundColor: "#fef3c7", color: "#d97706", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "16px", cursor: "pointer", position: "relative" }}>
-                            🔔
-                            <span style={{ position: "absolute", top: "4px", right: "4px", width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "#ef4444" }}></span>
-                        </div>
-                        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                            <div style={{ width: "36px", height: "36px", borderRadius: "50%", backgroundColor: "#0f172a", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "700", fontSize: "14px" }}>
-                                {(displayName || "A").charAt(0).toUpperCase()}
-                            </div>
-                            <div>
-                                <div style={{ fontSize: "13px", fontWeight: "700", color: "#0f172a" }}>{displayName}</div>
-                                <div style={{ fontSize: "11px", color: "#94a3b8" }}>Student</div>
-                            </div>
-                        </div>
+                {/* Success / Error Notification Alert Banner */}
+                {alertBanner && (
+                    <div
+                        style={{
+                            backgroundColor: alertBanner.type === "success" ? "#f0fdf4" : "#fef2f2",
+                            color: alertBanner.type === "success" ? "#166534" : "#991b1b",
+                            border: alertBanner.type === "success" ? "1px solid #bbf7d0" : "1px solid #fecaca",
+                            borderLeft: alertBanner.type === "success" ? "4px solid #16a34a" : "4px solid #dc2626",
+                            borderRadius: "12px",
+                            padding: "14px 20px",
+                            marginBottom: "24px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            fontSize: "14px",
+                            fontWeight: "700",
+                            boxShadow: "0 2px 4px rgba(0,0,0,0.02)",
+                        }}
+                    >
+                        <span>{alertBanner.text}</span>
+                        <button
+                            onClick={() => setAlertBanner(null)}
+                            style={{
+                                background: "none",
+                                border: "none",
+                                color: alertBanner.type === "success" ? "#166534" : "#991b1b",
+                                fontSize: "16px",
+                                fontWeight: "800",
+                                cursor: "pointer",
+                                padding: "0 4px",
+                                lineHeight: "1",
+                            }}
+                            title="Dismiss"
+                            aria-label="Dismiss Alert"
+                        >
+                            ✕
+                        </button>
                     </div>
-                </div>
+                )}
 
                 {/* TAB 1: DASHBOARD */}
                 {currentTab === "dashboard" && (
@@ -1787,10 +1957,11 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                             {placementDrives
                                 .filter(d => {
                                     const isOptedIn = isDriveOptedIn(d);
-                                    if (driveFilter === "Opted-In") return isOptedIn;
-                                    if (driveFilter === "Opted-Out") return d.statusTag === "Opted-Out";
-                                    if (driveFilter === "Eligible") return (d.statusTag === "Eligible" || isOptedIn) && d.statusTag !== "Not Eligible" && d.statusTag !== "Completed";
-                                    if (driveFilter === "Not Eligible") return d.statusTag === "Not Eligible" && !isOptedIn;
+                                    const isOptedOut = isDriveOptedOut(d);
+                                    if (driveFilter === "Opted-In") return isOptedIn || d.statusTag === "Opted-In";
+                                    if (driveFilter === "Opted-Out") return isOptedOut || d.statusTag === "Opted-Out";
+                                    if (driveFilter === "Eligible") return !isOptedOut && !isOptedIn && (d.statusTag === "Eligible" || (d as any).isEligible);
+                                    if (driveFilter === "Not Eligible") return !isOptedOut && !isOptedIn && (d.statusTag === "Not Eligible" || !(d as any).isEligible);
                                     if (driveFilter === "Completed") return d.statusTag === "Completed";
                                     return true;
                                 })
@@ -3127,6 +3298,198 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                     <span>Profile</span>
                 </button>
             </nav>
+
+            {/* MODAL 3: Custom Centered Confirm Opt-In Modal (Matching Target Design) */}
+            {optInConfirmDrive && (
+                <div
+                    style={{
+                        position: "fixed",
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        backgroundColor: "rgba(15, 23, 42, 0.5)",
+                        backdropFilter: "blur(4px)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        zIndex: 10000,
+                        padding: "16px",
+                    }}
+                    onClick={() => setOptInConfirmDrive(null)}
+                >
+                    <div
+                        style={{
+                            backgroundColor: "#ffffff",
+                            borderRadius: "16px",
+                            padding: "28px",
+                            maxWidth: "420px",
+                            width: "100%",
+                            boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)",
+                            position: "relative",
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <button
+                            onClick={() => setOptInConfirmDrive(null)}
+                            style={{
+                                position: "absolute",
+                                top: "20px",
+                                right: "20px",
+                                background: "none",
+                                border: "none",
+                                fontSize: "18px",
+                                color: "#64748b",
+                                cursor: "pointer",
+                                padding: "4px",
+                                lineHeight: "1",
+                            }}
+                            aria-label="Close"
+                        >
+                            ✕
+                        </button>
+                        <h3 style={{ fontSize: "20px", fontWeight: "800", color: "#0f172a", margin: "0 0 12px 0" }}>
+                            Confirm Opt-In
+                        </h3>
+                        <p style={{ fontSize: "15px", color: "#475569", margin: "0 0 28px 0", lineHeight: "1.5" }}>
+                            Are you sure you want to Opt-In?
+                        </p>
+                        <div style={{ display: "flex", justifyContent: "flex-end", gap: "14px" }}>
+                            <button
+                                onClick={() => setOptInConfirmDrive(null)}
+                                style={{
+                                    padding: "10px 22px",
+                                    backgroundColor: "#ffffff",
+                                    color: "#7c3aed",
+                                    border: "1.5px solid #a855f7",
+                                    borderRadius: "10px",
+                                    fontSize: "14px",
+                                    fontWeight: "700",
+                                    cursor: "pointer",
+                                }}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={() => {
+                                    handleApply(optInConfirmDrive.id || "", optInConfirmDrive.company, optInConfirmDrive.role);
+                                    setOptInConfirmDrive(null);
+                                    setSelectedDriveCriteria(null);
+                                }}
+                                style={{
+                                    padding: "10px 22px",
+                                    backgroundColor: "#8b5cf6",
+                                    color: "#ffffff",
+                                    border: "none",
+                                    borderRadius: "10px",
+                                    fontSize: "14px",
+                                    fontWeight: "700",
+                                    cursor: "pointer",
+                                    boxShadow: "0 2px 4px rgba(139, 92, 246, 0.25)",
+                                }}
+                            >
+                                Opt-In
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* MODAL 4: Custom Centered Confirm Opt-Out Modal (Matching Target Design) */}
+            {optOutConfirmDrive && (
+                <div
+                    style={{
+                        position: "fixed",
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        backgroundColor: "rgba(15, 23, 42, 0.5)",
+                        backdropFilter: "blur(4px)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        zIndex: 10000,
+                        padding: "16px",
+                    }}
+                    onClick={() => setOptOutConfirmDrive(null)}
+                >
+                    <div
+                        style={{
+                            backgroundColor: "#ffffff",
+                            borderRadius: "16px",
+                            padding: "28px",
+                            maxWidth: "420px",
+                            width: "100%",
+                            boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)",
+                            position: "relative",
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <button
+                            onClick={() => setOptOutConfirmDrive(null)}
+                            style={{
+                                position: "absolute",
+                                top: "20px",
+                                right: "20px",
+                                background: "none",
+                                border: "none",
+                                fontSize: "18px",
+                                color: "#64748b",
+                                cursor: "pointer",
+                                padding: "4px",
+                                lineHeight: "1",
+                            }}
+                            aria-label="Close"
+                        >
+                            ✕
+                        </button>
+                        <h3 style={{ fontSize: "20px", fontWeight: "800", color: "#0f172a", margin: "0 0 12px 0" }}>
+                            Confirm Opt-Out
+                        </h3>
+                        <p style={{ fontSize: "15px", color: "#475569", margin: "0 0 28px 0", lineHeight: "1.5" }}>
+                            Are you sure you want to Opt-Out?
+                        </p>
+                        <div style={{ display: "flex", justifyContent: "flex-end", gap: "14px" }}>
+                            <button
+                                onClick={() => setOptOutConfirmDrive(null)}
+                                style={{
+                                    padding: "10px 22px",
+                                    backgroundColor: "#ffffff",
+                                    color: "#0f172a",
+                                    border: "1.5px solid #cbd5e1",
+                                    borderRadius: "10px",
+                                    fontSize: "14px",
+                                    fontWeight: "700",
+                                    cursor: "pointer",
+                                }}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={() => {
+                                    handleOptOut(optOutConfirmDrive.id || "", optOutConfirmDrive.company, optOutConfirmDrive.role);
+                                    setOptOutConfirmDrive(null);
+                                    setSelectedDriveCriteria(null);
+                                }}
+                                style={{
+                                    padding: "10px 22px",
+                                    backgroundColor: "#dc2626",
+                                    color: "#ffffff",
+                                    border: "none",
+                                    borderRadius: "10px",
+                                    fontSize: "14px",
+                                    fontWeight: "700",
+                                    cursor: "pointer",
+                                    boxShadow: "0 2px 4px rgba(220, 38, 38, 0.25)",
+                                }}
+                            >
+                                Opt-Out
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

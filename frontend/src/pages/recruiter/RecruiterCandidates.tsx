@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useMemo, useEffect } from "react";
+import { API_BASE_URL } from "../../config/api";
 import { formatCleanRoundName } from "../../utils/roundUtils";
 
 export interface CandidateItem {
@@ -49,7 +50,7 @@ export const RecruiterCandidates: React.FC<RecruiterCandidatesProps> = ({ user, 
 
         try {
             // Fetch registered applications from MongoDB backend API
-            const appRes = await fetch(`http://localhost:5001/api/applications?company=${encodeURIComponent(companyNameShort)}`);
+            const appRes = await fetch(`${API_BASE_URL}/api/applications?company=${encodeURIComponent(companyNameShort)}`);
             if (appRes.ok) {
                 const dbApps = await appRes.json();
                 if (Array.isArray(dbApps) && dbApps.length > 0) {
@@ -77,7 +78,7 @@ export const RecruiterCandidates: React.FC<RecruiterCandidatesProps> = ({ user, 
             }
 
             // Fetch registered students from backend
-            const res = await fetch("http://localhost:5001/api/student/all");
+            const res = await fetch(`${API_BASE_URL}/api/student/all`);
             if (res.ok) {
                 const apiStudents = await res.json();
                 if (Array.isArray(apiStudents) && apiStudents.length > 0) {
@@ -137,7 +138,7 @@ export const RecruiterCandidates: React.FC<RecruiterCandidatesProps> = ({ user, 
         } catch (e) { }
 
         try {
-            const drivesRes = await fetch(`http://localhost:5001/api/company/drives?company=${encodeURIComponent(companyNameShort)}`);
+            const drivesRes = await fetch(`${API_BASE_URL}/api/company/drives?company=${encodeURIComponent(companyNameShort)}`);
             if (drivesRes.ok) {
                 const driveData = await drivesRes.json();
                 if (Array.isArray(driveData) && driveData.length > 0) {

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { API_BASE_URL } from "../../config/api";
 
 export interface CompanyProfileFormState {
     companyName: string;
@@ -34,7 +35,7 @@ export const RecruiterCompanyProfile: React.FC = () => {
                 const parsed = JSON.parse(saved);
                 if (parsed.companyName) return { ...defaultProfile, ...parsed };
             }
-        } catch (e) {}
+        } catch (e) { }
         return defaultProfile;
     });
 
@@ -64,7 +65,7 @@ export const RecruiterCompanyProfile: React.FC = () => {
         setIsLoading(true);
         setMessage(null);
         try {
-            const res = await fetch("http://localhost:5001/api/company/profile");
+            const res = await fetch(`${API_BASE_URL}/api/company/profile`);
             if (res.ok) {
                 const data = await res.json();
                 if (data.companyName) {
@@ -91,9 +92,59 @@ export const RecruiterCompanyProfile: React.FC = () => {
         }
     };
 
+    const [officerStatus, setOfficerStatus] = useState<string>("Approved");
+    const [officerReason, setOfficerReason] = useState<string>("");
+
+    const checkOfficerStatus = () => {
+        try {
+            const compNameKey = (profile.companyName || "Amazon Development Center").toLowerCase().trim();
+            const saved = localStorage.getItem("cpms_companies");
+            let foundStatus = "";
+            let foundReason = "";
+
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                if (Array.isArray(parsed)) {
+                    const matched = parsed.find((c: any) => 
+                        (c.companyName || "").toLowerCase().trim() === compNameKey ||
+                        c.recruiterEmail === profile.contactEmail
+                    );
+                    if (matched) {
+                        foundStatus = matched.registrationStatus || matched.status || "";
+                        foundReason = matched.rejectionReason || "";
+                    }
+                }
+            }
+
+            const overrideStatus = localStorage.getItem(`cpms_override_status_${compNameKey}`) ||
+                                   localStorage.getItem(`cpms_company_status_${compNameKey}`);
+            if (overrideStatus) {
+                foundStatus = overrideStatus;
+                if (overrideStatus === "Rejected") {
+                    foundReason = localStorage.getItem(`cpms_company_status_${compNameKey}_reason`) || foundReason || "Revoked by Placement Officer";
+                }
+            }
+
+            if (foundStatus) setOfficerStatus(foundStatus);
+            if (foundReason) setOfficerReason(foundReason);
+        } catch (e) {}
+    };
+
     useEffect(() => {
         fetchProfileFromMongoDB();
     }, []);
+
+    useEffect(() => {
+        checkOfficerStatus();
+        window.addEventListener("storage", checkOfficerStatus);
+        window.addEventListener("cpms_companies_updated", checkOfficerStatus);
+        window.addEventListener("cpms_drives_updated", checkOfficerStatus);
+        return () => {
+            window.removeEventListener("storage", checkOfficerStatus);
+            window.removeEventListener("cpms_companies_updated", checkOfficerStatus);
+            window.removeEventListener("cpms_drives_updated", checkOfficerStatus);
+        };
+    }, [profile.companyName, profile.contactEmail]);
 
     const handleChange = (field: keyof CompanyProfileFormState, value: string) => {
         setProfile(prev => ({ ...prev, [field]: value }));
@@ -142,7 +193,7 @@ export const RecruiterCompanyProfile: React.FC = () => {
 
             // 1. Submit to MongoDB API
             try {
-                await fetch("http://localhost:5001/api/company/register", {
+                await fetch(`${API_BASE_URL}/api/company/register`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(payload)
@@ -182,7 +233,7 @@ export const RecruiterCompanyProfile: React.FC = () => {
                     logoUrl: profile.logoPreview
                 };
 
-                const existingIndex = existingComps.findIndex((c: any) => 
+                const existingIndex = existingComps.findIndex((c: any) =>
                     (c.companyName || "").toLowerCase().trim() === (profile.companyName || "").toLowerCase().trim()
                 );
 
@@ -222,7 +273,7 @@ export const RecruiterCompanyProfile: React.FC = () => {
         );
     }
 
-    // Calculate Completion Percentage
+    // Calculate Completion Percentage dynamically based on filled profile fields
     const requiredFields = [
         profile.companyName,
         profile.industry,
@@ -232,9 +283,10 @@ export const RecruiterCompanyProfile: React.FC = () => {
         profile.designation,
         profile.contactEmail,
         profile.contactPhone,
-        profile.description
+        profile.description,
+        profile.logoPreview
     ];
-    const filledCount = requiredFields.filter(f => Boolean(f && f.trim())).length;
+    const filledCount = requiredFields.filter(f => Boolean(f && f.toString().trim())).length;
     const completionPercentage = Math.round((filledCount / requiredFields.length) * 100);
 
     return (
@@ -299,6 +351,78 @@ export const RecruiterCompanyProfile: React.FC = () => {
                     </div>
                 </div>
 
+                {/* Officer Approval / Revocation Status Banner */}
+                {officerStatus === "Approved" ? (
+                    <div style={{
+                        padding: "14px 18px",
+                        borderRadius: "12px",
+                        backgroundColor: "#f0fdf4",
+                        border: "1.5px solid #bbf7d0",
+                        color: "#166534",
+                        fontSize: "13px",
+                        fontWeight: "700",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "12px",
+                        marginBottom: "24px",
+                        boxShadow: "0 1px 3px rgba(0,0,0,0.02)"
+                    }}>
+                        <span style={{ fontSize: "18px" }}>🟢</span>
+                        <div>
+                            <div style={{ fontSize: "14px", fontWeight: "800", color: "#15803d" }}>Officer Verification Status: APPROVED</div>
+                            <div style={{ fontSize: "12px", fontWeight: "500", color: "#166534", marginTop: "2px" }}>
+                                Your company profile and campus recruitment drives have been verified and approved by the Placement Officer.
+                            </div>
+                        </div>
+                    </div>
+                ) : officerStatus === "Rejected" || officerStatus === "Revoked" ? (
+                    <div style={{
+                        padding: "14px 18px",
+                        borderRadius: "12px",
+                        backgroundColor: "#fef2f2",
+                        border: "1.5px solid #fecaca",
+                        color: "#991b1b",
+                        fontSize: "13px",
+                        fontWeight: "700",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "12px",
+                        marginBottom: "24px",
+                        boxShadow: "0 1px 3px rgba(0,0,0,0.02)"
+                    }}>
+                        <span style={{ fontSize: "18px" }}>🔴</span>
+                        <div>
+                            <div style={{ fontSize: "14px", fontWeight: "800", color: "#dc2626" }}>Officer Verification Status: REVOKED / REJECTED</div>
+                            <div style={{ fontSize: "12px", fontWeight: "500", color: "#991b1b", marginTop: "2px" }}>
+                                Notice: Company credentials approval has been revoked by Placement Officer. {officerReason ? `Reason: ${officerReason}` : "Criteria verification revoked."}
+                            </div>
+                        </div>
+                    </div>
+                ) : (
+                    <div style={{
+                        padding: "14px 18px",
+                        borderRadius: "12px",
+                        backgroundColor: "#fffbeb",
+                        border: "1.5px solid #fde68a",
+                        color: "#92400e",
+                        fontSize: "13px",
+                        fontWeight: "700",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "12px",
+                        marginBottom: "24px",
+                        boxShadow: "0 1px 3px rgba(0,0,0,0.02)"
+                    }}>
+                        <span style={{ fontSize: "18px" }}>🟡</span>
+                        <div>
+                            <div style={{ fontSize: "14px", fontWeight: "800", color: "#b45309" }}>Officer Verification Status: PENDING REVIEW</div>
+                            <div style={{ fontSize: "12px", fontWeight: "500", color: "#92400e", marginTop: "2px" }}>
+                                Your company registration details are awaiting verification from the Placement Officer.
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* Success / Error Alert Banner */}
                 {message && (
                     <div style={{
@@ -323,7 +447,7 @@ export const RecruiterCompanyProfile: React.FC = () => {
                     {/* SECTION 1: COMPANY DETAILS */}
                     <div style={{ backgroundColor: "#f8fafc", borderRadius: "14px", padding: "22px", border: "1px solid #f1f5f9" }}>
                         <h3 style={{ margin: "0 0 16px 0", fontSize: "14px", fontWeight: "800", color: "#0f172a", textTransform: "uppercase", letterSpacing: "0.05em", display: "flex", alignItems: "center", gap: "8px" }}>
-                            🏢 1. Company Details
+                            1. Company Details
                         </h3>
 
                         <div className="responsive-grid-2col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
@@ -440,7 +564,7 @@ export const RecruiterCompanyProfile: React.FC = () => {
                     {/* SECTION 2: RECRUITER / CONTACT DETAILS (WITH RECRUITER DESIGNATION) */}
                     <div style={{ backgroundColor: "#f8fafc", borderRadius: "14px", padding: "22px", border: "1px solid #f1f5f9" }}>
                         <h3 style={{ margin: "0 0 16px 0", fontSize: "14px", fontWeight: "800", color: "#0f172a", textTransform: "uppercase", letterSpacing: "0.05em", display: "flex", alignItems: "center", gap: "8px" }}>
-                            👤 2. Recruiter / Contact Details
+                            2. Recruiter / Contact Details
                         </h3>
 
                         <div className="responsive-grid-2col" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
@@ -546,7 +670,7 @@ export const RecruiterCompanyProfile: React.FC = () => {
                     {/* SECTION 3: BRANDING & OVERVIEW */}
                     <div style={{ backgroundColor: "#f8fafc", borderRadius: "14px", padding: "22px", border: "1px solid #f1f5f9" }}>
                         <h3 style={{ margin: "0 0 16px 0", fontSize: "14px", fontWeight: "800", color: "#0f172a", textTransform: "uppercase", letterSpacing: "0.05em", display: "flex", alignItems: "center", gap: "8px" }}>
-                            🎨 3. Company Branding & Overview
+                            3. Company Branding & Overview
                         </h3>
 
                         <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>

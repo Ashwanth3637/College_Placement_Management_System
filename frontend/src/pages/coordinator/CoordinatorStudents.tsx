@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { API_BASE_URL } from "../../config/api";
 
 export interface StudentDriveHistory {
     company: string;
@@ -48,7 +49,7 @@ export const CoordinatorStudents: React.FC<CoordinatorStudentsProps> = ({
     useEffect(() => {
         const fetchStudents = async () => {
             try {
-                const res = await fetch("http://localhost:5001/api/student/all");
+                const res = await fetch(`${API_BASE_URL}/api/student/all`);
                 if (res.ok) {
                     const data = await res.json();
                     if (Array.isArray(data) && data.length > 0) {
@@ -326,7 +327,7 @@ export const CoordinatorStudents: React.FC<CoordinatorStudentsProps> = ({
                         </label>
                         <input
                             type="text"
-                            placeholder="🔍 Search name, reg no, email..."
+                            placeholder="Search name, reg no, email..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             style={{

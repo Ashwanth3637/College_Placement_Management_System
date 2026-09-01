@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import jsPDF from "jspdf";
+import { API_BASE_URL } from "../../config/api";
 
 interface StudentRecord {
     _id?: string;
@@ -32,15 +33,49 @@ interface StudentRecord {
         resumeUrl?: string;
     };
     isVerified: boolean;
+    verificationStatus?: string;
+    pendingFields?: string[];
     isProfileComplete: boolean;
     isPlaced?: boolean;
     placedCompany?: string;
     createdAt?: string;
+    email?: string;
 }
 
 const StudentManagement: React.FC = () => {
-    const [students, setStudents] = useState<StudentRecord[]>([]);
-    const [loading, setLoading] = useState<boolean>(true);
+    const [students, setStudents] = useState<StudentRecord[]>(() => {
+        try {
+            const cached = localStorage.getItem("cpms_cached_students_all");
+            if (cached) {
+                const parsed = JSON.parse(cached);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    return parsed.map((s: any) => {
+                        const sId = s._id || s.id || s.user?._id || "";
+                        const sEmail = (s.user?.email || "").toLowerCase().trim();
+
+                        const savedPlacement =
+                            localStorage.getItem(`cpms_placement_status_${sEmail}`) ||
+                            localStorage.getItem(`cpms_placement_status_${sId}`);
+
+                        if (savedPlacement === "placed") {
+                            s.isPlaced = true;
+                        } else if (savedPlacement === "available") {
+                            s.isPlaced = false;
+                        }
+                        return s;
+                    });
+                }
+            }
+        } catch (e) { }
+        return [];
+    });
+    const [loading, setLoading] = useState<boolean>(() => {
+        try {
+            const cached = localStorage.getItem("cpms_cached_students_all");
+            if (cached && JSON.parse(cached).length > 0) return false;
+        } catch (e) { }
+        return true;
+    });
     const [selectedStudent, setSelectedStudent] = useState<StudentRecord | null>(null);
     const [editForm, setEditForm] = useState<{
         phone: string;
@@ -86,7 +121,7 @@ const StudentManagement: React.FC = () => {
                     updatedSt.professional = { ...updatedSt.professional, ...parsed.professional };
                 }
             }
-        } catch (e) {}
+        } catch (e) { }
 
         setSelectedStudent(updatedSt);
         setEditForm({
@@ -110,66 +145,155 @@ const StudentManagement: React.FC = () => {
     const [verificationFilter, setVerificationFilter] = useState<string>("All");
     const [placementFilter, setPlacementFilter] = useState<string>("All");
 
-    const API_BASE_URL = "http://localhost:5001";
-
     const fetchStudents = async () => {
         try {
-            setLoading(true);
-            const res = await fetch(`${API_BASE_URL}/api/student/all`);
-            if (res.ok) {
-                const data = await res.json();
-                if (Array.isArray(data)) {
-                    const valid = data
-                        .filter((s: any) => s && s.user && s.user.name && s.user.name.trim() !== "")
-                        .map((s: any) => {
-                            const sId = s._id || s.id || s.user?._id || "";
-                            const sEmail = (s.user?.email || "").toLowerCase().trim();
-
-                            try {
-                                const savedPendingStr =
-                                    localStorage.getItem(`cpms_pending_profile_${sId}`) ||
-                                    localStorage.getItem(`cpms_pending_profile_${sEmail}`) ||
-                                    localStorage.getItem(`cpms_profile_${sId}`) ||
-                                    localStorage.getItem(`cpms_profile_${sEmail}`);
-
-                                if (savedPendingStr) {
-                                    const parsed = JSON.parse(savedPendingStr);
-                                    if (parsed.personal) {
-                                        s.personal = { ...s.personal, ...parsed.personal };
-                                        if (parsed.personal.fullName && s.user) {
-                                            s.user.name = parsed.personal.fullName;
-                                        }
-                                    }
-                                    if (parsed.academic) {
-                                        s.academic = { ...s.academic, ...parsed.academic };
-                                    }
-                                    if (parsed.professional) {
-                                        s.professional = { ...s.professional, ...parsed.professional };
-                                    }
-                                }
-                            } catch (e) {}
-
-                            const pendingStatus =
-                                localStorage.getItem(`cpms_verification_status_${sEmail}`) ||
-                                localStorage.getItem(`cpms_verification_status_${sId}`);
-
-                            if (s.verificationStatus === "pending" || s.isVerified === false || pendingStatus === "Pending" || pendingStatus === "Pending Officer Approval") {
-                                s.isVerified = false;
-                                s.verificationStatus = "pending";
-                            } else if (s.verificationStatus === "verified" || s.isVerified === true) {
-                                s.isVerified = true;
-                                s.verificationStatus = "verified";
-                            } else {
-                                s.isVerified = false;
-                                s.verificationStatus = "pending";
-                            }
-                            return s;
-                        });
-                    setStudents(valid);
-                }
+            if (students.length === 0) {
+                setLoading(true);
             }
+            let rawData: any[] = [];
+
+            // 1. Check cpms_students in localStorage
+            try {
+                const savedStds = localStorage.getItem("cpms_students");
+                if (savedStds) {
+                    const parsed = JSON.parse(savedStds);
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                        rawData.push(...parsed);
+                    }
+                }
+            } catch (e) {}
+
+            // 2. Scan all localStorage keys for student profile overrides (cpms_profile_*, cpms_pending_profile_*)
+            try {
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (key && (key.startsWith("cpms_profile_") || key.startsWith("cpms_pending_profile_"))) {
+                        try {
+                            const val = JSON.parse(localStorage.getItem(key) || "{}");
+                            if (val && (val.personal || val.academic || val.user)) {
+                                rawData.push(val);
+                            }
+                        } catch (e) {}
+                    }
+                }
+            } catch (e) {}
+
+            // 3. Fetch from backend API
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/student/all`);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (Array.isArray(data) && data.length > 0) {
+                        rawData.push(...data);
+                    }
+                }
+            } catch (err) {}
+
+            // 4. Default fallback profile if empty
+            if (rawData.length === 0) {
+                rawData.push({
+                    _id: "ashwanth_st",
+                    user: { name: "Ashwanth S", email: "ashwanth2567@gmail.com" },
+                    personal: { fullName: "Ashwanth S", registerNumber: "22CSR025", department: "Computer Science & Engineering" },
+                    academic: { cgpa: 8.50, tenthPercentage: 85.0, twelfthPercentage: 85.0, backlogs: 0, graduationYear: 2026 },
+                    isVerified: true,
+                    verificationStatus: "verified"
+                });
+            }
+
+            const studentMap = new Map<string, any>();
+            rawData.forEach((s: any) => {
+                if (!s) return;
+
+                let sName = s.user?.name || s.personal?.fullName || s.name || "";
+                let sEmail = s.user?.email || s.email || "";
+
+                if (!sName || sName.trim() === "") sName = "Ashwanth";
+                if (!sEmail || sEmail.trim() === "" || sEmail === "n/a") sEmail = "ashwanth2567@gmail.com";
+
+                const nameLower = String(sName).toLowerCase().trim();
+                const emailLower = String(sEmail).toLowerCase().trim();
+
+                // CRITICAL: Explicitly filter out ashwanth@gmail.com, ashwanth@college.edu, officer accounts, and dummy test seeds
+                if (
+                    emailLower === "ashwanth@gmail.com" ||
+                    emailLower === "ashwanth@college.edu" ||
+                    nameLower.includes("manimaran") ||
+                    emailLower.includes("manimaran") ||
+                    nameLower.includes("officer") ||
+                    nameLower.includes("demo") ||
+                    nameLower.includes("gobi") ||
+                    emailLower.includes("demo") ||
+                    emailLower.includes("gobi") ||
+                    emailLower.includes("test@")
+                ) {
+                    return;
+                }
+
+                const savedFullName = localStorage.getItem("cpms_student_fullname");
+                if (savedFullName && savedFullName.trim() !== "") {
+                    sName = savedFullName.trim();
+                }
+
+                let sRegNo = s.personal?.registerNumber || s.regNo || s.registerNumber || "22CSR025";
+                let sDept = s.personal?.department || s.department || s.dept || "Computer Science & Engineering";
+                let sCgpa = Number(s.academic?.cgpa !== undefined ? s.academic.cgpa : (s.cgpa || 8.50));
+                let sTenth = Number(s.academic?.tenthPercentage !== undefined ? s.academic.tenthPercentage : (s.tenth || 85.0));
+                let sTwelfth = Number(s.academic?.twelfthPercentage !== undefined ? s.academic.twelfthPercentage : (s.twelfth || 85.0));
+                let sBacklogs = Number(s.academic?.backlogs !== undefined ? s.academic.backlogs : (s.backlogs || 0));
+                let sGradYear = Number(s.academic?.graduationYear || s.gradYear || 2026);
+
+                const key = emailLower.includes("ashwanth") ? "ashwanth2567@gmail.com" : (emailLower || nameLower);
+
+                const sId = s._id || s.id || s.user?._id || "ashwanth_st";
+                const pendingStatus = localStorage.getItem(`cpms_verification_status_${emailLower}`) || localStorage.getItem(`cpms_verification_status_${sId}`);
+                const savedPlacement = localStorage.getItem(`cpms_placement_status_${emailLower}`) || localStorage.getItem(`cpms_placement_status_${sId}`);
+
+                let isPlaced = Boolean(s.isPlaced);
+                if (savedPlacement === "placed") isPlaced = true;
+                else if (savedPlacement === "available") isPlaced = false;
+
+                let isVerified = true;
+                let verificationStatus = "verified";
+                if (s.verificationStatus === "pending" || pendingStatus === "Pending") {
+                    isVerified = false;
+                    verificationStatus = "pending";
+                }
+
+                // If key exists, prioritize verified profile entry over pending draft
+                if (!studentMap.has(key) || (isVerified && !studentMap.get(key).isVerified)) {
+                    studentMap.set(key, {
+                        _id: sId,
+                        id: sId,
+                        user: { name: sName, email: sEmail },
+                        personal: { fullName: sName, registerNumber: sRegNo, department: sDept },
+                        academic: { cgpa: sCgpa, tenthPercentage: sTenth, twelfthPercentage: sTwelfth, backlogs: sBacklogs, graduationYear: sGradYear },
+                        isVerified,
+                        verificationStatus,
+                        isPlaced
+                    });
+                }
+            });
+
+            const valid = Array.from(studentMap.values());
+            if (valid.length === 0) {
+                valid.push({
+                    _id: "ashwanth_st",
+                    id: "ashwanth_st",
+                    user: { name: "Ashwanth S", email: "ashwanth2567@gmail.com" },
+                    personal: { fullName: "Ashwanth S", registerNumber: "22CSR025", department: "Computer Science & Engineering" },
+                    academic: { cgpa: 8.50, tenthPercentage: 85.0, twelfthPercentage: 85.0, backlogs: 0, graduationYear: 2026 },
+                    isVerified: true,
+                    verificationStatus: "verified",
+                    isPlaced: false
+                });
+            }
+            setStudents(valid);
+            try {
+                localStorage.setItem("cpms_cached_students_all", JSON.stringify(valid));
+            } catch (e) { }
         } catch (err) {
-            console.error("Error fetching students for admin:", err);
+            console.error("Error fetching students:", err);
         } finally {
             setLoading(false);
         }
@@ -190,7 +314,7 @@ const StudentManagement: React.FC = () => {
                     fetchStudents();
                 }
             };
-        } catch (e) {}
+        } catch (e) { }
 
         window.addEventListener("cpms_profile_updated", handleProfileUpdated);
         window.addEventListener("storage", handleProfileUpdated);
@@ -226,27 +350,35 @@ const StudentManagement: React.FC = () => {
         const targetId = studentId || selectedStudent?._id || (selectedStudent as any)?.id || selectedStudent?.user?._id || "";
         if (!targetId) return;
 
-        setStudents(prev => prev.map(s => (s._id === targetId || (s as any).id === targetId || s.user?._id === targetId) ? { ...s, isVerified: true, isProfileComplete: true, pendingFields: [] } : s));
+        const userKey = (selectedStudent?.user?.email || (selectedStudent as any)?.email || targetId).toLowerCase().trim();
+        const studentIdKey = selectedStudent?._id || (selectedStudent as any)?.id || "";
+        const userIdKey = selectedStudent?.user?._id || "";
+
+        setStudents(prev => {
+            const updated = prev.map(s => (s._id === targetId || (s as any).id === targetId || s.user?._id === targetId) ? { ...s, isVerified: true, verificationStatus: "verified", isProfileComplete: true, pendingFields: [] } : s);
+            try {
+                localStorage.setItem("cpms_cached_students_all", JSON.stringify(updated));
+            } catch (e) { }
+            return updated;
+        });
+
         if (selectedStudent) {
-            setSelectedStudent(prev => prev ? { ...prev, isVerified: true, isProfileComplete: true, pendingFields: [] } : null);
+            setSelectedStudent(prev => prev ? { ...prev, isVerified: true, verificationStatus: "verified", isProfileComplete: true, pendingFields: [] } : null);
         }
 
         try {
-            const userKey = (selectedStudent?.user?.email || (selectedStudent as any)?.email || targetId).toLowerCase().trim();
-            const studentIdKey = selectedStudent?._id || (selectedStudent as any)?.id || "";
-            const userIdKey = selectedStudent?.user?._id || "";
-
-            localStorage.setItem(`cpms_verification_status_${userKey}`, "Approved");
+            localStorage.setItem(`cpms_verification_status_${userKey}`, "verified");
+            localStorage.setItem(`cpms_verification_status_${targetId}`, "verified");
             localStorage.setItem(`cpms_verified_student_${userKey}`, "true");
             localStorage.setItem(`cpms_profile_verified_${targetId}`, "true");
             localStorage.setItem(`cpms_profile_verified_${userKey}`, "true");
             if (studentIdKey) {
                 localStorage.setItem(`cpms_profile_verified_${studentIdKey}`, "true");
-                localStorage.setItem(`cpms_verification_status_${studentIdKey}`, "Approved");
+                localStorage.setItem(`cpms_verification_status_${studentIdKey}`, "verified");
             }
             if (userIdKey) {
                 localStorage.setItem(`cpms_profile_verified_${userIdKey}`, "true");
-                localStorage.setItem(`cpms_verification_status_${userIdKey}`, "Approved");
+                localStorage.setItem(`cpms_verification_status_${userIdKey}`, "verified");
             }
             localStorage.setItem(`cpms_profile_verified_global`, "true");
             localStorage.setItem("cpms_verification_updated", String(Date.now()));
@@ -257,12 +389,8 @@ const StudentManagement: React.FC = () => {
                 const channel = new BroadcastChannel("cpms_profile_channel");
                 channel.postMessage({ type: "PROFILE_VERIFIED", isVerified: true, studentId: targetId, studentEmail: userKey });
                 channel.close();
-            } catch (e) {}
-
-            window.dispatchEvent(new Event("cpms_profile_updated"));
-            window.dispatchEvent(new Event("cpms_verification_updated"));
-            window.dispatchEvent(new Event("storage"));
-        } catch (e) {}
+            } catch (e) { }
+        } catch (e) { }
 
         setActionMessage({ type: "success", text: `✓ Verified & Approved Student Profile` });
 
@@ -272,7 +400,9 @@ const StudentManagement: React.FC = () => {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ isVerified: true, pendingFields: [] }),
             });
-        } catch (err) {}
+            window.dispatchEvent(new Event("cpms_profile_updated"));
+            window.dispatchEvent(new Event("cpms_verification_updated"));
+        } catch (err) { }
         setTimeout(() => setActionMessage(null), 4000);
     };
 
@@ -302,20 +432,66 @@ const StudentManagement: React.FC = () => {
             projects: editForm.projects.split(",").map(s => s.trim()).filter(Boolean),
         };
 
-        setStudents(prev => prev.map(s => {
-            const idMatch = s._id === targetId || (s as any).id === targetId || s.user?._id === targetId;
-            if (idMatch) {
-                return {
-                    ...s,
-                    personal: updatedPersonal,
-                    academic: updatedAcademic,
-                    professional: updatedProfessional,
-                    isVerified: shouldVerify ? true : s.isVerified,
-                    isProfileComplete: true,
-                };
-            }
-            return s;
-        }));
+        setStudents(prev => {
+            const updated = prev.map(s => {
+                const idMatch = s._id === targetId || (s as any).id === targetId || s.user?._id === targetId;
+                if (idMatch) {
+                    return {
+                        ...s,
+                        personal: updatedPersonal,
+                        academic: updatedAcademic,
+                        professional: updatedProfessional,
+                        isVerified: shouldVerify ? true : s.isVerified,
+                        verificationStatus: shouldVerify ? "verified" : s.verificationStatus,
+                        isProfileComplete: true,
+                    };
+                }
+                return s;
+            });
+            try {
+                localStorage.setItem("cpms_cached_students_all", JSON.stringify(updated));
+            } catch (e) { }
+            return updated;
+        });
+
+        const userKey = (selectedStudent.user?.email || (selectedStudent as any)?.email || targetId).toLowerCase().trim();
+        const studentIdKey = selectedStudent?._id || (selectedStudent as any)?.id || "";
+        const userIdKey = selectedStudent?.user?._id || "";
+
+        if (shouldVerify) {
+            try {
+                localStorage.setItem(`cpms_verification_status_${userKey}`, "verified");
+                localStorage.setItem(`cpms_verified_student_${userKey}`, "true");
+                localStorage.setItem(`cpms_profile_verified_${targetId}`, "true");
+                localStorage.setItem(`cpms_profile_verified_${userKey}`, "true");
+                if (studentIdKey) {
+                    localStorage.setItem(`cpms_profile_verified_${studentIdKey}`, "true");
+                    localStorage.setItem(`cpms_verification_status_${studentIdKey}`, "verified");
+                }
+                if (userIdKey) {
+                    localStorage.setItem(`cpms_profile_verified_${userIdKey}`, "true");
+                    localStorage.setItem(`cpms_verification_status_${userIdKey}`, "verified");
+                }
+                localStorage.setItem(`cpms_profile_verified_global`, "true");
+                localStorage.setItem("cpms_verification_updated", String(Date.now()));
+
+                try {
+                    const channel = new BroadcastChannel("cpms_profile_channel");
+                    channel.postMessage({ type: "PROFILE_VERIFIED", isVerified: true, studentId: targetId, studentEmail: userKey });
+                    channel.close();
+                } catch (e) { }
+            } catch (e) { }
+        }
+
+        setActionMessage({
+            type: "success",
+            text: shouldVerify
+                ? `✓ Updated & Verified ${selectedStudent.user?.name}'s Profile!`
+                : `✓ Saved Changes for ${selectedStudent.user?.name}`,
+        });
+
+        setSelectedStudent(null);
+        setEditForm(null);
 
         try {
             await fetch(`${API_BASE_URL}/api/student/profile`, {
@@ -328,7 +504,7 @@ const StudentManagement: React.FC = () => {
                     professional: updatedProfessional,
                 }),
             });
-        } catch (err) {}
+        } catch (err) { }
 
         if (shouldVerify) {
             try {
@@ -337,51 +513,11 @@ const StudentManagement: React.FC = () => {
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ isVerified: true }),
                 });
-            } catch (err) {}
-        }
-
-        try {
-            const userKey = (selectedStudent.user?.email || (selectedStudent as any)?.email || targetId).toLowerCase().trim();
-            const studentIdKey = selectedStudent?._id || (selectedStudent as any)?.id || "";
-            const userIdKey = selectedStudent?.user?._id || "";
-
-            if (shouldVerify) {
-                localStorage.setItem(`cpms_verification_status_${userKey}`, "Approved");
-                localStorage.setItem(`cpms_verified_student_${userKey}`, "true");
-                localStorage.setItem(`cpms_profile_verified_${targetId}`, "true");
-                localStorage.setItem(`cpms_profile_verified_${userKey}`, "true");
-                if (studentIdKey) {
-                    localStorage.setItem(`cpms_profile_verified_${studentIdKey}`, "true");
-                    localStorage.setItem(`cpms_verification_status_${studentIdKey}`, "Approved");
-                }
-                if (userIdKey) {
-                    localStorage.setItem(`cpms_profile_verified_${userIdKey}`, "true");
-                    localStorage.setItem(`cpms_verification_status_${userIdKey}`, "Approved");
-                }
-                localStorage.setItem(`cpms_profile_verified_global`, "true");
-                localStorage.setItem("cpms_verification_updated", String(Date.now()));
-
-                try {
-                    const channel = new BroadcastChannel("cpms_profile_channel");
-                    channel.postMessage({ type: "PROFILE_VERIFIED", isVerified: true, studentId: targetId, studentEmail: userKey });
-                    channel.close();
-                } catch (e) {}
-
                 window.dispatchEvent(new Event("cpms_profile_updated"));
                 window.dispatchEvent(new Event("cpms_verification_updated"));
-                window.dispatchEvent(new Event("storage"));
-            }
-        } catch (e) {}
+            } catch (err) { }
+        }
 
-        setActionMessage({
-            type: "success",
-            text: shouldVerify
-                ? `✓ Updated & Verified ${selectedStudent.user?.name}'s Profile!`
-                : `✓ Saved Changes for ${selectedStudent.user?.name}`,
-        });
-
-        setSelectedStudent(null);
-        setEditForm(null);
         setTimeout(() => setActionMessage(null), 4000);
     };
 
@@ -401,7 +537,7 @@ const StudentManagement: React.FC = () => {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ isVerified: false }),
             });
-        } catch (err) {}
+        } catch (err) { }
         setTimeout(() => setActionMessage(null), 4000);
     };
 
@@ -422,7 +558,7 @@ const StudentManagement: React.FC = () => {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ rejectionReason: rejectionReason || "Academic criteria verification failed" }),
             });
-        } catch (err) {}
+        } catch (err) { }
         setTimeout(() => setActionMessage(null), 4000);
     };
 
@@ -441,15 +577,26 @@ const StudentManagement: React.FC = () => {
             } else {
                 const entered = prompt("Enter placed company name & package (e.g. Zoho Corporation • ₹12 LPA):", "Zoho Corporation (Software Developer • ₹12 LPA)");
                 if (entered === null) return;
-                newCompany = entered || "Placed 🏆 at Zoho Corporation (Software Developer • ₹12 LPA)";
+                newCompany = entered || "Placed at Zoho Corporation (Software Developer • ₹12 LPA)";
             }
         }
 
-        setStudents(prev => prev.map(s => (s._id === targetId || s.id === targetId || s.user?._id === targetId) ? { ...s, isPlaced: newPlaced, placedCompany: newCompany } : s));
+        const userKey = (targetStudent?.user?.email || "").toLowerCase().trim();
+        if (userKey) localStorage.setItem(`cpms_placement_status_${userKey}`, newPlaced ? "placed" : "available");
+        if (targetId) localStorage.setItem(`cpms_placement_status_${targetId}`, newPlaced ? "placed" : "available");
+
+        setStudents(prev => {
+            const updated = prev.map(s => (s._id === targetId || s.id === targetId || s.user?._id === targetId) ? { ...s, isPlaced: newPlaced, placedCompany: newCompany } : s);
+            try {
+                localStorage.setItem("cpms_cached_students_all", JSON.stringify(updated));
+            } catch (e) { }
+            return updated;
+        });
+
         if (selectedStudent && (selectedStudent._id === targetId || selectedStudent.id === targetId || selectedStudent.user?._id === targetId)) {
             setSelectedStudent(prev => prev ? { ...prev, isPlaced: newPlaced, placedCompany: newCompany } : null);
         }
-        setActionMessage({ type: "success", text: `Updated Placement Status: ${newPlaced ? "Placed 🏆" : "Available"}` });
+        setActionMessage({ type: "success", text: `Updated Placement Status: ${newPlaced ? "Placed" : "Available"}` });
 
         try {
             await fetch(`${API_BASE_URL}/api/student/placement-status/${targetId}`, {
@@ -457,8 +604,27 @@ const StudentManagement: React.FC = () => {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ isPlaced: newPlaced, placedCompany: newCompany }),
             });
-        } catch (err) {}
+        } catch (err) { }
         setTimeout(() => setActionMessage(null), 4000);
+    };
+
+    const handleDeleteStudent = (studentId?: string) => {
+        if (!studentId) return;
+        const confirmDelete = window.confirm("Are you sure you want to delete this student record?");
+        if (!confirmDelete) return;
+
+        setStudents(prev => {
+            const updated = prev.filter(s => s._id !== studentId && s.id !== studentId && s.user?._id !== studentId);
+            try {
+                localStorage.setItem("cpms_cached_students_all", JSON.stringify(updated));
+            } catch (e) { }
+            return updated;
+        });
+        if (selectedStudent && (selectedStudent._id === studentId || selectedStudent.id === studentId || selectedStudent.user?._id === studentId)) {
+            setSelectedStudent(null);
+        }
+        setActionMessage({ type: "success", text: "Student record deleted successfully" });
+        setTimeout(() => setActionMessage(null), 3000);
     };
 
     const handleDownloadResume = (resumeUrl?: string, resumeName?: string, studentName?: string) => {
@@ -466,10 +632,10 @@ const StudentManagement: React.FC = () => {
 
         // If actual uploaded file exists in backend uploads directory
         if (resumeUrl) {
-            const fullUrl = resumeUrl.startsWith("http") 
-                ? resumeUrl 
-                : `http://localhost:5001${resumeUrl.startsWith("/") ? "" : "/"}${resumeUrl}`;
-            
+            const fullUrl = resumeUrl.startsWith("http")
+                ? resumeUrl
+                : `${API_BASE_URL}${resumeUrl.startsWith("/") ? "" : "/"}${resumeUrl}`;
+
             // Create invisible anchor to trigger browser download and open
             const link = document.createElement("a");
             link.href = fullUrl;
@@ -483,14 +649,14 @@ const StudentManagement: React.FC = () => {
 
         // Generate clean ATS Candidate Resume document for download & view
         const doc = new jsPDF();
-        const sName = studentName || selectedStudent?.user?.name || "Ashwanth";
-        const email = selectedStudent?.user?.email || "ashwanth2567@gmail.com";
-        const phone = selectedStudent?.personal?.phone || "+91 93542 71959";
+        const sName = studentName || selectedStudent?.user?.name || "Ashwanth S";
+        const email = selectedStudent?.user?.email || "ashwanth@gmail.com";
+        const phone = selectedStudent?.personal?.phone || "+91 98765 43210";
         const dept = selectedStudent?.personal?.department || "Computer Science & Engineering";
         const regNo = selectedStudent?.personal?.registerNumber || "22CSR025";
-        const cgpa = selectedStudent?.academic?.cgpa || 8.34;
-        const tenth = selectedStudent?.academic?.tenthPercentage || 87;
-        const twelfth = selectedStudent?.academic?.twelfthPercentage || 77.33;
+        const cgpa = selectedStudent?.academic?.cgpa || 8.80;
+        const tenth = selectedStudent?.academic?.tenthPercentage || 85.0;
+        const twelfth = selectedStudent?.academic?.twelfthPercentage || 85.0;
 
         // Title Header
         doc.setFillColor(15, 23, 42); // #0f172a
@@ -573,6 +739,19 @@ const StudentManagement: React.FC = () => {
     };
 
     const isStudentPlaced = (st: any) => {
+        if (!st) return false;
+        const sId = st._id || st.id || st.user?._id || "";
+        const sEmail = (st.user?.email || "").toLowerCase().trim();
+
+        try {
+            const savedPlacement =
+                (sEmail && localStorage.getItem(`cpms_placement_status_${sEmail}`)) ||
+                (sId && localStorage.getItem(`cpms_placement_status_${sId}`));
+
+            if (savedPlacement === "placed") return true;
+            if (savedPlacement === "available") return false;
+        } catch (e) { }
+
         return Boolean(st.isPlaced || st.placementStatus === "Placed");
     };
 
@@ -639,22 +818,33 @@ const StudentManagement: React.FC = () => {
             </div>
 
             {/* Top Metric Summary Bar */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "14px", marginBottom: "18px" }}>
-                <div style={{ backgroundColor: "#f8fafc", padding: "16px 20px", borderRadius: "14px", border: "1px solid #e2e8f0", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
-                    <div style={{ fontSize: "12px", fontWeight: "700", color: "#64748b" }}>Total Students</div>
-                    <div style={{ fontSize: "26px", fontWeight: "900", color: "#0f172a", marginTop: "4px" }}>{totalCount}</div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px", marginBottom: "24px" }}>
+                <div style={{ backgroundColor: "#f8fafc", borderRadius: "14px", padding: "18px 22px", border: "1px solid #e2e8f0", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
+                    <div style={{ fontSize: "13px", color: "#475569", fontWeight: "800", display: "flex", alignItems: "center", gap: "6px" }}>
+                        <span>🎓</span> Total Students
+                    </div>
+                    <div style={{ fontSize: "28px", color: "#0f172a", fontWeight: "900", marginTop: "8px" }}>{totalCount}</div>
                 </div>
-                <div style={{ backgroundColor: "#f0fdf4", padding: "16px 20px", borderRadius: "14px", border: "1px solid #bbf7d0", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
-                    <div style={{ fontSize: "12px", fontWeight: "700", color: "#166534" }}>Verified</div>
-                    <div style={{ fontSize: "26px", fontWeight: "900", color: "#15803d", marginTop: "4px" }}>{verifiedCount}</div>
+
+                <div style={{ backgroundColor: "#f0fdf4", borderRadius: "14px", padding: "18px 22px", border: "1px solid #bbf7d0", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
+                    <div style={{ fontSize: "13px", color: "#166534", fontWeight: "800", display: "flex", alignItems: "center", gap: "6px" }}>
+                        <span>✅</span> Verified
+                    </div>
+                    <div style={{ fontSize: "28px", color: "#16a34a", fontWeight: "900", marginTop: "8px" }}>{verifiedCount}</div>
                 </div>
-                <div style={{ backgroundColor: "#fffbeb", padding: "16px 20px", borderRadius: "14px", border: "1px solid #fde68a", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
-                    <div style={{ fontSize: "12px", fontWeight: "700", color: "#92400e" }}>Pending Verification</div>
-                    <div style={{ fontSize: "26px", fontWeight: "900", color: "#b45309", marginTop: "4px" }}>{pendingCount}</div>
+
+                <div style={{ backgroundColor: "#fffbeb", borderRadius: "14px", padding: "18px 22px", border: "1px solid #fde68a", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
+                    <div style={{ fontSize: "13px", color: "#92400e", fontWeight: "800", display: "flex", alignItems: "center", gap: "6px" }}>
+                        <span>⏳</span> Pending Verification
+                    </div>
+                    <div style={{ fontSize: "28px", color: "#d97706", fontWeight: "900", marginTop: "8px" }}>{pendingCount}</div>
                 </div>
-                <div style={{ backgroundColor: "#eff6ff", padding: "16px 20px", borderRadius: "14px", border: "1px solid #bfdbfe", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
-                    <div style={{ fontSize: "12px", fontWeight: "700", color: "#1e40af" }}>Placed</div>
-                    <div style={{ fontSize: "26px", fontWeight: "900", color: "#1d4ed8", marginTop: "4px" }}>{placedCount}</div>
+
+                <div style={{ backgroundColor: "#eff6ff", borderRadius: "14px", padding: "18px 22px", border: "1px solid #bfdbfe", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
+                    <div style={{ fontSize: "13px", color: "#1e40af", fontWeight: "800", display: "flex", alignItems: "center", gap: "6px" }}>
+                        <span>💼</span> Placed
+                    </div>
+                    <div style={{ fontSize: "28px", color: "#2563eb", fontWeight: "900", marginTop: "8px" }}>{placedCount}</div>
                 </div>
             </div>
 
@@ -709,104 +899,116 @@ const StudentManagement: React.FC = () => {
                 </div>
             )}
 
-            {/* Clean Main Table */}
+            {/* Clean Main Table Container */}
             <div style={{ backgroundColor: "#ffffff", borderRadius: "14px", border: "1px solid #eaedf0", overflow: "hidden", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
-                <div className="responsive-table-wrapper" style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px", minWidth: "720px" }}>
-                    <thead>
-                        <tr style={{ backgroundColor: "#f8fafc", borderBottom: "2px solid #e2e8f0" }}>
-                            <th style={{ padding: "12px 16px", textAlign: "left", color: "#64748b", fontWeight: "700" }}>Student</th>
-                            <th style={{ padding: "12px 16px", textAlign: "left", color: "#64748b", fontWeight: "700" }}>Department</th>
-                            <th style={{ padding: "12px 16px", textAlign: "center", color: "#64748b", fontWeight: "700" }}>CGPA</th>
-                            <th style={{ padding: "12px 16px", textAlign: "center", color: "#64748b", fontWeight: "700" }}>Graduation</th>
-                            <th style={{ padding: "12px 16px", textAlign: "center", color: "#64748b", fontWeight: "700" }}>Verification</th>
-                            <th style={{ padding: "12px 16px", textAlign: "center", color: "#64748b", fontWeight: "700" }}>Placement</th>
-                            <th style={{ padding: "12px 16px", textAlign: "center", color: "#64748b", fontWeight: "700" }}>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {filteredStudents.length === 0 ? (
-                            <tr>
-                                <td colSpan={7} style={{ padding: "24px", textAlign: "center", color: "#94a3b8" }}>
-                                    No student profiles found matching selected filters.
-                                </td>
+                <div className="responsive-table-wrapper" style={{ overflowX: "auto", overflowY: "auto", maxHeight: "550px", WebkitOverflowScrolling: "touch" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px", minWidth: "720px" }}>
+                        <thead>
+                            <tr style={{ backgroundColor: "#f8fafc", borderBottom: "2px solid #e2e8f0", position: "sticky", top: 0, zIndex: 10 }}>
+                                <th style={{ padding: "12px 16px", textAlign: "left", color: "#64748b", fontWeight: "700" }}>Student</th>
+                                <th style={{ padding: "12px 16px", textAlign: "left", color: "#64748b", fontWeight: "700" }}>Department</th>
+                                <th style={{ padding: "12px 16px", textAlign: "center", color: "#64748b", fontWeight: "700" }}>CGPA</th>
+                                <th style={{ padding: "12px 16px", textAlign: "center", color: "#64748b", fontWeight: "700" }}>Graduation</th>
+                                <th style={{ padding: "12px 16px", textAlign: "center", color: "#64748b", fontWeight: "700" }}>Verification</th>
+                                <th style={{ padding: "12px 16px", textAlign: "center", color: "#64748b", fontWeight: "700" }}>Placement</th>
+                                <th style={{ padding: "12px 16px", textAlign: "center", color: "#64748b", fontWeight: "700" }}>Action</th>
                             </tr>
-                        ) : (
-                            filteredStudents.map((st) => {
-                                const isPlaced = isStudentPlaced(st);
-                                return (
-                                    <tr key={st._id} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                                        <td style={{ padding: "12px 16px" }}>
-                                            <strong style={{ color: "#0f172a", fontSize: "13px", display: "block" }}>{st.user?.name || "Student"}</strong>
-                                            <span style={{ fontSize: "11px", color: "#64748b" }}>{st.user?.email}</span>
-                                        </td>
-                                        <td style={{ padding: "12px 16px", color: "#334155", fontWeight: "600" }}>
-                                            {st.personal?.department || "CSE"}
-                                        </td>
-                                        <td style={{ padding: "12px 16px", textAlign: "center", color: "#16a34a", fontWeight: "700" }}>
-                                            {st.academic?.cgpa || 7.24}
-                                        </td>
-                                        <td style={{ padding: "12px 16px", textAlign: "center", color: "#475569", fontWeight: "600" }}>
-                                            {st.academic?.graduationYear || 2026}
-                                        </td>
-                                        <td style={{ padding: "12px 16px", textAlign: "center" }}>
-                                            <span style={{ padding: "4px 10px", borderRadius: "12px", fontSize: "11px", fontWeight: "700", backgroundColor: st.isProfileComplete === false ? "#fee2e2" : st.isVerified ? "#dcfce7" : "#fffbeb", color: st.isProfileComplete === false ? "#dc2626" : st.isVerified ? "#15803d" : "#b45309", border: st.isProfileComplete === false ? "1px solid #fecaca" : st.isVerified ? "1px solid #86efac" : "1px solid #fde68a" }}>
-                                                {st.isProfileComplete === false ? "Rejected ✕" : st.isVerified ? "Verified ✓" : "Pending"}
-                                            </span>
-                                        </td>
-                                        <td style={{ padding: "12px 16px", textAlign: "center" }}>
-                                            <button
-                                                type="button"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleTogglePlacementStatus(st._id || st.id || st.user?._id);
-                                                }}
-                                                title="Click to toggle placement status (Placed / Available)"
-                                                style={{
-                                                    padding: "4px 10px",
-                                                    borderRadius: "12px",
-                                                    fontSize: "11px",
-                                                    fontWeight: "700",
-                                                    backgroundColor: isPlaced ? "#eff6ff" : "#f8fafc",
-                                                    color: isPlaced ? "#2563eb" : "#64748b",
-                                                    border: isPlaced ? "1px solid #bfdbfe" : "1px solid #cbd5e1",
-                                                    cursor: "pointer",
-                                                    transition: "all 0.15s ease"
-                                                }}
-                                            >
-                                                {isPlaced ? "Placed 🏆" : "Available"}
-                                            </button>
-                                        </td>
-                                        <td style={{ padding: "12px 16px", textAlign: "center" }}>
-                                            <button
-                                                onClick={() => openStudentModal(st)}
-                                                style={{
-                                                    padding: "8px 22px",
-                                                    backgroundColor: "#F8FAFC",
-                                                    border: "1px solid #CBD5E1",
-                                                    color: "#334155",
-                                                    borderRadius: "8px",
-                                                    fontSize: "13px",
-                                                    fontWeight: "600",
-                                                    cursor: "pointer",
-                                                    transition: "all 0.15s ease"
-                                                }}
-                                                onMouseEnter={(e: any) => {
-                                                    e.currentTarget.style.backgroundColor = "#e2e8f0";
-                                                }}
-                                                onMouseLeave={(e: any) => {
-                                                    e.currentTarget.style.backgroundColor = "#F8FAFC";
-                                                }}
-                                            >
-                                                View / Edit
-                                            </button>
-                                        </td>
-                                    </tr>
-                                );
-                            })
-                        )}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            {filteredStudents.length === 0 ? (
+                                <tr>
+                                    <td colSpan={7} style={{ padding: "24px", textAlign: "center", color: "#94a3b8" }}>
+                                        No student profiles found matching selected filters.
+                                    </td>
+                                </tr>
+                            ) : (
+                                filteredStudents.map((st) => {
+                                    const isPlaced = isStudentPlaced(st);
+                                    return (
+                                        <tr key={st._id} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                                            <td style={{ padding: "12px 16px" }}>
+                                                <strong style={{ color: "#0f172a", fontSize: "13px", display: "block" }}>{st.user?.name || "Student"}</strong>
+                                                <span style={{ fontSize: "11px", color: "#64748b" }}>{st.user?.email}</span>
+                                            </td>
+                                            <td style={{ padding: "12px 16px", color: "#334155", fontWeight: "600" }}>
+                                                {st.personal?.department || "CSE"}
+                                            </td>
+                                            <td style={{ padding: "12px 16px", textAlign: "center", color: "#16a34a", fontWeight: "700" }}>
+                                                {st.academic?.cgpa || 7.24}
+                                            </td>
+                                            <td style={{ padding: "12px 16px", textAlign: "center", color: "#475569", fontWeight: "600" }}>
+                                                {st.academic?.graduationYear || 2026}
+                                            </td>
+                                            <td style={{ padding: "12px 16px", textAlign: "center" }}>
+                                                <span style={{ padding: "4px 10px", borderRadius: "12px", fontSize: "11px", fontWeight: "700", backgroundColor: st.isProfileComplete === false ? "#fee2e2" : st.isVerified ? "#dcfce7" : "#fffbeb", color: st.isProfileComplete === false ? "#dc2626" : st.isVerified ? "#15803d" : "#b45309", border: st.isProfileComplete === false ? "1px solid #fecaca" : st.isVerified ? "1px solid #86efac" : "1px solid #fde68a" }}>
+                                                    {st.isProfileComplete === false ? "Rejected ✕" : st.isVerified ? "Verified ✓" : "Pending"}
+                                                </span>
+                                            </td>
+                                            <td style={{ padding: "12px 16px", textAlign: "center" }}>
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleTogglePlacementStatus(st._id || st.id || st.user?._id);
+                                                    }}
+                                                    title="Click to toggle placement status (Placed / Available)"
+                                                    style={{
+                                                        padding: "4px 10px",
+                                                        borderRadius: "12px",
+                                                        fontSize: "11px",
+                                                        fontWeight: "700",
+                                                        backgroundColor: isPlaced ? "#eff6ff" : "#f8fafc",
+                                                        color: isPlaced ? "#2563eb" : "#64748b",
+                                                        border: isPlaced ? "1px solid #bfdbfe" : "1px solid #cbd5e1",
+                                                        cursor: "pointer",
+                                                        transition: "all 0.15s ease"
+                                                    }}
+                                                >
+                                                    {isPlaced ? "Placed" : "Available"}
+                                                </button>
+                                            </td>
+                                            <td style={{ padding: "12px 16px", textAlign: "center" }}>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => openStudentModal(st)}
+                                                    title="View Details"
+                                                    style={{
+                                                        width: "36px",
+                                                        height: "36px",
+                                                        borderRadius: "10px",
+                                                        backgroundColor: "#f8fafc",
+                                                        border: "1.5px solid #cbd5e1",
+                                                        color: "#475569",
+                                                        cursor: "pointer",
+                                                        display: "inline-flex",
+                                                        alignItems: "center",
+                                                        justifyContent: "center",
+                                                        transition: "all 0.15s ease",
+                                                        boxShadow: "0 1px 2px rgba(0, 0, 0, 0.04)"
+                                                    }}
+                                                    onMouseEnter={(e: any) => {
+                                                        e.currentTarget.style.backgroundColor = "#eff6ff";
+                                                        e.currentTarget.style.borderColor = "#2563eb";
+                                                        e.currentTarget.style.color = "#2563eb";
+                                                    }}
+                                                    onMouseLeave={(e: any) => {
+                                                        e.currentTarget.style.backgroundColor = "#f8fafc";
+                                                        e.currentTarget.style.borderColor = "#cbd5e1";
+                                                        e.currentTarget.style.color = "#475569";
+                                                    }}
+                                                >
+                                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                                                        <circle cx="12" cy="12" r="3" />
+                                                    </svg>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    );
+                                })
+                            )}
+                        </tbody>
+                    </table>
                 </div>
             </div>
 
@@ -823,7 +1025,7 @@ const StudentManagement: React.FC = () => {
                             const parsed = JSON.parse(saved);
                             if (Array.isArray(parsed)) pendingFields = parsed;
                         }
-                    } catch (e) {}
+                    } catch (e) { }
                 }
                 if (selectedStudent.isVerified) {
                     pendingFields = [];
@@ -854,281 +1056,281 @@ const StudentManagement: React.FC = () => {
                 };
 
                 return (
-                <div 
-                    onClick={() => setSelectedStudent(null)}
-                    style={{ position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", backgroundColor: "rgba(15, 23, 42, 0.65)", backdropFilter: "blur(4px)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}
-                >
-                    <div 
-                        onClick={(e) => e.stopPropagation()}
-                        style={{ backgroundColor: "#ffffff", borderRadius: "18px", maxWidth: "600px", width: "100%", overflow: "hidden", boxShadow: "0 25px 50px -12px rgba(0,0,0,0.25)" }}
+                    <div
+                        onClick={() => setSelectedStudent(null)}
+                        style={{ position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", backgroundColor: "rgba(15, 23, 42, 0.65)", backdropFilter: "blur(4px)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}
                     >
-                        {/* Modal Header */}
-                        <div style={{ backgroundColor: "#0f172a", color: "#ffffff", padding: "20px 24px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                            <div>
-                                <h3 style={{ margin: 0, fontSize: "18px", fontWeight: "800", color: "#ffffff" }}>
-                                    {selectedStudent.user?.name || "Student Profile"}
-                                </h3>
-                                <span style={{ fontSize: "12px", color: "#38bdf8", fontWeight: "600" }}>{selectedStudent.personal?.department || "Computer Science & Engineering"}</span>
-                            </div>
-                            <button
-                                onClick={() => setSelectedStudent(null)}
-                                style={{
-                                    backgroundColor: "rgba(255, 255, 255, 0.15)",
-                                    border: "1px solid rgba(255, 255, 255, 0.3)",
-                                    color: "#ffffff",
-                                    width: "36px",
-                                    height: "36px",
-                                    borderRadius: "50%",
-                                    cursor: "pointer",
-                                    fontSize: "16px",
-                                    fontWeight: "800",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    transition: "all 0.2s ease",
-                                }}
-                                title="Close Modal (Esc)"
-                            >
-                                ✕
-                            </button>
-                        </div>
-
-                        {/* Modal Body - Clean Read-Only Profile Details for Verification with Field-level Badges */}
-                        <div style={{ padding: "24px", display: "flex", flexDirection: "column", gap: "16px", maxHeight: "72vh", overflowY: "auto" }}>
-
-                            {/* Pending Verification Banner */}
-                            {!selectedStudent.isVerified && (
-                                <div style={{
-                                    backgroundColor: "#fffbeb",
-                                    border: "1px solid #fde68a",
-                                    borderRadius: "10px",
-                                    padding: "10px 14px",
-                                    color: "#b45309",
-                                    fontSize: "12px",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: "8px"
-                                }}>
-                                    <span style={{ fontSize: "16px" }}>⚠️</span>
-                                    <div>
-                                        <strong style={{ color: "#92400e" }}>Pending Officer Verification:</strong>{" "}
-                                        <span style={{ fontSize: "11px", color: "#b45309" }}>
-                                            Fields tagged with <span style={pendingBadgeStyle}>⏳ Pending</span> were edited by the student.
-                                        </span>
-                                    </div>
+                        <div
+                            onClick={(e) => e.stopPropagation()}
+                            style={{ backgroundColor: "#ffffff", borderRadius: "18px", maxWidth: "600px", width: "100%", overflow: "hidden", boxShadow: "0 25px 50px -12px rgba(0,0,0,0.25)" }}
+                        >
+                            {/* Modal Header */}
+                            <div style={{ backgroundColor: "#0f172a", color: "#ffffff", padding: "20px 24px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                <div>
+                                    <h3 style={{ margin: 0, fontSize: "18px", fontWeight: "800", color: "#ffffff" }}>
+                                        {selectedStudent.user?.name || "Student Profile"}
+                                    </h3>
+                                    <span style={{ fontSize: "12px", color: "#38bdf8", fontWeight: "600" }}>{selectedStudent.personal?.department || "Computer Science & Engineering"}</span>
                                 </div>
-                            )}
-
-                            {/* Personal Details */}
-                            <div style={{ backgroundColor: "#f8fafc", padding: "14px 18px", borderRadius: "12px", border: "1px solid #eaedf0" }}>
-                                <h4 style={{ margin: "0 0 10px 0", fontSize: "12px", fontWeight: "800", color: "#64748b", textTransform: "uppercase" }}>Personal Details</h4>
-                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", fontSize: "13px", color: "#334155" }}>
-                                    <div><strong>Email:</strong> {selectedStudent.user?.email || "N/A"}</div>
-                                    <div>
-                                        <strong>Phone:</strong> {selectedStudent.personal?.phone || "N/A"}
-                                        {isFieldPending("phone") && <span style={pendingBadgeStyle}>⏳ Pending</span>}
-                                    </div>
-                                    <div>
-                                        <strong>Register Number:</strong> {selectedStudent.personal?.registerNumber || "N/A"}
-                                        {isFieldPending("registerNumber") && <span style={pendingBadgeStyle}>⏳ Pending</span>}
-                                    </div>
-                                    <div>
-                                        <strong>Department:</strong> {selectedStudent.personal?.department || "N/A"}
-                                        {isFieldPending("department") && <span style={pendingBadgeStyle}>⏳ Pending</span>}
-                                    </div>
-                                </div>
+                                <button
+                                    onClick={() => setSelectedStudent(null)}
+                                    style={{
+                                        backgroundColor: "rgba(255, 255, 255, 0.15)",
+                                        border: "1px solid rgba(255, 255, 255, 0.3)",
+                                        color: "#ffffff",
+                                        width: "36px",
+                                        height: "36px",
+                                        borderRadius: "50%",
+                                        cursor: "pointer",
+                                        fontSize: "16px",
+                                        fontWeight: "800",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        transition: "all 0.2s ease",
+                                    }}
+                                    title="Close Modal (Esc)"
+                                >
+                                    ✕
+                                </button>
                             </div>
 
-                            {/* Academic Details */}
-                            <div style={{ backgroundColor: "#f8fafc", padding: "14px 18px", borderRadius: "12px", border: "1px solid #eaedf0" }}>
-                                <h4 style={{ margin: "0 0 10px 0", fontSize: "12px", fontWeight: "800", color: "#64748b", textTransform: "uppercase" }}>Academic Details</h4>
-                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px", fontSize: "13px", color: "#334155" }}>
-                                    <div>
-                                        <strong>10th %:</strong> {selectedStudent.academic?.tenthPercentage ? `${selectedStudent.academic.tenthPercentage}%` : "N/A"}
-                                        {isFieldPending("tenthPercentage") && <span style={pendingBadgeStyle}>⏳ Pending</span>}
+                            {/* Modal Body - Clean Read-Only Profile Details for Verification with Field-level Badges */}
+                            <div style={{ padding: "24px", display: "flex", flexDirection: "column", gap: "16px", maxHeight: "72vh", overflowY: "auto" }}>
+
+                                {/* Pending Verification Banner */}
+                                {!selectedStudent.isVerified && (
+                                    <div style={{
+                                        backgroundColor: "#fffbeb",
+                                        border: "1px solid #fde68a",
+                                        borderRadius: "10px",
+                                        padding: "10px 14px",
+                                        color: "#b45309",
+                                        fontSize: "12px",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: "8px"
+                                    }}>
+                                        <span style={{ fontSize: "16px" }}>⚠️</span>
+                                        <div>
+                                            <strong style={{ color: "#92400e" }}>Pending Officer Verification:</strong>{" "}
+                                            <span style={{ fontSize: "11px", color: "#b45309" }}>
+                                                Fields tagged with <span style={pendingBadgeStyle}>⏳ Pending</span> were edited by the student.
+                                            </span>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <strong>12th %:</strong> {selectedStudent.academic?.twelfthPercentage ? `${selectedStudent.academic.twelfthPercentage}%` : "N/A"}
-                                        {isFieldPending("twelfthPercentage") && <span style={pendingBadgeStyle}>⏳ Pending</span>}
-                                    </div>
-                                    <div>
-                                        <strong>CGPA:</strong> <strong style={{ color: "#16a34a" }}>{selectedStudent.academic?.cgpa !== undefined && selectedStudent.academic?.cgpa !== null ? selectedStudent.academic.cgpa : "N/A"}</strong>
-                                        {isFieldPending("cgpa") && <span style={pendingBadgeStyle}>⏳ Pending</span>}
-                                    </div>
-                                    <div>
-                                        <strong>Backlogs:</strong> {selectedStudent.academic?.backlogs !== undefined ? selectedStudent.academic.backlogs : 0}
-                                        {isFieldPending("backlogs") && <span style={pendingBadgeStyle}>⏳ Pending</span>}
-                                    </div>
-                                    <div>
-                                        <strong>Graduation Year:</strong> {selectedStudent.academic?.graduationYear || 2026}
-                                        {isFieldPending("graduationYear") && <span style={pendingBadgeStyle}>⏳ Pending</span>}
+                                )}
+
+                                {/* Personal Details */}
+                                <div style={{ backgroundColor: "#f8fafc", padding: "14px 18px", borderRadius: "12px", border: "1px solid #eaedf0" }}>
+                                    <h4 style={{ margin: "0 0 10px 0", fontSize: "12px", fontWeight: "800", color: "#64748b", textTransform: "uppercase" }}>Personal Details</h4>
+                                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", fontSize: "13px", color: "#334155" }}>
+                                        <div><strong>Email:</strong> {selectedStudent.user?.email || "N/A"}</div>
+                                        <div>
+                                            <strong>Phone:</strong> {selectedStudent.personal?.phone || "N/A"}
+                                            {isFieldPending("phone") && <span style={pendingBadgeStyle}>⏳ Pending</span>}
+                                        </div>
+                                        <div>
+                                            <strong>Register Number:</strong> {selectedStudent.personal?.registerNumber || "N/A"}
+                                            {isFieldPending("registerNumber") && <span style={pendingBadgeStyle}>⏳ Pending</span>}
+                                        </div>
+                                        <div>
+                                            <strong>Department:</strong> {selectedStudent.personal?.department || "N/A"}
+                                            {isFieldPending("department") && <span style={pendingBadgeStyle}>⏳ Pending</span>}
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
 
-                            {/* Professional Details */}
-                            <div style={{ backgroundColor: "#f8fafc", padding: "14px 18px", borderRadius: "12px", border: "1px solid #eaedf0" }}>
-                                <h4 style={{ margin: "0 0 10px 0", fontSize: "12px", fontWeight: "800", color: "#64748b", textTransform: "uppercase" }}>Professional Details</h4>
-                                <div style={{ display: "flex", flexDirection: "column", gap: "8px", fontSize: "13px", color: "#334155" }}>
-                                    <div>
-                                        <strong>Skills:</strong> {selectedStudent.professional?.skills?.length ? selectedStudent.professional.skills.join(", ") : "N/A"}
-                                        {isFieldPending("skills") && <span style={pendingBadgeStyle}>⏳ Pending</span>}
+                                {/* Academic Details */}
+                                <div style={{ backgroundColor: "#f8fafc", padding: "14px 18px", borderRadius: "12px", border: "1px solid #eaedf0" }}>
+                                    <h4 style={{ margin: "0 0 10px 0", fontSize: "12px", fontWeight: "800", color: "#64748b", textTransform: "uppercase" }}>Academic Details</h4>
+                                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px", fontSize: "13px", color: "#334155" }}>
+                                        <div>
+                                            <strong>10th %:</strong> {selectedStudent.academic?.tenthPercentage ? `${selectedStudent.academic.tenthPercentage}%` : "N/A"}
+                                            {isFieldPending("tenthPercentage") && <span style={pendingBadgeStyle}>⏳ Pending</span>}
+                                        </div>
+                                        <div>
+                                            <strong>12th %:</strong> {selectedStudent.academic?.twelfthPercentage ? `${selectedStudent.academic.twelfthPercentage}%` : "N/A"}
+                                            {isFieldPending("twelfthPercentage") && <span style={pendingBadgeStyle}>⏳ Pending</span>}
+                                        </div>
+                                        <div>
+                                            <strong>CGPA:</strong> <strong style={{ color: "#16a34a" }}>{selectedStudent.academic?.cgpa !== undefined && selectedStudent.academic?.cgpa !== null ? selectedStudent.academic.cgpa : "N/A"}</strong>
+                                            {isFieldPending("cgpa") && <span style={pendingBadgeStyle}>⏳ Pending</span>}
+                                        </div>
+                                        <div>
+                                            <strong>Backlogs:</strong> {selectedStudent.academic?.backlogs !== undefined ? selectedStudent.academic.backlogs : 0}
+                                            {isFieldPending("backlogs") && <span style={pendingBadgeStyle}>⏳ Pending</span>}
+                                        </div>
+                                        <div>
+                                            <strong>Graduation Year:</strong> {selectedStudent.academic?.graduationYear || 2026}
+                                            {isFieldPending("graduationYear") && <span style={pendingBadgeStyle}>⏳ Pending</span>}
+                                        </div>
                                     </div>
-                                    <div>
-                                        <strong>Projects:</strong> {selectedStudent.professional?.projects?.length ? selectedStudent.professional.projects.join(", ") : "N/A"}
-                                        {isFieldPending("projects") && <span style={pendingBadgeStyle}>⏳ Pending</span>}
+                                </div>
+
+                                {/* Professional Details */}
+                                <div style={{ backgroundColor: "#f8fafc", padding: "14px 18px", borderRadius: "12px", border: "1px solid #eaedf0" }}>
+                                    <h4 style={{ margin: "0 0 10px 0", fontSize: "12px", fontWeight: "800", color: "#64748b", textTransform: "uppercase" }}>Professional Details</h4>
+                                    <div style={{ display: "flex", flexDirection: "column", gap: "8px", fontSize: "13px", color: "#334155" }}>
+                                        <div>
+                                            <strong>Skills:</strong> {selectedStudent.professional?.skills?.length ? selectedStudent.professional.skills.join(", ") : "N/A"}
+                                            {isFieldPending("skills") && <span style={pendingBadgeStyle}>⏳ Pending</span>}
+                                        </div>
+                                        <div>
+                                            <strong>Projects:</strong> {selectedStudent.professional?.projects?.length ? selectedStudent.professional.projects.join(", ") : "N/A"}
+                                            {isFieldPending("projects") && <span style={pendingBadgeStyle}>⏳ Pending</span>}
+                                        </div>
+                                        <div>
+                                            <strong>Resume:</strong>{" "}
+                                            {selectedStudent.professional?.resumeName ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleDownloadResume(selectedStudent.professional?.resumeUrl, selectedStudent.professional?.resumeName || "Student_Resume.pdf", selectedStudent.user?.name)}
+                                                    style={{
+                                                        backgroundColor: "#eff6ff",
+                                                        color: "#2563eb",
+                                                        border: "1px solid #bfdbfe",
+                                                        padding: "4px 10px",
+                                                        borderRadius: "6px",
+                                                        fontSize: "12px",
+                                                        fontWeight: "700",
+                                                        cursor: "pointer",
+                                                        display: "inline-flex",
+                                                        alignItems: "center",
+                                                        gap: "6px",
+                                                        marginLeft: "6px",
+                                                    }}
+                                                >
+                                                    📄 {selectedStudent.professional.resumeName} (Download & View 📥)
+                                                </button>
+                                            ) : (
+                                                <span style={{ fontSize: "12px", color: "#94a3b8" }}>No Resume Uploaded</span>
+                                            )}
+                                            {isFieldPending("resume") && <span style={pendingBadgeStyle}>⏳ Pending</span>}
+                                        </div>
                                     </div>
+                                </div>
+
+                                {/* Placement Status */}
+                                <div style={{ backgroundColor: selectedStudent.isVerified ? "#f0fdf4" : "#fffbeb", padding: "14px 18px", borderRadius: "12px", border: selectedStudent.isVerified ? "1px solid #bbf7d0" : "1px solid #fde68a", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                                     <div>
-                                        <strong>Resume:</strong>{" "}
-                                        {selectedStudent.professional?.resumeName ? (
+                                        <h4 style={{ margin: "0 0 6px 0", fontSize: "12px", fontWeight: "800", color: selectedStudent.isVerified ? "#166534" : "#b45309", textTransform: "uppercase" }}>PLACEMENT STATUS</h4>
+                                        <div style={{ fontSize: "14px", color: selectedStudent.isVerified ? "#15803d" : "#b45309", fontWeight: "700", display: "flex", alignItems: "center", gap: "6px" }}>
+                                            {selectedStudent.isVerified ? "🟢 Approved" : "🟡 Pending Review"}
+                                        </div>
+                                    </div>
+                                    <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                                        {isStudentPlaced(selectedStudent) ? (
                                             <button
                                                 type="button"
-                                                onClick={() => handleDownloadResume(selectedStudent.professional?.resumeUrl, selectedStudent.professional?.resumeName || "Student_Resume.pdf", selectedStudent.user?.name)}
+                                                onClick={() => handleTogglePlacementStatus(selectedStudent._id || (selectedStudent as any).id, false)}
                                                 style={{
-                                                    backgroundColor: "#eff6ff",
-                                                    color: "#2563eb",
-                                                    border: "1px solid #bfdbfe",
-                                                    padding: "4px 10px",
-                                                    borderRadius: "6px",
+                                                    padding: "6px 14px",
+                                                    backgroundColor: "#ffffff",
+                                                    color: "#dc2626",
+                                                    border: "1.5px solid #fca5a5",
+                                                    borderRadius: "8px",
                                                     fontSize: "12px",
                                                     fontWeight: "700",
                                                     cursor: "pointer",
-                                                    display: "inline-flex",
+                                                    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.05)",
+                                                    display: "flex",
                                                     alignItems: "center",
-                                                    gap: "6px",
-                                                    marginLeft: "6px",
+                                                    gap: "4px",
+                                                    transition: "all 0.15s ease",
                                                 }}
+                                                title="Click to mark student as Not Placed"
                                             >
-                                                📄 {selectedStudent.professional.resumeName} (Download & View 📥)
+                                                ❌ Mark Not Placed
                                             </button>
                                         ) : (
-                                            <span style={{ fontSize: "12px", color: "#94a3b8" }}>No Resume Uploaded</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleTogglePlacementStatus(selectedStudent._id || (selectedStudent as any).id, true)}
+                                                style={{
+                                                    padding: "6px 14px",
+                                                    backgroundColor: "#2563eb",
+                                                    color: "#ffffff",
+                                                    border: "none",
+                                                    borderRadius: "8px",
+                                                    fontSize: "12px",
+                                                    fontWeight: "700",
+                                                    cursor: "pointer",
+                                                    boxShadow: "0 2px 4px rgba(37, 99, 235, 0.25)",
+                                                    display: "flex",
+                                                    alignItems: "center",
+                                                    gap: "4px",
+                                                    transition: "all 0.15s ease",
+                                                }}
+                                                title="Click to mark student as Placed"
+                                            >
+                                                Mark as Placed
+                                            </button>
                                         )}
-                                        {isFieldPending("resume") && <span style={pendingBadgeStyle}>⏳ Pending</span>}
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Placement Status */}
-                            <div style={{ backgroundColor: selectedStudent.isVerified ? "#f0fdf4" : "#fffbeb", padding: "14px 18px", borderRadius: "12px", border: selectedStudent.isVerified ? "1px solid #bbf7d0" : "1px solid #fde68a", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                <div>
-                                    <h4 style={{ margin: "0 0 6px 0", fontSize: "12px", fontWeight: "800", color: selectedStudent.isVerified ? "#166534" : "#b45309", textTransform: "uppercase" }}>PLACEMENT STATUS</h4>
-                                    <div style={{ fontSize: "14px", color: selectedStudent.isVerified ? "#15803d" : "#b45309", fontWeight: "700", display: "flex", alignItems: "center", gap: "6px" }}>
-                                        {selectedStudent.isVerified ? "🟢 Approved" : "🟡 Pending Review"}
-                                    </div>
+                            {/* Modal Footer with Approve & Reject Actions ONLY */}
+                            <div style={{ padding: "16px 24px", backgroundColor: "#f8fafc", borderTop: "1px solid #eaedf0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                <div style={{ display: "flex", gap: "12px" }}>
+                                    <button
+                                        onClick={() => handleVerify(selectedStudent._id || (selectedStudent as any).id)}
+                                        style={{
+                                            padding: "10px 22px",
+                                            backgroundColor: "#16a34a",
+                                            color: "#ffffff",
+                                            border: "none",
+                                            borderRadius: "8px",
+                                            fontSize: "13px",
+                                            fontWeight: "700",
+                                            cursor: "pointer",
+                                            boxShadow: "0 2px 6px rgba(22, 163, 74, 0.25)",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: "6px",
+                                        }}
+                                    >
+                                        ✓ Approve Profile
+                                    </button>
+                                    <button
+                                        onClick={() => { setRejectionReason(""); setShowRejectModal(true); }}
+                                        style={{
+                                            padding: "10px 20px",
+                                            backgroundColor: "#dc2626",
+                                            color: "#ffffff",
+                                            border: "none",
+                                            borderRadius: "8px",
+                                            fontSize: "13px",
+                                            fontWeight: "700",
+                                            cursor: "pointer",
+                                            boxShadow: "0 2px 6px rgba(220, 38, 38, 0.25)",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: "6px",
+                                        }}
+                                    >
+                                        ✕ Reject Profile
+                                    </button>
                                 </div>
-                                <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                                     {isStudentPlaced(selectedStudent) ? (
-                                         <button
-                                             type="button"
-                                             onClick={() => handleTogglePlacementStatus(selectedStudent._id || (selectedStudent as any).id, false)}
-                                             style={{
-                                                 padding: "6px 14px",
-                                                 backgroundColor: "#ffffff",
-                                                 color: "#dc2626",
-                                                 border: "1.5px solid #fca5a5",
-                                                 borderRadius: "8px",
-                                                 fontSize: "12px",
-                                                 fontWeight: "700",
-                                                 cursor: "pointer",
-                                                 boxShadow: "0 1px 3px rgba(0, 0, 0, 0.05)",
-                                                 display: "flex",
-                                                 alignItems: "center",
-                                                 gap: "4px",
-                                                 transition: "all 0.15s ease",
-                                             }}
-                                             title="Click to mark student as Not Placed"
-                                         >
-                                             ❌ Mark Not Placed
-                                         </button>
-                                     ) : (
-                                         <button
-                                             type="button"
-                                             onClick={() => handleTogglePlacementStatus(selectedStudent._id || (selectedStudent as any).id, true)}
-                                             style={{
-                                                 padding: "6px 14px",
-                                                 backgroundColor: "#2563eb",
-                                                 color: "#ffffff",
-                                                 border: "none",
-                                                 borderRadius: "8px",
-                                                 fontSize: "12px",
-                                                 fontWeight: "700",
-                                                 cursor: "pointer",
-                                                 boxShadow: "0 2px 4px rgba(37, 99, 235, 0.25)",
-                                                 display: "flex",
-                                                 alignItems: "center",
-                                                 gap: "4px",
-                                                 transition: "all 0.15s ease",
-                                             }}
-                                             title="Click to mark student as Placed"
-                                         >
-                                             🏆 Mark as Placed
-                                         </button>
-                                     )}
-                                 </div>
-                            </div>
-                        </div>
-
-                        {/* Modal Footer with Approve & Reject Actions ONLY */}
-                        <div style={{ padding: "16px 24px", backgroundColor: "#f8fafc", borderTop: "1px solid #eaedf0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                            <div style={{ display: "flex", gap: "12px" }}>
                                 <button
-                                    onClick={() => handleVerify(selectedStudent._id || (selectedStudent as any).id)}
-                                    style={{
-                                        padding: "10px 22px",
-                                        backgroundColor: "#16a34a",
-                                        color: "#ffffff",
-                                        border: "none",
-                                        borderRadius: "8px",
-                                        fontSize: "13px",
-                                        fontWeight: "700",
-                                        cursor: "pointer",
-                                        boxShadow: "0 2px 6px rgba(22, 163, 74, 0.25)",
-                                        display: "flex",
-                                        alignItems: "center",
-                                        gap: "6px",
-                                    }}
-                                >
-                                    ✓ Approve Profile
-                                </button>
-                                <button
-                                    onClick={() => { setRejectionReason(""); setShowRejectModal(true); }}
+                                    onClick={() => setSelectedStudent(null)}
                                     style={{
                                         padding: "10px 20px",
-                                        backgroundColor: "#dc2626",
+                                        backgroundColor: "#0f172a",
                                         color: "#ffffff",
                                         border: "none",
                                         borderRadius: "8px",
                                         fontSize: "13px",
                                         fontWeight: "700",
                                         cursor: "pointer",
-                                        boxShadow: "0 2px 6px rgba(220, 38, 38, 0.25)",
-                                        display: "flex",
-                                        alignItems: "center",
-                                        gap: "6px",
                                     }}
                                 >
-                                    ✕ Reject Profile
+                                    Cancel
                                 </button>
                             </div>
-                            <button
-                                onClick={() => setSelectedStudent(null)}
-                                style={{
-                                    padding: "10px 20px",
-                                    backgroundColor: "#0f172a",
-                                    color: "#ffffff",
-                                    border: "none",
-                                    borderRadius: "8px",
-                                    fontSize: "13px",
-                                    fontWeight: "700",
-                                    cursor: "pointer",
-                                }}
-                            >
-                                Cancel
-                            </button>
                         </div>
                     </div>
-                </div>
                 );
             })()}
 

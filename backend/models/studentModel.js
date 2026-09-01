@@ -10,38 +10,37 @@ const studentSchema = new mongoose.Schema(
         },
 
         personal: {
+            fullName: { type: String, default: "" },
+            email: { type: String, default: "" },
             phone: { type: String, default: "" },
-            department: {
-                type: String,
-                default: "Computer Science & Engineering",
-            },
-            registerNumber: {
-                type: String,
-                default: "",
-            },
+            department: { type: String, default: "" },
+            registerNumber: { type: String, default: "" },
+            location: { type: String, default: "" },
+            gender: { type: String, default: "" },
+            dob: { type: String, default: "" },
         },
 
         academic: {
-            tenthPercentage: {
-                type: Number,
-                default: 0,
-            },
-            twelfthPercentage: {
-                type: Number,
-                default: 0,
-            },
-            cgpa: {
-                type: Number,
-                default: 0,
-            },
-            backlogs: {
-                type: Number,
-                default: 0,
-            },
-            graduationYear: {
-                type: Number,
-                default: 2026,
-            },
+            tenthPercentage: { type: mongoose.Schema.Types.Mixed, default: "" },
+            twelfthPercentage: { type: mongoose.Schema.Types.Mixed, default: "" },
+            schoolName: { type: String, default: "" },
+            diplomaInstitution: { type: String, default: "" },
+            diplomaSpecialization: { type: String, default: "" },
+            cgpa: { type: mongoose.Schema.Types.Mixed, default: "" },
+            backlogs: { type: Number, default: 0 },
+            backlogHistory: { type: Number, default: 0 },
+            graduationYear: { type: mongoose.Schema.Types.Mixed, default: 2026 },
+            currentSemester: { type: String, default: "" },
+            ugInstitution: { type: String, default: "" },
+            ugProgram: { type: String, default: "" },
+            ugSpecialization: { type: String, default: "" },
+            appNumber: { type: String, default: "" },
+            pgInstitution: { type: String, default: "" },
+            pgProgram: { type: String, default: "" },
+            pgSpecialization: { type: String, default: "" },
+            pgGradYear: { type: mongoose.Schema.Types.Mixed, default: "" },
+            pgCgpa: { type: mongoose.Schema.Types.Mixed, default: "" },
+            pgSemester: { type: String, default: "" },
         },
 
         professional: {
@@ -49,16 +48,9 @@ const studentSchema = new mongoose.Schema(
             certifications: [{ type: String }],
             projects: [{ type: String }],
             internships: [{ type: String }],
-
-            resumeName: {
-                type: String,
-                default: "",
-            },
-
-            resumeUrl: {
-                type: String,
-                default: "",
-            },
+            resumeName: { type: String, default: "" },
+            resumeUrl: { type: String, default: "" },
+            resumeUploadDate: { type: String, default: "" },
         },
 
         verificationStatus: {
@@ -82,6 +74,7 @@ const studentSchema = new mongoose.Schema(
 
     {
         timestamps: true,
+        strict: false,
     }
 );
 

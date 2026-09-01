@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import jsPDF from "jspdf";
 import { formatCleanRoundName, getPureRoundTitle } from "../../utils/roundUtils";
+import { API_BASE_URL } from "../../config/api";
 
 export interface ApplicationRecord {
     id: string;
@@ -297,7 +298,7 @@ const ApplicationManagement: React.FC = () => {
                         roundName: app.roundName || existing?.roundName,
 
                         resumeName: app.resumeName || existing?.resumeName || "Ashwanth_S_Resume.pdf",
-                        resumeUrl: app.resumeUrl || existing?.resumeUrl || "http://localhost:5001/uploads/resumes/Ashwanth_S_Resume.pdf",
+                        resumeUrl: app.resumeUrl || existing?.resumeUrl || `${API_BASE_URL}/uploads/resumes/Ashwanth_S_Resume.pdf`,
                         cgpa: normCgpa,
                         minCgpa: normMinCgpa,
                         tenth: normTenth,
@@ -316,7 +317,7 @@ const ApplicationManagement: React.FC = () => {
 
                 // 0. Fetch MongoDB Applications from API
                 try {
-                    const apiRes = await fetch("http://localhost:5001/api/applications");
+                    const apiRes = await fetch(`${API_BASE_URL}/api/applications`);
                     if (apiRes.ok) {
                         const apiData = await apiRes.json();
                         if (Array.isArray(apiData) && apiData.length > 0) {
@@ -520,7 +521,7 @@ const ApplicationManagement: React.FC = () => {
         });
 
         // Persist update in MongoDB via API
-        fetch(`http://localhost:5001/api/applications/${appId}/status`, {
+        fetch(`${API_BASE_URL}/api/applications/${appId}/status`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -658,7 +659,7 @@ const ApplicationManagement: React.FC = () => {
         if (app.resumeUrl) {
             const fullUrl = app.resumeUrl.startsWith("http")
                 ? app.resumeUrl
-                : `http://localhost:5001${app.resumeUrl.startsWith("/") ? "" : "/"}${app.resumeUrl}`;
+                : `${API_BASE_URL}${app.resumeUrl.startsWith("/") ? "" : "/"}${app.resumeUrl}`;
             window.open(fullUrl, "_blank");
             return;
         }
@@ -675,7 +676,7 @@ const ApplicationManagement: React.FC = () => {
         if (app.resumeUrl) {
             const fullUrl = app.resumeUrl.startsWith("http")
                 ? app.resumeUrl
-                : `http://localhost:5001${app.resumeUrl.startsWith("/") ? "" : "/"}${app.resumeUrl}`;
+                : `${API_BASE_URL}${app.resumeUrl.startsWith("/") ? "" : "/"}${app.resumeUrl}`;
             const link = document.createElement("a");
             link.href = fullUrl;
             link.target = "_blank";
@@ -767,7 +768,7 @@ const ApplicationManagement: React.FC = () => {
                 <div style={{ flex: "1 1 240px", position: "relative" }}>
                     <input
                         type="text"
-                        placeholder="🔍 Search student or register number..."
+                        placeholder="Search student or register number..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         style={{

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { API_BASE_URL } from "../../config/api";
 
 interface StudentProfileFormProps {
     userId: string;
@@ -17,20 +18,20 @@ const StudentProfileForm: React.FC<StudentProfileFormProps> = ({
 
     // 6.1 Personal Details
     const [phone, setPhone] = useState("");
-    const [department, setDepartment] = useState("Computer Science & Engineering");
+    const [department, setDepartment] = useState("");
     const [registerNumber, setRegisterNumber] = useState("");
 
     // 6.2 Academic Details
-    const [tenthPercentage, setTenthPercentage] = useState<number | "">(88.5);
-    const [twelfthPercentage, setTwelfthPercentage] = useState<number | "">(91.2);
-    const [cgpa, setCgpa] = useState<number | "">(7.2);
+    const [tenthPercentage, setTenthPercentage] = useState<number | "">("");
+    const [twelfthPercentage, setTwelfthPercentage] = useState<number | "">("");
+    const [cgpa, setCgpa] = useState<number | "">("");
     const [backlogs, setBacklogs] = useState<number>(0);
-    const [graduationYear, setGraduationYear] = useState<number>(2026);
+    const [graduationYear, setGraduationYear] = useState<number | "">("");
 
     // 6.3 Professional Details (Empty defaults for genuine user input)
-    const [skillsInput, setSkillsInput] = useState("React, Python, SQL, Git");
+    const [skillsInput, setSkillsInput] = useState("");
     const [certificationsInput, setCertificationsInput] = useState("");
-    const [projectsInput, setProjectsInput] = useState("College Placement Management System");
+    const [projectsInput, setProjectsInput] = useState("");
     const [internshipInput, setInternshipInput] = useState("");
     const [resumeName, setResumeName] = useState("");
 
@@ -41,7 +42,7 @@ const StudentProfileForm: React.FC<StudentProfileFormProps> = ({
         const fetchProfile = async () => {
             if (!userId) return;
             try {
-                const res = await fetch(`http://localhost:5001/api/student/profile/${userId}`);
+                const res = await fetch(`${API_BASE_URL}/api/student/profile/${userId}`);
                 const data = await res.json();
                 const s = data.student || data;
                 if (res.ok && s) {
@@ -110,7 +111,7 @@ const StudentProfileForm: React.FC<StudentProfileFormProps> = ({
         };
 
         try {
-            const res = await fetch("http://localhost:5001/api/student/profile", {
+            const res = await fetch(`${API_BASE_URL}/api/student/profile`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload),
@@ -241,7 +242,9 @@ const StudentProfileForm: React.FC<StudentProfileFormProps> = ({
                 {activeSection === "academic" && (
                     <div style={styles.gridTwo}>
                         <div style={styles.inputGroup}>
-                            <label style={styles.label}>10th Secondary Percentage (%)</label>
+                            <label style={styles.label}>
+                                10th Secondary Percentage (%) <span style={{ color: "#dc2626", fontWeight: "800" }}>*</span>
+                            </label>
                             <input
                                 type="number"
                                 step="0.1"
@@ -253,7 +256,9 @@ const StudentProfileForm: React.FC<StudentProfileFormProps> = ({
                             />
                         </div>
                         <div style={styles.inputGroup}>
-                            <label style={styles.label}>12th / Diploma Percentage (%)</label>
+                            <label style={styles.label}>
+                                12th / Diploma Percentage (%) <span style={{ color: "#dc2626", fontWeight: "800" }}>*</span>
+                            </label>
                             <input
                                 type="number"
                                 step="0.1"

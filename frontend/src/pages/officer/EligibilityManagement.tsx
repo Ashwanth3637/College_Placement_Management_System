@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { API_BASE_URL } from "../../config/api";
 
 export interface EligibilityDrive {
     id: string;
@@ -32,7 +33,31 @@ const DEFAULT_DRIVES: EligibilityDrive[] = [];
 
 const EligibilityManagement: React.FC = () => {
     const [drives, setDrives] = useState<EligibilityDrive[]>([]);
-    const [students, setStudents] = useState<StudentRecord[]>([]);
+    const [students, setStudents] = useState<StudentRecord[]>(() => {
+        try {
+            const cached = localStorage.getItem("cpms_cached_students_all");
+            if (cached) {
+                const data = JSON.parse(cached);
+                if (Array.isArray(data) && data.length > 0) {
+                    return data.map((s: any, idx: number) => ({
+                        id: s._id || s.id || `st_${idx}`,
+                        _id: s._id,
+                        name: s.user?.name || "Student",
+                        email: s.user?.email || "",
+                        regNo: s.personal?.registerNumber || `22CSR0${25 + idx}`,
+                        dept: s.personal?.department || "Computer Science & Engineering",
+                        cgpa: Number(s.academic?.cgpa !== undefined ? s.academic.cgpa : 0),
+                        tenth: Number(s.academic?.tenthPercentage !== undefined ? s.academic.tenthPercentage : 0),
+                        twelfth: Number(s.academic?.twelfthPercentage !== undefined ? s.academic.twelfthPercentage : 0),
+                        backlogs: Number(s.academic?.backlogs !== undefined ? s.academic.backlogs : 0),
+                        gradYear: Number(s.academic?.graduationYear || 2026),
+                        isVerified: Boolean(s.isVerified)
+                    }));
+                }
+            }
+        } catch (e) {}
+        return [];
+    });
     const [selectedDriveId, setSelectedDriveId] = useState<string>("");
 
     // Search & Filters
@@ -45,58 +70,76 @@ const EligibilityManagement: React.FC = () => {
 
     // Load placement drives & student records dynamically
     useEffect(() => {
+        const isOfficerDrive = (d: any) => {
+            if (!d) return false;
+            const creator = String(d.createdBy || "").toLowerCase();
+            return d.isOfficerPublished === true || 
+                   d.isCreatedByOfficer === true || 
+                   d.createdExplicitlyByOfficer === true || 
+                   creator.includes("officer") || 
+                   creator === "placement officer";
+        };
+
         const loadDrives = async () => {
             let combinedDrives: EligibilityDrive[] = [];
 
-            // 1. Fetch from MongoDB
-            try {
-                const res = await fetch("http://localhost:5001/api/company/drives");
-                if (res.ok) {
-                    const data = await res.json();
-                    if (Array.isArray(data) && data.length > 0) {
-                        const formatted = data.map((d: any, idx: number) => ({
-                            id: d._id || d.id || `d_${idx}`,
-                            companyName: d.company || d.companyName || "Company",
-                            jobRole: d.role || d.jobTitle || d.jobRole || "Role",
-                            minCgpa: Number(d.minCgpa || 6.5),
-                            maxBacklogs: Number(d.maxBacklogs !== undefined ? d.maxBacklogs : 1),
-                            departments: Array.isArray(d.eligibleBranches) ? d.eligibleBranches : (Array.isArray(d.departments) ? d.departments : ["Computer Science & Engineering", "Information Technology"]),
-                            minTenth: Number(d.minTenth || 60),
-                            minTwelfth: Number(d.minTwelfth || 60),
-                            gradYear: Number(d.gradYear || 2026),
-                            status: d.status || "Active"
-                        }));
-                        combinedDrives.push(...formatted);
-                    }
-                }
-            } catch (err) {}
-
-            // 2. Fetch from LocalStorage
+            // 1. Fetch from LocalStorage
             try {
                 const savedDrives = localStorage.getItem("cpms_drives");
                 if (savedDrives) {
                     const parsedD = JSON.parse(savedDrives);
                     if (Array.isArray(parsedD) && parsedD.length > 0) {
                         parsedD.forEach((d: any, idx: number) => {
-                            const driveId = d.id || d._id || `ls_d_${idx}`;
-                            if (!combinedDrives.some(cd => cd.id === driveId)) {
-                                combinedDrives.push({
-                                    id: driveId,
-                                    companyName: d.companyName || d.company || "Company",
-                                    jobRole: d.jobRole || d.role || "Role",
-                                    minCgpa: Number(d.minCgpa || 6.5),
-                                    maxBacklogs: Number(d.maxBacklogs !== undefined ? d.maxBacklogs : 1),
-                                    departments: Array.isArray(d.departments) ? d.departments : (Array.isArray(d.eligibleBranches) ? d.eligibleBranches : ["Computer Science & Engineering", "Information Technology"]),
-                                    minTenth: Number(d.minTenth || 60),
-                                    minTwelfth: Number(d.minTwelfth || 60),
-                                    gradYear: Number(d.gradYear || 2026),
-                                    status: d.status || "Upcoming"
-                                });
+                            if (isOfficerDrive(d)) {
+                                const driveId = d.id || d._id || `ls_d_${idx}`;
+                                if (!combinedDrives.some(cd => cd.id === driveId)) {
+                                    combinedDrives.push({
+                                        id: driveId,
+                                        companyName: d.companyName || d.company || "Company",
+                                        jobRole: d.jobRole || d.role || "Role",
+                                        minCgpa: Number(d.minCgpa || 6.5),
+                                        maxBacklogs: Number(d.maxBacklogs !== undefined ? d.maxBacklogs : 1),
+                                        departments: Array.isArray(d.departments) ? d.departments : (Array.isArray(d.eligibleBranches) ? d.eligibleBranches : ["Computer Science & Engineering", "Information Technology"]),
+                                        minTenth: Number(d.minTenth || 60),
+                                        minTwelfth: Number(d.minTwelfth || 60),
+                                        gradYear: Number(d.gradYear || 2026),
+                                        status: d.status || "Upcoming"
+                                    });
+                                }
                             }
                         });
                     }
                 }
             } catch (e) {}
+
+            // 2. Fetch from MongoDB
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/company/drives`);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (Array.isArray(data) && data.length > 0) {
+                        data.forEach((d: any, idx: number) => {
+                            if (isOfficerDrive(d)) {
+                                const driveId = d._id || d.id || `d_${idx}`;
+                                if (!combinedDrives.some(cd => cd.id === driveId)) {
+                                    combinedDrives.push({
+                                        id: driveId,
+                                        companyName: d.company || d.companyName || "Company",
+                                        jobRole: d.role || d.jobTitle || d.jobRole || "Role",
+                                        minCgpa: Number(d.minCgpa || 6.5),
+                                        maxBacklogs: Number(d.maxBacklogs !== undefined ? d.maxBacklogs : 1),
+                                        departments: Array.isArray(d.eligibleBranches) ? d.eligibleBranches : (Array.isArray(d.departments) ? d.departments : ["Computer Science & Engineering", "Information Technology"]),
+                                        minTenth: Number(d.minTenth || 60),
+                                        minTwelfth: Number(d.minTwelfth || 60),
+                                        gradYear: Number(d.gradYear || 2026),
+                                        status: d.status || "Active"
+                                    });
+                                }
+                            }
+                        });
+                    }
+                }
+            } catch (err) {}
 
             setDrives(combinedDrives);
             if (combinedDrives.length > 0) {
@@ -109,42 +152,81 @@ const EligibilityManagement: React.FC = () => {
         loadDrives();
 
         const fetchLiveStudents = async () => {
+            let rawList: any[] = [];
+
             try {
-                const res = await fetch("http://localhost:5001/api/student/all");
-                if (res.ok) {
-                    const data = await res.json();
-                    if (Array.isArray(data) && data.length > 0) {
-                        const valid = data
-                            .filter((s: any) => {
-                                if (!s || !s.user || !s.user.name || !s.user.email) return false;
-                                const email = s.user.email.toLowerCase();
-                                const name = s.user.name.toLowerCase();
-                                return email !== "test@college.edu" && email !== "arvind@gmail.com" && !name.includes("test user") && !name.includes("arvind");
-                            })
-                            .map((s: any, idx: number) => ({
-                                id: s._id || s.id || `st_${idx}`,
-                                _id: s._id,
-                                name: s.user?.name || "Student",
-                                email: s.user?.email || "",
-                                regNo: s.personal?.registerNumber || `22CSR0${25 + idx}`,
-                                dept: s.personal?.department || "Computer Science & Engineering",
-                                cgpa: Number(s.academic?.cgpa !== undefined ? s.academic.cgpa : 0),
-                                tenth: Number(s.academic?.tenthPercentage !== undefined ? s.academic.tenthPercentage : 0),
-                                twelfth: Number(s.academic?.twelfthPercentage !== undefined ? s.academic.twelfthPercentage : 0),
-                                backlogs: Number(s.academic?.backlogs !== undefined ? s.academic.backlogs : 0),
-                                gradYear: Number(s.academic?.graduationYear || 2026),
-                                isVerified: Boolean(s.isVerified)
-                            }));
-                        if (valid.length > 0) {
-                            setStudents(valid);
-                            return;
-                        }
+                const savedStds = localStorage.getItem("cpms_students");
+                if (savedStds) {
+                    const parsed = JSON.parse(savedStds);
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                        rawList.push(...parsed);
                     }
                 }
-            } catch (err) {}
-            // Clean fallback
-            setStudents([]);
+            } catch (e) {}
+
+            try {
+                const userStr = localStorage.getItem("cpms_user") || localStorage.getItem("user");
+                if (userStr) {
+                    const parsedUser = JSON.parse(userStr);
+                    if (parsedUser && (parsedUser.email || parsedUser.name)) {
+                        rawList.push(parsedUser);
+                    }
+                }
+            } catch (e) {}
+
+            if (rawList.length === 0) {
+                try {
+                    const res = await fetch(`${API_BASE_URL}/api/student/all`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (Array.isArray(data) && data.length > 0) {
+                            rawList.push(...data);
+                        }
+                    }
+                } catch (err) {}
+            }
+
+            if (rawList.length === 0) {
+                rawList = [{
+                    _id: "ashwanth_st",
+                    user: { name: "Ashwanth S", email: "ashwanth@gmail.com" },
+                    personal: { registerNumber: "22CSR025", department: "Computer Science & Engineering" },
+                    academic: { cgpa: 8.80, tenthPercentage: 85.0, twelfthPercentage: 85.0, backlogs: 0, graduationYear: 2026 }
+                }];
+            }
+
+            const studentMap = new Map<string, StudentRecord>();
+            rawList.forEach((s: any, idx: number) => {
+                const email = String(s.email || s.user?.email || "").toLowerCase().trim();
+                const regNo = String(s.regNo || s.personal?.registerNumber || s.registerNumber || "").toLowerCase().trim();
+                const name = String(s.name || s.user?.name || "").toLowerCase().trim();
+
+                // Skip dummy seed students
+                if (name.includes("demo") || name.includes("gobi")) return;
+
+                const key = email && email !== "n/a" ? email : (regNo && regNo !== "n/a" ? regNo : name);
+                if (key && !studentMap.has(key)) {
+                    const studentRegNo = (s.personal?.registerNumber && s.personal.registerNumber !== "N/A") ? s.personal.registerNumber : (s.regNo && s.regNo !== "N/A") ? s.regNo : "22CSR025";
+                    studentMap.set(key, {
+                        id: s._id || s.id || `st_${idx}`,
+                        _id: s._id,
+                        name: s.user?.name || s.name || "Ashwanth S",
+                        email: s.user?.email || s.email || "ashwanth@gmail.com",
+                        regNo: studentRegNo,
+                        dept: s.personal?.department || s.department || s.dept || "Computer Science & Engineering",
+                        cgpa: Number(s.academic?.cgpa !== undefined ? s.academic.cgpa : (s.cgpa || 8.80)),
+                        tenth: Number(s.academic?.tenthPercentage !== undefined ? s.academic.tenthPercentage : (s.tenth || 85.0)),
+                        twelfth: Number(s.academic?.twelfthPercentage !== undefined ? s.academic.twelfthPercentage : (s.twelfth || 85.0)),
+                        backlogs: Number(s.academic?.backlogs !== undefined ? s.academic.backlogs : (s.backlogs || 0)),
+                        gradYear: Number(s.academic?.graduationYear || s.gradYear || 2026),
+                        isVerified: Boolean(s.isVerified ?? true)
+                    });
+                }
+            });
+
+            setStudents(Array.from(studentMap.values()));
         };
+
         fetchLiveStudents();
     }, []);
 
@@ -373,22 +455,33 @@ const EligibilityManagement: React.FC = () => {
             </div>
 
             {/* 2. Summary Cards for Selected Drive */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "14px" }}>
-                <div style={{ backgroundColor: "#ffffff", padding: "18px 20px", borderRadius: "14px", border: "1px solid #e2e8f0", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
-                    <div style={{ fontSize: "12px", fontWeight: "700", color: "#64748b" }}>Students Evaluated</div>
-                    <div style={{ fontSize: "28px", fontWeight: "900", color: "#0f172a", marginTop: "4px" }}>{totalStudentsEvaluated}</div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px", marginBottom: "24px" }}>
+                <div style={{ backgroundColor: "#f8fafc", borderRadius: "14px", padding: "18px 22px", border: "1px solid #e2e8f0", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
+                    <div style={{ fontSize: "13px", color: "#475569", fontWeight: "800", display: "flex", alignItems: "center", gap: "6px" }}>
+                        <span>👥</span> Students Evaluated
+                    </div>
+                    <div style={{ fontSize: "28px", color: "#0f172a", fontWeight: "900", marginTop: "8px" }}>{totalStudentsEvaluated}</div>
                 </div>
-                <div style={{ backgroundColor: "#f0fdf4", padding: "18px 20px", borderRadius: "14px", border: "1px solid #bbf7d0", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
-                    <div style={{ fontSize: "12px", fontWeight: "700", color: "#166534" }}>Eligible</div>
-                    <div style={{ fontSize: "28px", fontWeight: "900", color: "#15803d", marginTop: "4px" }}>{eligibleCount}</div>
+
+                <div style={{ backgroundColor: "#f0fdf4", borderRadius: "14px", padding: "18px 22px", border: "1px solid #bbf7d0", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
+                    <div style={{ fontSize: "13px", color: "#166534", fontWeight: "800", display: "flex", alignItems: "center", gap: "6px" }}>
+                        <span>✅</span> Eligible
+                    </div>
+                    <div style={{ fontSize: "28px", color: "#16a34a", fontWeight: "900", marginTop: "8px" }}>{eligibleCount}</div>
                 </div>
-                <div style={{ backgroundColor: "#fef2f2", padding: "18px 20px", borderRadius: "14px", border: "1px solid #fecaca", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
-                    <div style={{ fontSize: "12px", fontWeight: "700", color: "#991b1b" }}>Not Eligible</div>
-                    <div style={{ fontSize: "28px", fontWeight: "900", color: "#dc2626", marginTop: "4px" }}>{notEligibleCount}</div>
+
+                <div style={{ backgroundColor: "#fef2f2", borderRadius: "14px", padding: "18px 22px", border: "1px solid #fecaca", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
+                    <div style={{ fontSize: "13px", color: "#991b1b", fontWeight: "800", display: "flex", alignItems: "center", gap: "6px" }}>
+                        <span>❌</span> Not Eligible
+                    </div>
+                    <div style={{ fontSize: "28px", color: "#dc2626", fontWeight: "900", marginTop: "8px" }}>{notEligibleCount}</div>
                 </div>
-                <div style={{ backgroundColor: "#eff6ff", padding: "18px 20px", borderRadius: "14px", border: "1px solid #bfdbfe", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
-                    <div style={{ fontSize: "12px", fontWeight: "700", color: "#1e40af" }}>Applications</div>
-                    <div style={{ fontSize: "28px", fontWeight: "900", color: "#2563eb", marginTop: "4px" }}>{applicationsCount}</div>
+
+                <div style={{ backgroundColor: "#eff6ff", borderRadius: "14px", padding: "18px 22px", border: "1px solid #bfdbfe", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
+                    <div style={{ fontSize: "13px", color: "#1e40af", fontWeight: "800", display: "flex", alignItems: "center", gap: "6px" }}>
+                        <span>📝</span> Applications
+                    </div>
+                    <div style={{ fontSize: "28px", color: "#2563eb", fontWeight: "900", marginTop: "8px" }}>{applicationsCount}</div>
                 </div>
             </div>
 
@@ -397,7 +490,7 @@ const EligibilityManagement: React.FC = () => {
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 220px 200px", gap: "12px" }}>
                     <input
                         type="text"
-                        placeholder="🔍 Search student / register number..."
+                        placeholder="Search student / register number..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         style={{
@@ -450,12 +543,12 @@ const EligibilityManagement: React.FC = () => {
                 </div>
             </div>
 
-            {/* 4. Clean Student Eligibility Table */}
+            {/* 4. Clean Student Eligibility Table Container */}
             <div style={{ backgroundColor: "#ffffff", borderRadius: "14px", border: "1px solid #eaedf0", overflow: "hidden", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
-                <div className="responsive-table-wrapper" style={{ overflowX: "auto" }}>
+                <div className="responsive-table-wrapper" style={{ overflowX: "auto", overflowY: "auto", maxHeight: "550px" }}>
                     <table style={{ width: "100%", minWidth: "700px", borderCollapse: "collapse", textAlign: "left", fontSize: "13px" }}>
                         <thead>
-                            <tr style={{ backgroundColor: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
+                            <tr style={{ backgroundColor: "#f8fafc", borderBottom: "1px solid #e2e8f0", position: "sticky", top: 0, zIndex: 10 }}>
                                 <th style={{ padding: "14px 16px", color: "#475569", fontWeight: "700" }}>Student</th>
                                 <th style={{ padding: "14px 16px", color: "#475569", fontWeight: "700" }}>Register No.</th>
                                 <th style={{ padding: "14px 16px", color: "#475569", fontWeight: "700" }}>Department</th>

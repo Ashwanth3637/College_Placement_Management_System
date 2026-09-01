@@ -1,11 +1,16 @@
 import React, { useState } from "react";
+import { API_BASE_URL } from "../config/api";
 
 interface ClearDataButtonProps {
     variant?: "header" | "compact" | "banner";
     onSuccess?: () => void;
 }
 
-export const ClearDataButton: React.FC<ClearDataButtonProps> = ({ variant = "header", onSuccess }) => {
+export const ClearDataButton: React.FC<ClearDataButtonProps> = () => {
+    return null;
+};
+
+export const LegacyClearDataButton: React.FC<ClearDataButtonProps> = ({ variant = "header", onSuccess }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isClearing, setIsClearing] = useState(false);
     const [showSuccessToast, setShowSuccessToast] = useState(false);
@@ -15,12 +20,12 @@ export const ClearDataButton: React.FC<ClearDataButtonProps> = ({ variant = "hea
         try {
             // 1. Call Backend to purge DB records (drives, applications, interviews, selections, student profiles, etc.)
             try {
-                const res = await fetch("http://localhost:5001/api/system/clear-all-data", {
+                const res = await fetch(`${API_BASE_URL}/api/system/clear-all-data`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" }
                 });
                 if (!res.ok) {
-                    await fetch("http://localhost:5001/api/system/clear-all-data", { method: "GET" });
+                    await fetch(`${API_BASE_URL}/api/system/clear-all-data`, { method: "GET" });
                 }
             } catch (err) {
                 console.warn("Backend clear endpoint call:", err);

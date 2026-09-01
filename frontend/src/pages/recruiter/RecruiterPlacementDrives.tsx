@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { API_BASE_URL } from "../../config/api";
 import { addRecruiterActivity } from "../../utils/recruiterActivityUtils";
 
 export interface SelectionRound {
@@ -23,6 +24,11 @@ export interface PlacementDrive {
     rejectionReason?: string;
     approvedBy?: string;
     createdBy?: string;
+    recruiterName?: string;
+    recruiterEmail?: string;
+    recruiterPhone?: string;
+    website?: string;
+    ctc?: string;
     logo?: string;
     appliedCount?: number;
     openings?: number;
@@ -125,7 +131,7 @@ export const RecruiterPlacementDrives: React.FC<RecruiterPlacementDrivesProps> =
     // Form State
     const [formData, setFormData] = useState<Omit<PlacementDrive, "id">>({
         company: recruiterCompany,
-        jobTitle: "Software Development Engineer (SDE-1)",
+        jobTitle: "",
         jobType: "Full-Time (FTE)",
         location: "Bangalore, India",
         packageCtc: "₹18.0 LPA",
@@ -166,7 +172,7 @@ export const RecruiterPlacementDrives: React.FC<RecruiterPlacementDrivesProps> =
 
         try {
             const cleanCompName = recruiterCompany.split(" ")[0];
-            const url = `http://localhost:5001/api/company/drives?company=${encodeURIComponent(cleanCompName)}`;
+            const url = `${API_BASE_URL}/api/company/drives?company=${encodeURIComponent(cleanCompName)}`;
             const res = await fetch(url);
             let combinedRaw: any[] = [];
 
@@ -191,27 +197,45 @@ export const RecruiterPlacementDrives: React.FC<RecruiterPlacementDrivesProps> =
                 });
             }
 
+            let deletedIds: string[] = [];
+            try {
+                const delSaved = localStorage.getItem("cpms_deleted_drive_ids");
+                if (delSaved) deletedIds = JSON.parse(delSaved);
+            } catch (e) {}
+
+            if (deletedIds.length > 0) {
+                combinedRaw = combinedRaw.filter((d: any) => !deletedIds.includes(String(d._id || d.id)));
+            }
+
             if (combinedRaw.length > 0) {
-                const formatted = combinedRaw.map((item: any) => ({
-                    id: item._id || item.id,
-                    company: item.company || item.companyName || recruiterCompany,
-                    jobTitle: item.jobTitle || item.jobRole || item.role || "Software Engineer",
-                    jobType: item.jobType || "Full-Time (FTE)",
-                    location: item.location || "Bangalore, India",
-                    packageCtc: item.packageCtc || item.ctc || item.salaryPackage || "₹18.0 LPA",
-                    deadline: item.deadline || item.driveDate || "28 Aug 2026",
-                    status: item.status || (item.isActive ? "Approved" : "Closed"),
-                    logo: item.logo || item.logoUrl || "https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg",
-                    appliedCount: item.appliedStudents ? item.appliedStudents.length : (item.appliedCount || 0),
-                    openings: item.openings || 10,
-                    eligibleBranches: item.eligibleBranches || ["CSE", "IT", "ECE"],
-                    minCgpa: item.minCgpa || 7.0,
-                    gradYear: item.gradYear || 2026,
-                    maxBacklogs: item.maxBacklogs || 0,
-                    requiredSkills: item.requiredSkills || ["Java", "React"],
-                    jobDescription: item.jobDescription || "Responsible for software development.",
-                    selectionProcess: item.selectionProcess || "Aptitude Test → Technical Interview → HR Round"
-                }));
+                const formatted = combinedRaw.map((item: any) => {
+                    const itemId = item._id || item.id;
+                    const overrideSt = localStorage.getItem(`cpms_override_status_${itemId}`) || localStorage.getItem(`cpms_company_status_${itemId}`);
+                    const finalSt = overrideSt || item.status || (item.isActive ? "Approved" : "Closed");
+                    const reason = item.rejectionReason || localStorage.getItem(`cpms_company_status_${itemId}_reason`) || "";
+
+                    return {
+                        id: itemId,
+                        company: item.company || item.companyName || recruiterCompany,
+                        jobTitle: item.jobTitle || item.jobRole || item.role || "Software Engineer",
+                        jobType: item.jobType || "Full-Time (FTE)",
+                        location: item.location || "Bangalore, India",
+                        packageCtc: item.packageCtc || item.ctc || item.salaryPackage || "₹18.0 LPA",
+                        deadline: item.deadline || item.driveDate || "28 Aug 2026",
+                        status: finalSt,
+                        rejectionReason: reason,
+                        logo: item.logo || item.logoUrl || "https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg",
+                        appliedCount: item.appliedStudents ? item.appliedStudents.length : (item.appliedCount || 0),
+                        openings: item.openings || 10,
+                        eligibleBranches: item.eligibleBranches || ["CSE", "IT", "ECE"],
+                        minCgpa: item.minCgpa || 7.0,
+                        gradYear: item.gradYear || 2026,
+                        maxBacklogs: item.maxBacklogs || 0,
+                        requiredSkills: item.requiredSkills || ["Java", "React"],
+                        jobDescription: item.jobDescription || "Responsible for software development.",
+                        selectionProcess: item.selectionProcess || "Aptitude Test → Technical Interview → HR Round"
+                    };
+                });
 
                 // Deduplicate by company + jobTitle so recruiter never sees duplicate cards!
                 const uniqueDrivesMap = new Map();
@@ -221,7 +245,9 @@ export const RecruiterPlacementDrives: React.FC<RecruiterPlacementDrivesProps> =
                         uniqueDrivesMap.set(key, item);
                     } else {
                         const existing = uniqueDrivesMap.get(key);
-                        if (item.status === "Approved" || item.status === "Active" || item.status === "Upcoming") {
+                        if (item.status === "Rejected" || item.status === "Revoked") {
+                            uniqueDrivesMap.set(key, item);
+                        } else if (existing.status !== "Rejected" && existing.status !== "Revoked") {
                             uniqueDrivesMap.set(key, { ...existing, ...item });
                         }
                     }
@@ -260,6 +286,38 @@ export const RecruiterPlacementDrives: React.FC<RecruiterPlacementDrivesProps> =
         }
     };
 
+    // Status Badge Styling Helper
+    const getStatusBadge = (status: string, deadlineStr?: string) => {
+        let isDeadlinePassed = false;
+        if (deadlineStr) {
+            const dDate = new Date(deadlineStr);
+            if (!isNaN(dDate.getTime())) {
+                isDeadlinePassed = dDate.getTime() < new Date().setHours(0, 0, 0, 0);
+            }
+        }
+
+        switch (status) {
+            case "Approved":
+            case "Active":
+                if (isDeadlinePassed) {
+                    return { bg: "#f1f5f9", color: "#475569", border: "1px solid #cbd5e1", label: "⚪ Applications Closed" };
+                }
+                return { bg: "#f0fdf4", color: "#16a34a", border: "1px solid #bbf7d0", label: "🟢 Approved · Applications Open" };
+            case "Pending Approval":
+            case "Pending Officer Approval":
+                return { bg: "#fffbeb", color: "#d97706", border: "1px solid #fde68a", label: "🟠 Pending Officer Approval" };
+            case "Rejected":
+            case "Revoked":
+                return { bg: "#fef2f2", color: "#dc2626", border: "1px solid #fca5a5", label: "🔴 Revoked / Rejected by Officer" };
+            case "Draft":
+                return { bg: "#f1f5f9", color: "#475569", border: "1px solid #cbd5e1", label: "⚪ Draft" };
+            case "Closed":
+                return { bg: "#f8fafc", color: "#64748b", border: "1px solid #cbd5e1", label: "⚫ Closed" };
+            default:
+                return { bg: "#f8fafc", color: "#64748b", border: "1px solid #cbd5e1", label: status || "⚪ Draft" };
+        }
+    };
+
     useEffect(() => {
         fetchDrivesFromMongoDB();
         const handleStorageChange = () => {
@@ -282,7 +340,7 @@ export const RecruiterPlacementDrives: React.FC<RecruiterPlacementDrivesProps> =
         if (!window.confirm("Are you sure you want to delete this placement drive?")) return;
         setDrives(prev => prev.filter(d => d.id !== driveId));
         try {
-            await fetch(`http://localhost:5001/api/company/drives/${driveId}`, {
+            await fetch(`${API_BASE_URL}/api/company/drives/${driveId}`, {
                 method: "DELETE"
             });
         } catch (err) { }
@@ -406,7 +464,7 @@ export const RecruiterPlacementDrives: React.FC<RecruiterPlacementDrivesProps> =
         setSelectedDriveId(null);
         setFormData({
             company: recruiterCompany,
-            jobTitle: "Software Development Engineer (SDE-1)",
+            jobTitle: "",
             jobType: "Full-Time (FTE)",
             location: "Bangalore, India",
             packageCtc: "₹18.0 LPA",
@@ -520,9 +578,10 @@ export const RecruiterPlacementDrives: React.FC<RecruiterPlacementDrivesProps> =
 
         try {
             let finalDrive: PlacementDrive | null = null;
+
             if (modalMode === "create") {
                 try {
-                    const res = await fetch("http://localhost:5001/api/company/drives", {
+                    const res = await fetch(`${API_BASE_URL}/api/company/drives`, {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify(payload)
@@ -564,7 +623,7 @@ export const RecruiterPlacementDrives: React.FC<RecruiterPlacementDrivesProps> =
             } else if (modalMode === "edit" && selectedDriveId) {
                 if (!selectedDriveId.startsWith("drive_")) {
                     try {
-                        await fetch(`http://localhost:5001/api/company/drives/${selectedDriveId}`, {
+                        await fetch(`${API_BASE_URL}/api/company/drives/${selectedDriveId}`, {
                             method: "PUT",
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify(payload)
@@ -586,18 +645,31 @@ export const RecruiterPlacementDrives: React.FC<RecruiterPlacementDrivesProps> =
                         id: finalDrive.id,
                         companyName: finalDrive.company,
                         jobRole: finalDrive.jobTitle,
-                        driveDate: finalDrive.deadline,
-                        applicationDeadline: finalDrive.deadline,
+                        driveDate: finalDrive.deadline || finalDrive.driveDate,
+                        applicationDeadline: finalDrive.deadline || finalDrive.driveDate,
                         status: finalDrive.status,
-                        salaryPackage: finalDrive.packageCtc,
+                        salaryPackage: finalDrive.packageCtc || finalDrive.ctc,
                         location: finalDrive.location,
                         logoUrl: finalDrive.logo,
                         eligibleBranches: finalDrive.eligibleBranches,
                         minCgpa: finalDrive.minCgpa,
+                        minTenth: finalDrive.minTenth,
+                        minTwelfth: finalDrive.minTwelfth,
                         gradYear: finalDrive.gradYear,
+                        maxBacklogs: finalDrive.maxBacklogs,
+                        rounds: finalDrive.rounds || [],
+                        selectionProcess: finalDrive.selectionProcess || (Array.isArray(finalDrive.rounds) ? finalDrive.rounds.map((r: any) => (r.roundName || r.name || "").replace(/Round\s*\d+\s*:\s*/i, "")).filter(Boolean).join(" → ") : ""),
+                        eligibility: {
+                            departments: Array.isArray(finalDrive.eligibleBranches) ? finalDrive.eligibleBranches.join(", ") : (finalDrive.eligibleBranches || "CSE, IT, ECE"),
+                            minCgpa: finalDrive.minCgpa !== undefined ? String(finalDrive.minCgpa) : "7.5",
+                            gradYear: finalDrive.gradYear ? String(finalDrive.gradYear) : "2026",
+                            tenthCutoff: finalDrive.minTenth ? (String(finalDrive.minTenth).includes("%") ? String(finalDrive.minTenth) : `${finalDrive.minTenth}%+`) : "60%+",
+                            twelfthCutoff: finalDrive.minTwelfth ? (String(finalDrive.minTwelfth).includes("%") ? String(finalDrive.minTwelfth) : `${finalDrive.minTwelfth}%+`) : "60%+",
+                            maxBacklogs: finalDrive.maxBacklogs !== undefined ? String(finalDrive.maxBacklogs) : "0"
+                        },
                         rejectionReason: finalDrive.rejectionReason || ""
                     };
-                    const existingIdx = localArr.findIndex(d => d.id === finalDrive!.id || d.companyName === finalDrive!.company && d.jobRole === finalDrive!.jobTitle);
+                    const existingIdx = localArr.findIndex(d => d.id === finalDrive!.id || (d.companyName === finalDrive!.company && d.jobRole === finalDrive!.jobTitle));
                     if (existingIdx >= 0) {
                         localArr[existingIdx] = { ...localArr[existingIdx], ...formattedLocalDrive };
                     } else {
@@ -613,26 +685,50 @@ export const RecruiterPlacementDrives: React.FC<RecruiterPlacementDrivesProps> =
                         const savedComps = localStorage.getItem("cpms_companies");
                         let compArr: any[] = (savedComps && savedComps !== "[]") ? JSON.parse(savedComps) : [];
                         
+                        let savedRecProfile: any = null;
+                        try {
+                            const profStr = localStorage.getItem("cpms_recruiter_company_profile");
+                            if (profStr) savedRecProfile = JSON.parse(profStr);
+                        } catch (e) { }
+
+                        const recName = user?.name || savedRecProfile?.contactPersonName || finalDrive.recruiterName || "Arya (Placement Lead)";
+                        const recEmail = user?.email || savedRecProfile?.contactEmail || finalDrive.recruiterEmail || "arya@amazon.com";
+                        const recPhone = savedRecProfile?.contactPhone || finalDrive.recruiterPhone || "+91 98765 12345";
+
                         const newCompanyDriveObj = {
                             id: `comp_drive_${Date.now()}`,
-                            companyName: recruiterCompany,
-                            createdBy: user?.name || recruiterCompany,
-                            recruiterName: user?.name || recruiterCompany,
-                            recruiterEmail: user?.email || "recruitment@company.com",
+                            companyName: recruiterCompany || finalDrive.company,
+                            createdBy: recName,
+                            recruiterName: recName,
+                            recruiterEmail: recEmail,
+                            recruiterPhone: recPhone,
+                            website: finalDrive.website || savedRecProfile?.website || "https://company.com",
+                            location: finalDrive.location || savedRecProfile?.location || "Bangalore, India",
                             jobRole: finalDrive.jobTitle,
-                            driveDate: finalDrive.deadline,
-                            salaryPackage: finalDrive.packageCtc,
+                            driveDate: finalDrive.deadline || finalDrive.driveDate,
+                            salaryPackage: finalDrive.packageCtc || finalDrive.ctc,
                             applications: 0,
                             shortlisted: 0,
                             registrationStatus: targetStatus === "Pending Approval" ? "Pending Officer Approval" : "Approved",
                             status: targetStatus === "Pending Approval" ? "Pending Officer Approval" : "Approved",
                             logoUrl: finalDrive.logo || "https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg",
                             industry: "Technology",
-                            jobType: finalDrive.jobType || "Full-Time (FTE)"
+                            jobType: finalDrive.jobType || "Full-Time (FTE)",
+                            requiredSkills: finalDrive.requiredSkills || [],
+                            eligibility: {
+                                departments: Array.isArray(finalDrive.eligibleBranches) ? finalDrive.eligibleBranches.join(", ") : (finalDrive.eligibleBranches || "CSE, IT, ECE"),
+                                minCgpa: finalDrive.minCgpa !== undefined ? String(finalDrive.minCgpa) : "7.5",
+                                gradYear: finalDrive.gradYear ? String(finalDrive.gradYear) : "2026",
+                                tenthCutoff: finalDrive.minTenth ? (String(finalDrive.minTenth).includes("%") ? String(finalDrive.minTenth) : `${finalDrive.minTenth}%+`) : "60%+",
+                                twelfthCutoff: finalDrive.minTwelfth ? (String(finalDrive.minTwelfth).includes("%") ? String(finalDrive.minTwelfth) : `${finalDrive.minTwelfth}%+`) : "60%+",
+                                maxBacklogs: finalDrive.maxBacklogs !== undefined ? String(finalDrive.maxBacklogs) : "0"
+                            },
+                            rounds: finalDrive.rounds || [],
+                            selectionProcess: finalDrive.selectionProcess || (Array.isArray(finalDrive.rounds) ? finalDrive.rounds.map((r: any) => (r.roundName || r.name || "").replace(/Round\s*\d+\s*:\s*/i, "")).filter(Boolean).join(" → ") : "")
                         };
 
                         const existingCompIdx = compArr.findIndex(c => 
-                            (c.companyName || "").toLowerCase().trim() === recruiterCompany.toLowerCase().trim() && 
+                            (c.companyName || "").toLowerCase().trim() === (recruiterCompany || finalDrive!.company).toLowerCase().trim() && 
                             (c.jobRole || "").toLowerCase().trim() === finalDrive!.jobTitle.toLowerCase().trim()
                         );
                         if (existingCompIdx >= 0) {
@@ -879,64 +975,117 @@ export const RecruiterPlacementDrives: React.FC<RecruiterPlacementDrivesProps> =
                                         </div>
                                     </div>
 
-                                    {/* Action Buttons */}
-                                    <div style={{ display: "flex", gap: "8px", paddingTop: "12px", borderTop: "1px solid #f1f5f9" }}>
+                                    {/* Action Buttons (Icon Only: View 👁️ | Edit ✏️ | Delete 🗑️) */}
+                                    <div style={{ display: "inline-flex", gap: "8px", alignItems: "center", marginTop: "16px", paddingTop: "14px", borderTop: "1px solid #f1f5f9" }}>
+                                        {/* 1. View Icon Button */}
                                         <button
                                             type="button"
                                             onClick={() => handleOpenViewModal(drive)}
+                                            title="View Drive Details"
                                             style={{
-                                                flex: 1,
-                                                padding: "8px 12px",
-                                                backgroundColor: "#f1f5f9",
-                                                color: "#0f172a",
-                                                border: "1px solid #cbd5e1",
-                                                borderRadius: "8px",
-                                                fontSize: "12px",
-                                                fontWeight: "700",
+                                                width: "36px",
+                                                height: "36px",
+                                                borderRadius: "10px",
+                                                backgroundColor: "#f8fafc",
+                                                border: "1.5px solid #cbd5e1",
+                                                color: "#475569",
                                                 cursor: "pointer",
-                                                whiteSpace: "nowrap",
-                                                textAlign: "center"
+                                                display: "inline-flex",
+                                                alignItems: "center",
+                                                justifyContent: "center",
+                                                transition: "all 0.15s ease",
+                                                boxShadow: "0 1px 2px rgba(0, 0, 0, 0.04)",
+                                                flexShrink: 0
+                                            }}
+                                            onMouseEnter={(e: any) => {
+                                                e.currentTarget.style.backgroundColor = "#eff6ff";
+                                                e.currentTarget.style.borderColor = "#2563eb";
+                                                e.currentTarget.style.color = "#2563eb";
+                                            }}
+                                            onMouseLeave={(e: any) => {
+                                                e.currentTarget.style.backgroundColor = "#f8fafc";
+                                                e.currentTarget.style.borderColor = "#cbd5e1";
+                                                e.currentTarget.style.color = "#475569";
                                             }}
                                         >
-                                            View
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                                                <circle cx="12" cy="12" r="3" />
+                                            </svg>
                                         </button>
+
+                                        {/* 2. Edit Icon Button */}
                                         <button
                                             type="button"
                                             onClick={() => handleOpenEditModal(drive)}
+                                            title="Edit Drive Details"
                                             style={{
-                                                flex: 1,
-                                                padding: "8px 12px",
+                                                width: "36px",
+                                                height: "36px",
+                                                borderRadius: "10px",
                                                 backgroundColor: "#eff6ff",
+                                                border: "1.5px solid #bfdbfe",
                                                 color: "#2563eb",
-                                                border: "1px solid #bfdbfe",
-                                                borderRadius: "8px",
-                                                fontSize: "12px",
-                                                fontWeight: "700",
                                                 cursor: "pointer",
-                                                whiteSpace: "nowrap",
-                                                textAlign: "center"
+                                                display: "inline-flex",
+                                                alignItems: "center",
+                                                justifyContent: "center",
+                                                transition: "all 0.15s ease",
+                                                boxShadow: "0 1px 2px rgba(0, 0, 0, 0.04)",
+                                                flexShrink: 0
+                                            }}
+                                            onMouseEnter={(e: any) => {
+                                                e.currentTarget.style.backgroundColor = "#dbeafe";
+                                                e.currentTarget.style.borderColor = "#3b82f6";
+                                                e.currentTarget.style.color = "#1d4ed8";
+                                            }}
+                                            onMouseLeave={(e: any) => {
+                                                e.currentTarget.style.backgroundColor = "#eff6ff";
+                                                e.currentTarget.style.borderColor = "#bfdbfe";
+                                                e.currentTarget.style.color = "#2563eb";
                                             }}
                                         >
-                                            Edit
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                                            </svg>
                                         </button>
+
+                                        {/* 3. Delete Icon Button */}
                                         <button
                                             type="button"
                                             onClick={() => handleDeleteDrive(drive.id)}
                                             title="Delete Drive"
                                             style={{
-                                                padding: "8px 12px",
+                                                width: "36px",
+                                                height: "36px",
+                                                borderRadius: "10px",
                                                 backgroundColor: "#fef2f2",
+                                                border: "1.5px solid #fecaca",
                                                 color: "#dc2626",
-                                                border: "1px solid #fca5a5",
-                                                borderRadius: "8px",
-                                                fontSize: "12px",
-                                                fontWeight: "700",
                                                 cursor: "pointer",
-                                                whiteSpace: "nowrap",
-                                                textAlign: "center"
+                                                display: "inline-flex",
+                                                alignItems: "center",
+                                                justifyContent: "center",
+                                                transition: "all 0.15s ease",
+                                                boxShadow: "0 1px 2px rgba(0, 0, 0, 0.04)",
+                                                flexShrink: 0
+                                            }}
+                                            onMouseEnter={(e: any) => {
+                                                e.currentTarget.style.backgroundColor = "#fee2e2";
+                                                e.currentTarget.style.borderColor = "#ef4444";
+                                            }}
+                                            onMouseLeave={(e: any) => {
+                                                e.currentTarget.style.backgroundColor = "#fef2f2";
+                                                e.currentTarget.style.borderColor = "#fecaca";
                                             }}
                                         >
-                                            🗑️
+                                            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                <polyline points="3 6 5 6 21 6" />
+                                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                                <line x1="10" y1="11" x2="10" y2="17" />
+                                                <line x1="14" y1="11" x2="14" y2="17" />
+                                            </svg>
                                         </button>
                                     </div>
                                 </div>
@@ -1076,7 +1225,7 @@ export const RecruiterPlacementDrives: React.FC<RecruiterPlacementDrivesProps> =
                                                  type="text"
                                                  required
                                                  placeholder="e.g. Software Development Engineer (SDE-1)"
-                                                 value={formData.jobTitle || "Software Development Engineer (SDE-1)"}
+                                                 value={formData.jobTitle}
                                                  onChange={e => setFormData({ ...formData, jobTitle: e.target.value })}
                                                  style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "14px", boxSizing: "border-box" }}
                                              />
@@ -1385,9 +1534,9 @@ export const RecruiterPlacementDrives: React.FC<RecruiterPlacementDrivesProps> =
                                                             onChange={e => handleRoundChange(rIdx, "mode", e.target.value as any)}
                                                             style={{ width: "100%", padding: "7px 10px", borderRadius: "6px", border: "1px solid #cbd5e1", fontSize: "12.5px", backgroundColor: "#fff", boxSizing: "border-box" }}
                                                         >
-                                                            <option value="Online">Online 🌐</option>
-                                                            <option value="Offline">Offline 🏢</option>
-                                                            <option value="Hybrid">Hybrid 🔄</option>
+                                                            <option value="Online">Online</option>
+                                                            <option value="Offline">Offline</option>
+                                                            <option value="Hybrid">Hybrid</option>
                                                         </select>
                                                     </div>
                                                     <div>

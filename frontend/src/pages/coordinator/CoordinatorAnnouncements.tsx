@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { API_BASE_URL } from "../../config/api";
 
 export interface AnnouncementItem {
     id: string;
@@ -105,7 +106,7 @@ export const CoordinatorAnnouncements: React.FC<CoordinatorAnnouncementsProps> =
         try {
             setIsLoading(true);
             const token = localStorage.getItem("token") || localStorage.getItem("userToken");
-            const res = await fetch("http://localhost:5001/api/coordinator/announcements", {
+            const res = await fetch(`${API_BASE_URL}/api/coordinator/announcements`, {
                 headers: {
                     ...(token ? { Authorization: `Bearer ${token}` } : {})
                 }
@@ -243,7 +244,7 @@ export const CoordinatorAnnouncements: React.FC<CoordinatorAnnouncementsProps> =
 
         try {
             const token = localStorage.getItem("token") || localStorage.getItem("userToken");
-            const res = await fetch("http://localhost:5001/api/coordinator/announcements", {
+            const res = await fetch(`${API_BASE_URL}/api/coordinator/announcements`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -315,7 +316,7 @@ export const CoordinatorAnnouncements: React.FC<CoordinatorAnnouncementsProps> =
 
         try {
             const token = localStorage.getItem("token") || localStorage.getItem("userToken");
-            await fetch(`http://localhost:5001/api/coordinator/announcements/${targetId}`, {
+            await fetch(`${API_BASE_URL}/api/coordinator/announcements/${targetId}`, {
                 method: "PUT",
                 headers: {
                     "Content-Type": "application/json",
@@ -348,7 +349,7 @@ export const CoordinatorAnnouncements: React.FC<CoordinatorAnnouncementsProps> =
 
         try {
             const token = localStorage.getItem("token") || localStorage.getItem("userToken");
-            await fetch(`http://localhost:5001/api/coordinator/announcements/${targetId}`, {
+            await fetch(`${API_BASE_URL}/api/coordinator/announcements/${targetId}`, {
                 method: "DELETE",
                 headers: {
                     ...(token ? { Authorization: `Bearer ${token}` } : {})
@@ -531,7 +532,7 @@ export const CoordinatorAnnouncements: React.FC<CoordinatorAnnouncementsProps> =
                         </label>
                         <input
                             type="text"
-                            placeholder="🔍 Search title, content, batch..."
+                            placeholder="Search title, content, batch..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             style={{

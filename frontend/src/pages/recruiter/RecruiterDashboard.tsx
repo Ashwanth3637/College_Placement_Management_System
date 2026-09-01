@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { API_BASE_URL } from "../../config/api";
 import { useParams } from "react-router-dom";
 import RecruiterCompanyProfile from "./RecruiterCompanyProfile";
 import RecruiterPlacementDrives from "./RecruiterPlacementDrives";
@@ -72,7 +73,7 @@ export const RecruiterDashboard: React.FC<RecruiterDashboardProps> = ({
     const fetchDashboardStats = async () => {
         try {
             // 1. Fetch Applications for company
-            const appRes = await fetch(`http://localhost:5001/api/applications?company=${encodeURIComponent(companyNameShort)}`);
+            const appRes = await fetch(`${API_BASE_URL}/api/applications?company=${encodeURIComponent(companyNameShort)}`);
             let totalApps = 0;
             let shortlistedCount = 0;
             let interviewsCount = 0;
@@ -111,7 +112,7 @@ export const RecruiterDashboard: React.FC<RecruiterDashboardProps> = ({
 
             // Also check interviews endpoint
             try {
-                const intRes = await fetch("http://localhost:5001/api/interviews");
+                const intRes = await fetch(`${API_BASE_URL}/api/interviews`);
                 if (intRes.ok) {
                     const ints = await intRes.json();
                     if (Array.isArray(ints)) {
@@ -139,7 +140,7 @@ export const RecruiterDashboard: React.FC<RecruiterDashboardProps> = ({
             // 2. Fetch Placement Drives for company
             let activeDrivesCount = 0;
             try {
-                const driveRes = await fetch(`http://localhost:5001/api/placement-drives?company=${encodeURIComponent(companyNameShort)}`);
+                const driveRes = await fetch(`${API_BASE_URL}/api/placement-drives?company=${encodeURIComponent(companyNameShort)}`);
                 if (driveRes.ok) {
                     const apiDrives = await driveRes.json();
                     if (Array.isArray(apiDrives)) {
@@ -159,7 +160,7 @@ export const RecruiterDashboard: React.FC<RecruiterDashboardProps> = ({
             // 3. Fetch Candidates / Students matching drive criteria
             let eligibleCount = 0;
             try {
-                const studentRes = await fetch("http://localhost:5001/api/student/all");
+                const studentRes = await fetch(`${API_BASE_URL}/api/student/all`);
                 if (studentRes.ok) {
                     const students = await studentRes.json();
                     if (Array.isArray(students)) {
@@ -479,9 +480,6 @@ export const RecruiterDashboard: React.FC<RecruiterDashboardProps> = ({
                     </div>
 
                     <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                        {/* 🗑️ Universal Clear System Data Button */}
-                        <ClearDataButton />
-
                         <div style={{ position: "relative" }}>
                         <button
                             type="button"

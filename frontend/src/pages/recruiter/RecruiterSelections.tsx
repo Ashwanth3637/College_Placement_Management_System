@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useMemo, useEffect } from "react";
+import { API_BASE_URL } from "../../config/api";
 
 export interface RecruiterSelectionItem {
     id: string;
@@ -70,7 +71,7 @@ export const RecruiterSelections: React.FC<RecruiterSelectionsProps> = ({ user, 
         let list: RecruiterSelectionItem[] = [];
 
         try {
-            const res = await fetch(`http://localhost:5001/api/applications?company=${encodeURIComponent(companyNameShort)}`);
+            const res = await fetch(`${API_BASE_URL}/api/applications?company=${encodeURIComponent(companyNameShort)}`);
             if (res.ok) {
                 const apiApps = await res.json();
                 if (Array.isArray(apiApps) && apiApps.length > 0) {

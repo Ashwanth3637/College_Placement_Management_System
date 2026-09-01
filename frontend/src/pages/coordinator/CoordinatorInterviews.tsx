@@ -383,7 +383,7 @@ export const CoordinatorInterviews: React.FC<CoordinatorInterviewsProps> = ({
                         </label>
                         <input
                             type="text"
-                            placeholder="🔍 Search name or reg no..."
+                            placeholder="Search name or reg no..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             style={{

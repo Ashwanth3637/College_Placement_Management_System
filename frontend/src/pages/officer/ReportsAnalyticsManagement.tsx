@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { API_BASE_URL } from "../../config/api";
 
 export const getCompanyLogo = (companyName: string) => {
     const name = (companyName || "").toLowerCase();
@@ -242,7 +243,7 @@ export const ReportsAnalyticsManagement: React.FC = () => {
     // Fetch Saved MongoDB Reports
     const fetchSavedReports = async () => {
         try {
-            const res = await fetch("http://localhost:5001/api/reports/saved");
+            const res = await fetch(`${API_BASE_URL}/api/reports/saved`);
             if (res.ok) {
                 const data = await res.json();
                 if (Array.isArray(data)) setSavedReports(data);
@@ -255,7 +256,7 @@ export const ReportsAnalyticsManagement: React.FC = () => {
     // Fetch Report Data from Backend API
     const fetchReportPayload = async () => {
         try {
-            const url = `http://localhost:5001/api/reports/overview?academicYear=${encodeURIComponent(yearFilter)}&department=${encodeURIComponent(deptFilter)}&batch=${encodeURIComponent(batchFilter)}&company=${encodeURIComponent(companyFilter)}&jobRole=${encodeURIComponent(roleFilter)}&placementStatus=${encodeURIComponent(statusFilter)}`;
+            const url = `${API_BASE_URL}/api/reports/overview?academicYear=${encodeURIComponent(yearFilter)}&department=${encodeURIComponent(deptFilter)}&batch=${encodeURIComponent(batchFilter)}&company=${encodeURIComponent(companyFilter)}&jobRole=${encodeURIComponent(roleFilter)}&placementStatus=${encodeURIComponent(statusFilter)}`;
             const res = await fetch(url);
             if (res.ok) {
                 const data = await res.json();
@@ -305,7 +306,7 @@ export const ReportsAnalyticsManagement: React.FC = () => {
                 exportType: type
             };
 
-            const res = await fetch("http://localhost:5001/api/reports/save", {
+            const res = await fetch(`${API_BASE_URL}/api/reports/save`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload)

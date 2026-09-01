@@ -221,7 +221,7 @@ export const CoordinatorEvents: React.FC<CoordinatorEventsProps> = ({
                         </label>
                         <input
                             type="text"
-                            placeholder="🔍 Search by event name or venue..."
+                            placeholder="Search by event name or venue..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             style={{

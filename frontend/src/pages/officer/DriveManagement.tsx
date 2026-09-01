@@ -1,11 +1,57 @@
 import React, { useState, useEffect } from "react";
 import { INITIAL_COMPANIES } from "./CompanyManagement";
 import { addRecruiterActivity } from "../../utils/recruiterActivityUtils";
+import { API_BASE_URL } from "../../config/api";
 
 export const INITIAL_DRIVES: any[] = [];
 
+const filterOfficerPublishedDrives = (list: any[]) => {
+    if (!Array.isArray(list)) return [];
+    let deletedIds: string[] = [];
+    try {
+        const savedDel = localStorage.getItem("cpms_deleted_drive_ids");
+        if (savedDel) {
+            const parsed = JSON.parse(savedDel);
+            if (Array.isArray(parsed)) deletedIds = parsed;
+        }
+    } catch (e) { }
+
+    const deletedSet = new Set(deletedIds.map(id => String(id)));
+
+    return list.filter(d => {
+        if (!d) return false;
+        const dId = String(d.id || d._id || "");
+        if (dId && deletedSet.has(dId)) return false;
+
+        const compName = (d.companyName || d.company || "").trim();
+        if (!compName) return false;
+
+        const creator = String(d.createdBy || "").toLowerCase();
+        const isOfficer = d.isCreatedByOfficer === true ||
+            d.isCreatedByOfficer === "true" ||
+            d.createdExplicitlyByOfficer === true ||
+            d.isOfficerPublished === true ||
+            creator === "placement officer" ||
+            creator === "officer";
+
+        return isOfficer;
+    });
+};
+
 const DriveManagement: React.FC = () => {
-    const [drives, setDrives] = useState<any[]>([]);
+    const [drives, setDrives] = useState<any[]>(() => {
+        try {
+            if (localStorage.getItem("cpms_drives_cleared") === "true") return [];
+            const saved = localStorage.getItem("cpms_drives");
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    return filterOfficerPublishedDrives(parsed);
+                }
+            }
+        } catch (e) { }
+        return [];
+    });
     const [statusFilter, setStatusFilter] = useState("All");
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedDrive, setSelectedDrive] = useState<any | null>(null);
@@ -57,7 +103,7 @@ const DriveManagement: React.FC = () => {
             } catch (e) { }
 
             try {
-                const res = await fetch("http://localhost:5001/api/company/drives");
+                const res = await fetch(`${API_BASE_URL}/api/company/drives`);
                 let remoteDrives: any[] = [];
                 if (res.ok) {
                     const data = await res.json();
@@ -90,36 +136,20 @@ const DriveManagement: React.FC = () => {
                     ]
                 }));
 
-                const isOfficerDrive = (d: any) => {
-                    if (!d) return false;
-                    const creator = String(d.createdBy || "").toLowerCase();
-                    const st = String(d.status || "").toLowerCase();
-                    if (st === "pending" || st === "rejected" || st === "draft") return false;
-
-                    return d.isCreatedByOfficer === true || 
-                           d.isCreatedByOfficer === "true" ||
-                           d.createdExplicitlyByOfficer === true ||
-                           (d.isOfficerPublished === true && creator === "placement officer");
-                };
-
                 const uniqueMap = new Map();
-                mappedRemote.forEach(d => {
-                    if (isOfficerDrive(d)) {
-                        uniqueMap.set(d.id, d);
-                    }
-                });
                 localDrives.forEach(d => {
                     const dId = d.id || d._id;
-                    if (isOfficerDrive(d)) {
-                        if (uniqueMap.has(dId)) {
-                            uniqueMap.set(dId, { ...uniqueMap.get(dId), ...d });
-                        } else {
-                            uniqueMap.set(dId, d);
-                        }
+                    if (dId) uniqueMap.set(dId, d);
+                });
+                mappedRemote.forEach(d => {
+                    const dId = d.id || (d as any)._id;
+                    if (dId && !uniqueMap.has(dId)) {
+                        uniqueMap.set(dId, d);
                     }
                 });
 
-                setDrives(Array.from(uniqueMap.values()));
+                const merged = Array.from(uniqueMap.values());
+                setDrives(filterOfficerPublishedDrives(merged));
             } catch (e) {
                 console.error("Failed to fetch placement drives", e);
             }
@@ -133,6 +163,7 @@ const DriveManagement: React.FC = () => {
         window.addEventListener("storage", handleStorage);
         window.addEventListener("cpms_companies_updated", handleStorage);
         window.addEventListener("cpms_drives_updated", handleStorage);
+        window.addEventListener("cpms_applications_updated", handleStorage);
         window.addEventListener("focus", handleStorage);
 
         const timer = setInterval(() => setTicker(t => t + 1), 1000);
@@ -147,6 +178,7 @@ const DriveManagement: React.FC = () => {
             window.removeEventListener("storage", handleStorage);
             window.removeEventListener("cpms_companies_updated", handleStorage);
             window.removeEventListener("cpms_drives_updated", handleStorage);
+            window.removeEventListener("cpms_applications_updated", handleStorage);
             window.removeEventListener("focus", handleStorage);
             clearInterval(timer);
             if (bc) bc.close();
@@ -193,7 +225,7 @@ const DriveManagement: React.FC = () => {
             setSelectedDrive({ ...selectedDrive, status: updatedStatus });
         }
         try {
-            await fetch(`http://localhost:5001/api/company/drives/${drive.id}`, {
+            await fetch(`${API_BASE_URL}/api/company/drives/${drive.id}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ status: updatedStatus, approvedBy: "Placement Officer" })
@@ -235,7 +267,7 @@ const DriveManagement: React.FC = () => {
             setSelectedDrive({ ...selectedDrive, status: updatedStatus, rejectionReason: reason });
         }
         try {
-            await fetch(`http://localhost:5001/api/company/drives/${rejectModalDrive.id}`, {
+            await fetch(`${API_BASE_URL}/api/company/drives/${rejectModalDrive.id}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ status: updatedStatus, rejectionReason: reason })
@@ -248,8 +280,19 @@ const DriveManagement: React.FC = () => {
 
     const handleDeleteDrive = async (drive: any) => {
         if (!window.confirm(`Are you sure you want to delete placement drive for "${drive.companyName || drive.company} - ${drive.jobRole}"?`)) return;
+
+        const driveId = String(drive.id || drive._id || "");
+        try {
+            const delSaved = localStorage.getItem("cpms_deleted_drive_ids");
+            const delArr: string[] = delSaved ? JSON.parse(delSaved) : [];
+            if (driveId && !delArr.includes(driveId)) {
+                delArr.push(driveId);
+                localStorage.setItem("cpms_deleted_drive_ids", JSON.stringify(delArr));
+            }
+        } catch (e) { }
+
         setDrives(prev => {
-            const next = prev.filter(d => d.id !== drive.id);
+            const next = prev.filter(d => (d.id || d._id) !== drive.id);
             localStorage.setItem("cpms_drives", JSON.stringify(next));
             return next;
         });
@@ -257,16 +300,17 @@ const DriveManagement: React.FC = () => {
             setSelectedDrive(null);
         }
         try {
-            await fetch(`http://localhost:5001/api/company/drives/${drive.id}`, {
+            await fetch(`${API_BASE_URL}/api/company/drives/${drive.id}`, {
                 method: "DELETE"
             });
         } catch (e) { }
+        window.dispatchEvent(new CustomEvent("cpms_drives_updated"));
         alert(`🗑️ Drive for ${drive.companyName || drive.company} deleted successfully.`);
     };
 
     const handleClearAllDrives = async () => {
         if (!window.confirm("⚠️ Are you sure you want to delete ALL placement drives? This action cannot be undone.")) return;
-        
+
         try {
             localStorage.setItem("cpms_drives_cleared", "true");
             localStorage.setItem("cpms_drives", "[]");
@@ -278,7 +322,7 @@ const DriveManagement: React.FC = () => {
         setSelectedDrive(null);
 
         try {
-            await fetch("http://localhost:5001/api/company/drives", {
+            await fetch(`${API_BASE_URL}/api/company/drives`, {
                 method: "DELETE"
             });
         } catch (e) { }
@@ -313,21 +357,33 @@ const DriveManagement: React.FC = () => {
     useEffect(() => {
         const fetchStudents = async () => {
             try {
-                const res = await fetch("http://localhost:5001/api/student/all");
-                if (res.ok) {
-                    const data = await res.json();
-                    if (Array.isArray(data) && data.length > 0) {
-                        setRealStudents(data);
+                const savedStds = localStorage.getItem("cpms_students");
+                if (savedStds) {
+                    const parsed = JSON.parse(savedStds);
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                        setRealStudents(parsed);
                         return;
                     }
                 }
-            } catch (err) {}
-            // Fallback default student profile for local state
+            } catch (e) { }
+
+            try {
+                const userStr = localStorage.getItem("cpms_user") || localStorage.getItem("user");
+                if (userStr) {
+                    const parsedUser = JSON.parse(userStr);
+                    if (parsedUser && (parsedUser.email || parsedUser.name)) {
+                        setRealStudents([parsedUser]);
+                        return;
+                    }
+                }
+            } catch (e) { }
+
+            // Single active registered student fallback
             setRealStudents([{
                 _id: "ashwanth_st",
-                user: { name: "Ashwanth", email: "ashwanth@gmail.com" },
+                user: { name: "Ashwanth S", email: "ashwanth@gmail.com" },
                 personal: { registerNumber: "22CSR025", department: "Computer Science & Engineering", phone: "+91 98765 43210" },
-                academic: { cgpa: 7.50, tenthPercentage: 87.0, twelfthPercentage: 77.33, backlogs: 0, graduationYear: 2026 }
+                academic: { cgpa: 8.50, tenthPercentage: 87.0, twelfthPercentage: 77.33, backlogs: 0, graduationYear: 2026 }
             }]);
         };
         fetchStudents();
@@ -343,101 +399,99 @@ const DriveManagement: React.FC = () => {
             if (!drive) return [];
             const driveCompName = String(drive.companyName || drive.company || "").toLowerCase().trim();
             const driveRoleName = String(drive.jobRole || drive.jobTitle || drive.role || "").toLowerCase().trim();
-            const compositeKey = `${driveCompName}_${driveRoleName}`;
+            const compositeKey = driveCompName && driveRoleName ? `${driveCompName}_${driveRoleName}` : "";
             const driveId = String(drive.id || drive._id || "").toLowerCase().trim();
 
-            const studentList = Array.isArray(realStudents) && realStudents.length > 0 ? realStudents : [{
-                _id: "ashwanth_st",
-                user: { name: "Ashwanth S", email: "ashwanth@gmail.com" },
-                personal: { registerNumber: "22CSR025", department: "Computer Science & Engineering", phone: "+91 98765 43210" },
-                academic: { cgpa: 7.00, tenthPercentage: 87.0, twelfthPercentage: 77.33, backlogs: 0, graduationYear: 2026 }
-            }];
+            const studentMap = new Map<string, any>();
 
-            const matched = studentList.filter((st: any) => {
-                if (!st) return false;
-                const userKey = String(st.user?.email || st.user?._id || st._id || "user").toLowerCase();
-                const emailKey = String(st.user?.email || "").toLowerCase();
+            const getStudentUniqueKey = (obj: any) => {
+                const email = String(obj.email || obj.studentEmail || "").toLowerCase().trim();
+                if (email && email !== "n/a") return email;
 
-                let hasOptedIn = false;
+                const studentId = String(obj.studentId || "").toLowerCase().trim();
+                if (studentId && studentId !== "n/a") return studentId;
 
-                const keysToCheck = [userKey, emailKey, "guest", "ashwanth@gmail.com", "ashwanth", ""];
-                keysToCheck.forEach(k => {
-                    const str = localStorage.getItem(`cpms_applied_drives_${k}`);
-                    if (str) {
-                        try {
-                            const arr = JSON.parse(str);
-                            if (Array.isArray(arr)) {
-                                arr.forEach((id: any) => {
-                                    const idLower = String(id || "").toLowerCase().trim();
-                                    const isDriveIdMatch = idLower === driveId ||
-                                        idLower === compositeKey ||
-                                        (driveCompName && idLower.includes(driveCompName));
+                const regNo = String(obj.regNo || obj.registerNumber || "").toLowerCase().trim();
+                if (regNo && regNo !== "n/a") return regNo;
 
-                                    if (isDriveIdMatch) {
-                                        hasOptedIn = true;
-                                    }
-                                });
+                const name = String(obj.studentName || obj.name || "").toLowerCase().trim();
+                if (name && name !== "n/a") return name;
+
+                return "unknown_student";
+            };
+
+            // 1. Read real student applications from cpms_applications
+            try {
+                const appsStr = localStorage.getItem("cpms_applications");
+                if (appsStr) {
+                    const appsArr = JSON.parse(appsStr);
+                    if (Array.isArray(appsArr)) {
+                        appsArr.forEach((app: any) => {
+                            const appDriveId = String(app.driveId || "").toLowerCase().trim();
+                            const appComp = String(app.companyName || app.company || "").toLowerCase().trim();
+                            const appRole = String(app.jobRole || app.role || app.jobTitle || "").toLowerCase().trim();
+                            const appKey = appComp && appRole ? `${appComp}_${appRole}` : "";
+
+                            const isMatch = (driveId && appDriveId === driveId) ||
+                                (compositeKey && appKey === compositeKey) ||
+                                (driveCompName && driveRoleName && appComp === driveCompName && appRole === driveRoleName);
+
+                            if (isMatch && app.status !== "Rejected" && app.status !== "Not Shortlisted") {
+                                const studentKey = getStudentUniqueKey(app);
+                                if (studentKey && !studentMap.has(studentKey)) {
+                                    const deptName = String(app.department || app.dept || "CSE");
+                                    const shortDept = deptName.includes("Computer") ? "CSE" : deptName.includes("Information") ? "IT" : deptName.includes("Electronics") ? "ECE" : "CSE";
+                                    const studentReg = (app.regNo && app.regNo !== "N/A") ? app.regNo : (app.registerNumber && app.registerNumber !== "N/A") ? app.registerNumber : "22CSR025";
+                                    studentMap.set(studentKey, {
+                                        name: app.studentName || app.name || "Student",
+                                        regNo: studentReg,
+                                        dept: shortDept,
+                                        cgpa: Number(app.cgpa || 8.5).toFixed(2),
+                                        date: app.appliedDate || app.optedInAt || "27 Aug 2026",
+                                        status: "Opted-in"
+                                    });
+                                }
                             }
-                        } catch (e) {}
-                    }
-                });
-
-                try {
-                    const savedApps = localStorage.getItem("cpms_applications");
-                    if (savedApps) {
-                        const parsed = JSON.parse(savedApps);
-                        if (Array.isArray(parsed)) {
-                            const isMatchInApps = parsed.some((a: any) =>
-                                (a.companyName && String(a.companyName).toLowerCase().includes(driveCompName)) ||
-                                (a.company && String(a.company).toLowerCase().includes(driveCompName))
-                            );
-                            if (isMatchInApps) hasOptedIn = true;
-                        }
-                    }
-                } catch (e) {}
-
-                return hasOptedIn;
-            });
-
-            if (matched.length === 0) {
-                let hasAnyOptIn = false;
-                for (let i = 0; i < localStorage.length; i++) {
-                    const key = localStorage.key(i);
-                    if (key && key.includes("cpms_applied_drives")) {
-                        try {
-                            const val = JSON.parse(localStorage.getItem(key) || "[]");
-                            if (Array.isArray(val) && val.length > 0) {
-                                const match = val.some((v: any) => {
-                                    const vStr = String(v.driveId || v.companyName || v.company || v || "").toLowerCase().trim();
-                                    return (driveId && (vStr === driveId || vStr.includes(driveId))) ||
-                                           (compositeKey && vStr === compositeKey) ||
-                                           (driveCompName && (vStr.includes(driveCompName) || driveCompName.includes(vStr)));
-                                });
-                                if (match) hasAnyOptIn = true;
-                            }
-                        } catch (e) {}
+                        });
                     }
                 }
-                if (hasAnyOptIn) {
-                    return [{
-                        name: "Ashwanth S",
-                        regNo: "22CSR025",
-                        dept: "CSE",
-                        cgpa: "7.00",
-                        date: "27 Aug 2026",
-                        status: "Opted-in"
-                    }];
-                }
-            }
+            } catch (e) { }
 
-            return matched.map((st: any) => ({
-                name: String(st.user?.name || "Ashwanth S"),
-                regNo: String(st.personal?.registerNumber || "22CSR025"),
-                dept: st.personal?.department ? (String(st.personal.department).includes("Computer") ? "CSE" : String(st.personal.department).includes("Information") ? "IT" : "ECE") : "CSE",
-                cgpa: Number(st.academic?.cgpa || 7.0).toFixed(2),
-                date: "27 Aug 2026",
-                status: "Opted-in"
-            }));
+            // 2. Read from cpms_applied_drives_global
+            try {
+                const globalStr = localStorage.getItem("cpms_applied_drives_global");
+                if (globalStr) {
+                    const globalArr = JSON.parse(globalStr);
+                    if (Array.isArray(globalArr)) {
+                        globalArr.forEach((g: any) => {
+                            const gDriveId = String(g.driveId || "").toLowerCase().trim();
+                            const gComp = String(g.companyName || g.company || "").toLowerCase().trim();
+                            const gRole = String(g.role || g.jobRole || "").toLowerCase().trim();
+                            const gKey = gComp && gRole ? `${gComp}_${gRole}` : "";
+
+                            const isMatch = (driveId && gDriveId === driveId) ||
+                                (compositeKey && gKey === compositeKey) ||
+                                (driveCompName && driveRoleName && gComp === driveCompName && gRole === driveRoleName);
+
+                            if (isMatch) {
+                                const studentKey = getStudentUniqueKey(g);
+                                if (studentKey && !studentMap.has(studentKey)) {
+                                    studentMap.set(studentKey, {
+                                        name: g.name || "Ashwanth S",
+                                        regNo: g.regNo || "22CSR025",
+                                        dept: "CSE",
+                                        cgpa: "8.50",
+                                        date: g.optedInAt ? new Date(g.optedInAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "27 Aug 2026",
+                                        status: "Opted-in"
+                                    });
+                                }
+                            }
+                        });
+                    }
+                }
+            } catch (e) { }
+
+            return Array.from(studentMap.values());
         } catch (err) {
             return [];
         }
@@ -464,27 +518,52 @@ const DriveManagement: React.FC = () => {
                             const isMatch = val.some((v: any) => {
                                 const vStr = String(v.driveId || v.companyName || v.company || v || "").toLowerCase().trim();
                                 return (driveId && (vStr === driveId || vStr.includes(driveId) || driveId.includes(vStr))) ||
-                                       (compositeKey && vStr === compositeKey) ||
-                                       (driveCompName && (vStr.includes(driveCompName) || driveCompName.includes(vStr)));
+                                    (compositeKey && vStr === compositeKey) ||
+                                    (driveCompName && (vStr.includes(driveCompName) || driveCompName.includes(vStr)));
                             });
                             if (isMatch) explicitOptOutCount = 1;
                         }
-                    } catch (e) {}
+                    } catch (e) { }
                 }
             }
 
-            const studentList = Array.isArray(realStudents) && realStudents.length > 0 ? realStudents : [{
-                _id: "ashwanth_st",
-                user: { name: "Ashwanth S", email: "ashwanth@gmail.com" },
-                personal: { registerNumber: "22CSR025", department: "Computer Science & Engineering" },
-                academic: { cgpa: 7.00, tenthPercentage: 87.0, twelfthPercentage: 77.33, backlogs: 0, graduationYear: 2026 }
-            }];
+            let studentList: any[] = [];
+            try {
+                const savedStds = localStorage.getItem("cpms_students");
+                if (savedStds) {
+                    const parsed = JSON.parse(savedStds);
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                        studentList = parsed;
+                    }
+                }
+            } catch (e) { }
+
+            if (studentList.length === 0) {
+                try {
+                    const userStr = localStorage.getItem("cpms_user") || localStorage.getItem("user");
+                    if (userStr) {
+                        const parsedUser = JSON.parse(userStr);
+                        if (parsedUser && (parsedUser.email || parsedUser.name)) {
+                            studentList = [parsedUser];
+                        }
+                    }
+                } catch (e) { }
+            }
+
+            if (studentList.length === 0) {
+                studentList = [{
+                    _id: "ashwanth_st",
+                    user: { name: "Ashwanth S", email: "ashwanth@gmail.com" },
+                    personal: { registerNumber: "22CSR025", department: "Computer Science & Engineering" },
+                    academic: { cgpa: 8.50, tenthPercentage: 87.0, twelfthPercentage: 77.33, backlogs: 0, graduationYear: 2026 }
+                }];
+            }
 
             eligibleCount = studentList.length;
             const optedInList = getOptedInStudentsForDrive(drive);
 
             return {
-                totalEligible: Math.max(1, eligibleCount),
+                totalEligible: eligibleCount,
                 optedIn: optedInList.length,
                 notOptedIn: explicitOptOutCount,
                 shortlisted: shortlistedCount
@@ -521,12 +600,12 @@ const DriveManagement: React.FC = () => {
                             const match = val.some((v: any) => {
                                 const vStr = String(v).toLowerCase();
                                 return (driveIdStr && (vStr.includes(driveIdStr) || driveIdStr.includes(vStr))) ||
-                                       (driveCompStr && (vStr.includes(driveCompStr) || driveCompStr.includes(vStr))) ||
-                                       (driveRoleStr && (vStr.includes(driveRoleStr) || driveRoleStr.includes(vStr)));
+                                    (driveCompStr && (vStr.includes(driveCompStr) || driveCompStr.includes(vStr))) ||
+                                    (driveRoleStr && (vStr.includes(driveRoleStr) || driveRoleStr.includes(vStr)));
                             });
                             if (match) optedCount++;
                         }
-                    } catch (e) {}
+                    } catch (e) { }
                 } else if (key && key.includes("cpms_opted_out_drives")) {
                     try {
                         const val = JSON.parse(localStorage.getItem(key) || "[]");
@@ -534,12 +613,12 @@ const DriveManagement: React.FC = () => {
                             const match = val.some((v: any) => {
                                 const vStr = String(v).toLowerCase();
                                 return (driveIdStr && (vStr.includes(driveIdStr) || driveIdStr.includes(vStr))) ||
-                                       (driveCompStr && (vStr.includes(driveCompStr) || driveCompStr.includes(vStr))) ||
-                                       (driveRoleStr && (vStr.includes(driveRoleStr) || driveRoleStr.includes(vStr)));
+                                    (driveCompStr && (vStr.includes(driveCompStr) || driveCompStr.includes(vStr))) ||
+                                    (driveRoleStr && (vStr.includes(driveRoleStr) || driveRoleStr.includes(vStr)));
                             });
                             if (match) optOutCount++;
                         }
-                    } catch (e) {}
+                    } catch (e) { }
                 }
             }
 
@@ -548,7 +627,7 @@ const DriveManagement: React.FC = () => {
             }
 
             notOptedInCount = optOutCount;
-        } catch (e) {}
+        } catch (e) { }
 
         return { applications: appCount, shortlisted: shortCount, notOptedIn: notOptedInCount };
     };
@@ -627,8 +706,8 @@ const DriveManagement: React.FC = () => {
         try {
             localStorage.removeItem("cpms_drives_cleared");
         } catch (e) { }
-        let existingIndex = drives.findIndex(d => 
-            (d.companyName || d.company || "").toLowerCase().trim() === (newDriveData.companyName || "").toLowerCase().trim() && 
+        let existingIndex = drives.findIndex(d =>
+            (d.companyName || d.company || "").toLowerCase().trim() === (newDriveData.companyName || "").toLowerCase().trim() &&
             (d.jobRole || d.jobTitle || d.role || "").toLowerCase().trim() === (newDriveData.jobRole || "").toLowerCase().trim()
         );
 
@@ -658,8 +737,8 @@ const DriveManagement: React.FC = () => {
         try {
             const savedDrives = localStorage.getItem("cpms_drives");
             let localArr: any[] = savedDrives ? JSON.parse(savedDrives) : [];
-            const localIdx = localArr.findIndex(d => 
-                (d.companyName || d.company || "").toLowerCase().trim() === (newDriveData.companyName || "").toLowerCase().trim() && 
+            const localIdx = localArr.findIndex(d =>
+                (d.companyName || d.company || "").toLowerCase().trim() === (newDriveData.companyName || "").toLowerCase().trim() &&
                 (d.jobRole || d.jobTitle || d.role || "").toLowerCase().trim() === (newDriveData.jobRole || "").toLowerCase().trim()
             );
             if (localIdx >= 0) {
@@ -673,7 +752,7 @@ const DriveManagement: React.FC = () => {
         } catch (e) { }
 
         try {
-            fetch("http://localhost:5001/api/company/drives", {
+            fetch(`${API_BASE_URL}/api/company/drives`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -766,7 +845,7 @@ const DriveManagement: React.FC = () => {
                 {/* 1. Total Drives */}
                 <div style={{ backgroundColor: "#f8fafc", borderRadius: "14px", padding: "18px 22px", border: "1px solid #e2e8f0", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
                     <div style={{ fontSize: "13px", color: "#475569", fontWeight: "800", display: "flex", alignItems: "center", gap: "6px" }}>
-                        🏢 Total Drives
+                        <span>📊</span> Total Drives
                     </div>
                     <div style={{ fontSize: "28px", color: "#0f172a", fontWeight: "900", marginTop: "8px" }}>{totalDrives}</div>
                 </div>
@@ -774,7 +853,7 @@ const DriveManagement: React.FC = () => {
                 {/* 2. Upcoming */}
                 <div style={{ backgroundColor: "#eff6ff", borderRadius: "14px", padding: "18px 22px", border: "1px solid #bfdbfe", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
                     <div style={{ fontSize: "13px", color: "#1e40af", fontWeight: "800", display: "flex", alignItems: "center", gap: "6px" }}>
-                        🔵 Upcoming
+                        <span>🔵</span> Upcoming
                     </div>
                     <div style={{ fontSize: "28px", color: "#2563eb", fontWeight: "900", marginTop: "8px" }}>{upcomingDrivesCount}</div>
                 </div>
@@ -782,7 +861,7 @@ const DriveManagement: React.FC = () => {
                 {/* 3. Active */}
                 <div style={{ backgroundColor: "#f0fdf4", borderRadius: "14px", padding: "18px 22px", border: "1px solid #bbf7d0", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
                     <div style={{ fontSize: "13px", color: "#166534", fontWeight: "800", display: "flex", alignItems: "center", gap: "6px" }}>
-                        🟢 Active
+                        <span>🟢</span> Active
                     </div>
                     <div style={{ fontSize: "28px", color: "#16a34a", fontWeight: "900", marginTop: "8px" }}>{activeDrivesCount}</div>
                 </div>
@@ -790,7 +869,7 @@ const DriveManagement: React.FC = () => {
                 {/* 4. Completed */}
                 <div style={{ backgroundColor: "#f1f5f9", borderRadius: "14px", padding: "18px 22px", border: "1px solid #cbd5e1", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
                     <div style={{ fontSize: "13px", color: "#334155", fontWeight: "800", display: "flex", alignItems: "center", gap: "6px" }}>
-                        ⚪ Completed
+                        <span>⚪</span> Completed
                     </div>
                     <div style={{ fontSize: "28px", color: "#475569", fontWeight: "900", marginTop: "8px" }}>{completedDrivesCount}</div>
                 </div>
@@ -801,7 +880,7 @@ const DriveManagement: React.FC = () => {
                 <div style={{ flex: 1, minWidth: "240px" }}>
                     <input
                         type="text"
-                        placeholder="🔍 Search drive by company or job role..."
+                        placeholder=" Search drive by company or job role..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         style={{
@@ -834,11 +913,11 @@ const DriveManagement: React.FC = () => {
                 </select>
             </div>
 
-            {/* Main Drives Table */}
-            <div className="responsive-table-wrapper" style={{ overflowX: "auto", borderRadius: "12px", border: "1px solid #e2e8f0" }}>
+            {/* Main Drives Table Container with Inner Vertical Scroll */}
+            <div className="responsive-table-wrapper" style={{ overflowX: "auto", overflowY: "auto", maxHeight: "550px", marginBottom: "40px", borderRadius: "12px", border: "1px solid #e2e8f0", boxShadow: "0 1px 3px rgba(0,0,0,0.02)" }}>
                 <table style={{ width: "100%", minWidth: "720px", borderCollapse: "collapse", textAlign: "left", fontSize: "13px" }}>
                     <thead>
-                        <tr style={{ backgroundColor: "#f8fafc", borderBottom: "1px solid #e2e8f0", color: "#64748b" }}>
+                        <tr style={{ backgroundColor: "#f8fafc", borderBottom: "1px solid #e2e8f0", color: "#64748b", position: "sticky", top: 0, zIndex: 10 }}>
                             <th style={{ padding: "14px 16px", whiteSpace: "nowrap" }}>Company</th>
                             <th style={{ padding: "14px 16px", whiteSpace: "nowrap" }}>Job Role</th>
                             <th style={{ padding: "14px 16px", whiteSpace: "nowrap" }}>Drive Date</th>
@@ -861,7 +940,7 @@ const DriveManagement: React.FC = () => {
                                 return (
                                     <tr key={drive.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
                                         {/* Company Column */}
-                                        <td style={{ padding: "14px 16px", color: "#0f172a" }}>
+                                        <td style={{ padding: "16px 16px 20px 16px", color: "#0f172a" }}>
                                             <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                                                 <div style={{ width: "38px", height: "38px", borderRadius: "8px", border: "1px solid #e2e8f0", backgroundColor: "#ffffff", padding: "3px", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", flexShrink: 0 }}>
                                                     <img
@@ -894,32 +973,37 @@ const DriveManagement: React.FC = () => {
                                         </td>
 
                                         {/* Job Role */}
-                                        <td style={{ padding: "14px 16px", color: "#334155", fontWeight: "700", fontSize: "13px", whiteSpace: "nowrap" }}>
+                                        <td style={{ padding: "16px 16px 20px 16px", color: "#334155", fontWeight: "700", fontSize: "13px", whiteSpace: "nowrap" }}>
                                             {drive.jobRole || drive.role || "Software Developer"}
                                         </td>
 
                                         {/* Drive Date */}
-                                        <td style={{ padding: "14px 16px", color: "#64748b", fontSize: "13px", whiteSpace: "nowrap" }}>
+                                        <td style={{ padding: "16px 16px 20px 16px", color: "#64748b", fontSize: "13px", whiteSpace: "nowrap" }}>
                                             {drive.driveDate || drive.applicationDeadline || "28 Aug 2026"}
                                         </td>
 
                                         {/* Opted-In Column */}
-                                        <td style={{ padding: "14px 16px", textAlign: "center", whiteSpace: "nowrap" }}>
-                                            <span style={{
-                                                padding: "4px 10px",
-                                                borderRadius: "12px",
-                                                fontSize: "11px",
-                                                fontWeight: "800",
-                                                backgroundColor: dStats.optedIn > 0 ? "#dcfce7" : "#f1f5f9",
-                                                color: dStats.optedIn > 0 ? "#16a34a" : "#64748b",
-                                                border: dStats.optedIn > 0 ? "1px solid #bbf7d0" : "1px solid #cbd5e1"
-                                            }}>
-                                                {dStats.optedIn > 0 ? `🟢 ${dStats.optedIn} Opted-in` : "⚪ 0 Opted-in"}
-                                            </span>
+                                        <td style={{ padding: "16px 16px 20px 16px", textAlign: "center", whiteSpace: "nowrap" }}>
+                                            {(() => {
+                                                const liveOptInCount = getOptedInStudentsForDrive(drive).length;
+                                                return (
+                                                    <span style={{
+                                                        padding: "4px 10px",
+                                                        borderRadius: "12px",
+                                                        fontSize: "11px",
+                                                        fontWeight: "800",
+                                                        backgroundColor: liveOptInCount > 0 ? "#dcfce7" : "#f1f5f9",
+                                                        color: liveOptInCount > 0 ? "#16a34a" : "#64748b",
+                                                        border: liveOptInCount > 0 ? "1px solid #bbf7d0" : "1px solid #cbd5e1"
+                                                    }}>
+                                                        {liveOptInCount > 0 ? `🟢 ${liveOptInCount} Opted-in` : "⚪ 0 Opted-in"}
+                                                    </span>
+                                                );
+                                            })()}
                                         </td>
 
                                         {/* Status */}
-                                        <td style={{ padding: "14px 16px", textAlign: "center", whiteSpace: "nowrap" }}>
+                                        <td style={{ padding: "16px 16px 20px 16px", textAlign: "center", whiteSpace: "nowrap" }}>
                                             <span style={{
                                                 padding: "4px 12px",
                                                 borderRadius: "14px",
@@ -936,7 +1020,7 @@ const DriveManagement: React.FC = () => {
                                         </td>
 
                                         {/* Actions */}
-                                        <td style={{ padding: "14px 16px", textAlign: "center", whiteSpace: "nowrap" }}>
+                                        <td style={{ padding: "16px 16px 20px 16px", textAlign: "center", whiteSpace: "nowrap" }}>
                                             <div style={{ display: "flex", gap: "10px", justifyContent: "center", alignItems: "center" }}>
                                                 <button
                                                     type="button"
@@ -949,44 +1033,70 @@ const DriveManagement: React.FC = () => {
                                                     }}
                                                     title="View Details"
                                                     style={{
-                                                        width: "34px",
-                                                        height: "34px",
-                                                        borderRadius: "8px",
-                                                        backgroundColor: "#f1f5f9",
-                                                        color: "#64748b",
-                                                        border: "1px solid #cbd5e1",
+                                                        width: "36px",
+                                                        height: "36px",
+                                                        borderRadius: "10px",
+                                                        backgroundColor: "#ffffff",
+                                                        color: "#334155",
+                                                        border: "1.5px solid #cbd5e1",
                                                         cursor: "pointer",
                                                         display: "inline-flex",
                                                         alignItems: "center",
                                                         justifyContent: "center",
                                                         flexShrink: 0,
-                                                        transition: "all 0.15s ease"
+                                                        transition: "all 0.15s ease",
+                                                        boxShadow: "0 1px 2px rgba(0, 0, 0, 0.03)"
+                                                    }}
+                                                    onMouseEnter={(e: any) => {
+                                                        e.currentTarget.style.backgroundColor = "#eff6ff";
+                                                        e.currentTarget.style.borderColor = "#2563eb";
+                                                        e.currentTarget.style.color = "#2563eb";
+                                                    }}
+                                                    onMouseLeave={(e: any) => {
+                                                        e.currentTarget.style.backgroundColor = "#ffffff";
+                                                        e.currentTarget.style.borderColor = "#cbd5e1";
+                                                        e.currentTarget.style.color = "#334155";
                                                     }}
                                                 >
-                                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ pointerEvents: "none" }}>
+                                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                                         <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                                                        <circle cx="12" cy="12" r="3.5" />
+                                                        <circle cx="12" cy="12" r="3" />
                                                     </svg>
                                                 </button>
                                                 <button
+                                                    type="button"
                                                     onClick={() => handleDeleteDrive(drive)}
                                                     title="Delete Drive"
                                                     style={{
-                                                        width: "34px",
-                                                        height: "34px",
-                                                        borderRadius: "8px",
-                                                        backgroundColor: "#fef2f2",
+                                                        width: "36px",
+                                                        height: "36px",
+                                                        borderRadius: "10px",
+                                                        backgroundColor: "#fff5f5",
                                                         color: "#dc2626",
-                                                        border: "1px solid #fca5a5",
-                                                        fontSize: "15px",
+                                                        border: "1.5px solid #fecaca",
                                                         cursor: "pointer",
                                                         display: "inline-flex",
                                                         alignItems: "center",
                                                         justifyContent: "center",
-                                                        flexShrink: 0
+                                                        transition: "all 0.15s ease",
+                                                        flexShrink: 0,
+                                                        boxShadow: "0 1px 2px rgba(0, 0, 0, 0.03)"
+                                                    }}
+                                                    onMouseEnter={(e: any) => {
+                                                        e.currentTarget.style.backgroundColor = "#fee2e2";
+                                                        e.currentTarget.style.borderColor = "#ef4444";
+                                                    }}
+                                                    onMouseLeave={(e: any) => {
+                                                        e.currentTarget.style.backgroundColor = "#fff5f5";
+                                                        e.currentTarget.style.borderColor = "#fecaca";
                                                     }}
                                                 >
-                                                    🗑️
+                                                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                        <polyline points="3 6 5 6 21 6" />
+                                                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                                        <line x1="10" y1="11" x2="10" y2="17" />
+                                                        <line x1="14" y1="11" x2="14" y2="17" />
+                                                    </svg>
                                                 </button>
                                             </div>
                                         </td>
@@ -1075,7 +1185,7 @@ const DriveManagement: React.FC = () => {
                                     <div style={{ backgroundColor: "#f8fafc", padding: "14px", borderRadius: "10px", border: "1px solid #e2e8f0" }}>
                                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
                                             <label style={{ fontSize: "12px", fontWeight: "800", color: "#475569", textTransform: "uppercase" }}>
-                                                Assigned Recruitment Rounds ({ (editDriveData.rounds || []).length })
+                                                Assigned Recruitment Rounds ({(editDriveData.rounds || []).length})
                                             </label>
                                             <button
                                                 type="button"
@@ -1171,18 +1281,18 @@ const DriveManagement: React.FC = () => {
                                                 <strong style={{ color: "#0f172a", fontSize: "13px" }}>{selectedDrive.companyName || selectedDrive.company}</strong>
                                             </div>
                                             <div>
-                                                 <span style={{ color: "#64748b", fontSize: "11px", display: "block" }}>Created By / Recruiter</span>
-                                                 <strong style={{ color: "#0f172a", fontSize: "13px" }}>
-                                                     {(() => {
-                                                         const rawCreator = selectedDrive.createdBy || selectedDrive.recruiterName || "";
-                                                         const compName = selectedDrive.companyName || selectedDrive.company || "";
-                                                         if (!rawCreator || rawCreator.toLowerCase().trim() === compName.toLowerCase().trim()) {
-                                                             return "Arya (Recruiter)";
-                                                         }
-                                                         return rawCreator.includes("Recruiter") ? rawCreator : `${rawCreator} (Recruiter)`;
-                                                     })()}
-                                                 </strong>
-                                             </div>
+                                                <span style={{ color: "#64748b", fontSize: "11px", display: "block" }}>Created By / Recruiter</span>
+                                                <strong style={{ color: "#0f172a", fontSize: "13px" }}>
+                                                    {(() => {
+                                                        const rawCreator = selectedDrive.createdBy || selectedDrive.recruiterName || "";
+                                                        const compName = selectedDrive.companyName || selectedDrive.company || "";
+                                                        if (!rawCreator || rawCreator.toLowerCase().trim() === compName.toLowerCase().trim()) {
+                                                            return "Arya (Recruiter)";
+                                                        }
+                                                        return rawCreator.includes("Recruiter") ? rawCreator : `${rawCreator} (Recruiter)`;
+                                                    })()}
+                                                </strong>
+                                            </div>
                                             <div>
                                                 <span style={{ color: "#64748b", fontSize: "11px", display: "block" }}>Recruiter Email</span>
                                                 <strong style={{ color: "#2563eb", fontSize: "12px" }}>{selectedDrive.recruiterEmail || selectedDrive.email || "arya@amazon.com"}</strong>
@@ -1301,36 +1411,36 @@ const DriveManagement: React.FC = () => {
                                             </button>
                                         </div>
                                         {(!selectedDrive.rounds || !Array.isArray(selectedDrive.rounds) || selectedDrive.rounds.length === 0) ? (
-                                             <div style={{ padding: "14px", textAlign: "center", backgroundColor: "#f8fafc", borderRadius: "8px", color: "#94a3b8", fontSize: "12px" }}>
-                                                 No specific recruitment rounds assigned yet for this company drive.
-                                             </div>
-                                         ) : (
-                                             <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                                                 {selectedDrive.rounds.map((r: any, idx: number) => {
-                                                     const roundObj = (typeof r === "object" && r !== null) ? r : { roundName: String(r || "Assessment"), mode: "Hybrid", date: selectedDrive.driveDate || "25 Aug 2026" };
-                                                     return (
-                                                         <div key={idx} style={{ backgroundColor: "#f8fafc", padding: "12px 14px", borderRadius: "10px", border: "1px solid #eaedf0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                                             <div>
-                                                                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                                                                     <span style={{ backgroundColor: "#2563eb", color: "#ffffff", fontSize: "10px", fontWeight: "800", padding: "2px 7px", borderRadius: "12px" }}>
-                                                                         Round {roundObj.roundNumber || idx + 1}
-                                                                     </span>
-                                                                     <strong style={{ fontSize: "13px", color: "#0f172a" }}>{roundObj.roundName || "Technical Assessment"}</strong>
-                                                                 </div>
-                                                                 <div style={{ fontSize: "12px", color: "#64748b", marginTop: "4px" }}>
-                                                                     📍 Mode/Venue: <strong style={{ color: "#334155" }}>{roundObj.venueOrLink || roundObj.mode || "Online"}</strong> | 📅 Date: <strong style={{ color: "#334155" }}>{roundObj.date || selectedDrive.driveDate || "25 Aug 2026"}</strong>
-                                                                 </div>
-                                                                 {roundObj.description && (
-                                                                     <div style={{ fontSize: "11px", color: "#64748b", marginTop: "2px", fontStyle: "italic" }}>
-                                                                         {roundObj.description}
-                                                                     </div>
-                                                                 )}
-                                                             </div>
-                                                         </div>
-                                                     );
-                                                 })}
-                                             </div>
-                                         )}
+                                            <div style={{ padding: "14px", textAlign: "center", backgroundColor: "#f8fafc", borderRadius: "8px", color: "#94a3b8", fontSize: "12px" }}>
+                                                No specific recruitment rounds assigned yet for this company drive.
+                                            </div>
+                                        ) : (
+                                            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                                                {selectedDrive.rounds.map((r: any, idx: number) => {
+                                                    const roundObj = (typeof r === "object" && r !== null) ? r : { roundName: String(r || "Assessment"), mode: "Hybrid", date: selectedDrive.driveDate || "25 Aug 2026" };
+                                                    return (
+                                                        <div key={idx} style={{ backgroundColor: "#f8fafc", padding: "12px 14px", borderRadius: "10px", border: "1px solid #eaedf0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                                            <div>
+                                                                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                                                    <span style={{ backgroundColor: "#2563eb", color: "#ffffff", fontSize: "10px", fontWeight: "800", padding: "2px 7px", borderRadius: "12px" }}>
+                                                                        Round {roundObj.roundNumber || idx + 1}
+                                                                    </span>
+                                                                    <strong style={{ fontSize: "13px", color: "#0f172a" }}>{roundObj.roundName || "Technical Assessment"}</strong>
+                                                                </div>
+                                                                <div style={{ fontSize: "12px", color: "#64748b", marginTop: "4px" }}>
+                                                                    📍 Mode/Venue: <strong style={{ color: "#334155" }}>{roundObj.venueOrLink || roundObj.mode || "Online"}</strong> | 📅 Date: <strong style={{ color: "#334155" }}>{roundObj.date || selectedDrive.driveDate || "25 Aug 2026"}</strong>
+                                                                </div>
+                                                                {roundObj.description && (
+                                                                    <div style={{ fontSize: "11px", color: "#64748b", marginTop: "2px", fontStyle: "italic" }}>
+                                                                        {roundObj.description}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
                                     </div>
 
                                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: "12px", borderTop: "1px solid #e2e8f0" }}>
@@ -1382,6 +1492,14 @@ const DriveManagement: React.FC = () => {
                                         value={`${newDriveData.companyName}||${newDriveData.jobRole}`}
                                         onChange={(e) => {
                                             const val = e.target.value;
+                                            if (!val) {
+                                                setNewDriveData({
+                                                    ...newDriveData,
+                                                    companyName: "",
+                                                    jobRole: ""
+                                                });
+                                                return;
+                                            }
                                             const [selectedCompName, selectedRole] = val.includes("||") ? val.split("||") : [val, ""];
                                             let approvedCompaniesList: any[] = [];
                                             try {
@@ -1390,17 +1508,57 @@ const DriveManagement: React.FC = () => {
                                                     const parsed = JSON.parse(saved);
                                                     if (Array.isArray(parsed)) approvedCompaniesList = parsed;
                                                 }
-                                            } catch (err) {}
-                                            
-                                            const compObj = approvedCompaniesList.find((c: any) => 
-                                                (c.companyName || c.company) === selectedCompName &&
-                                                (!selectedRole || (c.jobRole || c.role || c.jobTitle) === selectedRole)
+                                            } catch (err) { }
+
+                                            const compObj = approvedCompaniesList.find((c: any) =>
+                                                (c.companyName || c.company || "").toLowerCase().trim() === selectedCompName.toLowerCase().trim() &&
+                                                (!selectedRole || (c.jobRole || c.role || c.jobTitle || "").toLowerCase().trim() === selectedRole.toLowerCase().trim())
                                             );
+
+                                            let foundRounds: any[] = compObj?.rounds || compObj?.roundsWorkflow || [];
+                                            let driveDateVal = compObj?.driveDate || compObj?.deadline;
+                                            let deadlineVal = compObj?.applicationDeadline || compObj?.deadline || compObj?.driveDate;
+                                            let logoVal = compObj?.logoUrl || compObj?.logo;
+
+                                            try {
+                                                const savedDrives = localStorage.getItem("cpms_drives");
+                                                if (savedDrives) {
+                                                    const parsedDrives = JSON.parse(savedDrives);
+                                                    const matchingDrive = parsedDrives.find((d: any) =>
+                                                        (d.companyName || d.company || "").toLowerCase().trim() === selectedCompName.toLowerCase().trim() &&
+                                                        (!selectedRole || (d.jobRole || d.jobTitle || d.role || "").toLowerCase().trim() === selectedRole.toLowerCase().trim())
+                                                    );
+                                                    if (matchingDrive) {
+                                                        if ((!foundRounds || foundRounds.length === 0) && matchingDrive.rounds && Array.isArray(matchingDrive.rounds)) {
+                                                            foundRounds = matchingDrive.rounds;
+                                                        }
+                                                        if (!driveDateVal) driveDateVal = matchingDrive.driveDate || matchingDrive.deadline;
+                                                        if (!deadlineVal) deadlineVal = matchingDrive.applicationDeadline || matchingDrive.deadline;
+                                                        if (!logoVal) logoVal = matchingDrive.logoUrl || matchingDrive.logo;
+                                                    }
+                                                }
+                                            } catch (e) { }
+
+                                            let formattedRounds = newDriveData.rounds;
+                                            if (foundRounds && Array.isArray(foundRounds) && foundRounds.length > 0) {
+                                                formattedRounds = foundRounds.map((r: any, idx: number) => ({
+                                                    roundNumber: r.roundNumber || r.number || idx + 1,
+                                                    roundName: r.roundName || r.roundTitle || r.title || r.name || `Round ${idx + 1}`,
+                                                    mode: r.mode || "Online",
+                                                    venueOrLink: r.venueOrLink || r.venue || r.mode || "Online",
+                                                    date: r.date || driveDateVal || "24 Aug 2026",
+                                                    description: r.description || ""
+                                                }));
+                                            }
+
                                             setNewDriveData({
                                                 ...newDriveData,
                                                 companyName: selectedCompName,
                                                 jobRole: selectedRole || compObj?.jobRole || newDriveData.jobRole,
-                                                logoUrl: compObj?.logoUrl || newDriveData.logoUrl
+                                                logoUrl: logoVal || newDriveData.logoUrl,
+                                                driveDate: driveDateVal || newDriveData.driveDate,
+                                                applicationDeadline: deadlineVal || newDriveData.applicationDeadline,
+                                                rounds: formattedRounds
                                             });
                                         }}
                                         style={{ width: "100%", padding: "8px 12px", borderRadius: "8px", border: "1px solid #cbd5e1", backgroundColor: "#ffffff", fontSize: "13px", cursor: "pointer" }}
@@ -1414,9 +1572,9 @@ const DriveManagement: React.FC = () => {
                                                     const parsed = JSON.parse(saved);
                                                     if (Array.isArray(parsed)) approvedList = parsed;
                                                 }
-                                            } catch (err) {}
-                                            
-                                            const filtered = approvedList.filter((c: any) => 
+                                            } catch (err) { }
+
+                                            const filtered = approvedList.filter((c: any) =>
                                                 c.registrationStatus === "Approved" || c.status === "Approved" || c.status === "Upcoming" || c.status === "Active"
                                             );
 
@@ -1437,7 +1595,7 @@ const DriveManagement: React.FC = () => {
                                             return Array.from(uniqueMap.values()).map((c: any) => {
                                                 const compTitle = c.companyName || c.company || "";
                                                 const roleTitle = c.jobRole || c.role || c.jobTitle || "";
-                                                
+
                                                 // Check if THIS SPECIFIC company + jobRole has already been published by the Officer
                                                 const isAlreadyPublished = drives.some(d => {
                                                     const dComp = (d.companyName || d.company || "").toLowerCase().trim();
@@ -1449,8 +1607,8 @@ const DriveManagement: React.FC = () => {
                                                 const keyVal = `${compTitle}||${roleTitle}`;
 
                                                 return (
-                                                    <option 
-                                                        key={c.id || keyVal} 
+                                                    <option
+                                                        key={c.id || keyVal}
                                                         value={keyVal}
                                                         disabled={isAlreadyPublished}
                                                         style={isAlreadyPublished ? { color: "#94a3b8", backgroundColor: "#f1f5f9" } : {}}

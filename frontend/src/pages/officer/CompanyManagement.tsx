@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { API_BASE_URL } from "../../config/api";
 
 export const INITIAL_COMPANIES: any[] = [];
 
@@ -33,6 +34,16 @@ const CompanyManagement: React.FC = () => {
             return;
         }
 
+        let savedRecProfile: any = null;
+        try {
+            const profStr = localStorage.getItem("cpms_recruiter_company_profile");
+            if (profStr) savedRecProfile = JSON.parse(profStr);
+        } catch (e) { }
+
+        const defaultRecName = savedRecProfile?.contactPersonName || "Arya (Placement Lead)";
+        const defaultRecEmail = savedRecProfile?.contactEmail || "arya@amazon.com";
+        const defaultRecPhone = savedRecProfile?.contactPhone || "+91 98765 12345";
+
         let combined: any[] = [];
         try {
             const saved = localStorage.getItem("cpms_companies");
@@ -50,27 +61,37 @@ const CompanyManagement: React.FC = () => {
             } catch (e) { }
         }
 
+        let deletedIds: string[] = [];
+        try {
+            const delSaved = localStorage.getItem("cpms_deleted_company_ids");
+            if (delSaved) deletedIds = JSON.parse(delSaved);
+        } catch (e) { }
+
+        combined = combined.filter(c => !deletedIds.includes(String(c.id)) && !deletedIds.includes(String(c._id)));
+
         // Fetch drives from MongoDB API
         try {
-            const res = await fetch("http://localhost:5001/api/company/drives");
+            const res = await fetch(`${API_BASE_URL}/api/company/drives`);
             if (res.ok) {
                 const remoteDrives = await res.json();
                 if (Array.isArray(remoteDrives) && remoteDrives.length > 0) {
                     remoteDrives.forEach((rd: any) => {
-                        if (["comp_amazon", "comp_zoho", "comp_jac", "comp_cognizant"].includes(rd._id || rd.id)) return;
+                        const rId = String(rd._id || rd.id);
+                        if (["comp_amazon", "comp_zoho", "comp_jac", "comp_cognizant"].includes(rId) || deletedIds.includes(rId)) return;
                         const rdComp = rd.company || rd.companyName || "Amazon Development Center";
                         const rdRole = rd.jobTitle || rd.role || rd.jobRole || "Software Developer";
-                        const exists = combined.some(c => 
-                            (c.companyName || "").toLowerCase().trim() === rdComp.toLowerCase().trim() && 
-                            (c.jobRole || "").toLowerCase().trim() === rdRole.toLowerCase().trim()
+                        const exists = combined.some(c =>
+                            (c.id && (String(c.id) === rId || String(c._id) === rId)) ||
+                            ((c.companyName || "").toLowerCase().trim() === rdComp.toLowerCase().trim() &&
+                                (c.jobRole || "").toLowerCase().trim() === rdRole.toLowerCase().trim())
                         );
                         if (!exists) {
                             combined.push({
-                                id: rd._id || rd.id || `comp_${Date.now()}_${Math.random()}`,
+                                id: rId,
                                 companyName: rdComp,
-                                recruiterName: rd.createdBy || rd.recruiterName || rdComp,
-                                recruiterEmail: rd.recruiterEmail || "recruiter@company.com",
-                                recruiterPhone: "+91 98765 43210",
+                                recruiterName: (rd.recruiterName && rd.recruiterName !== rdComp) ? rd.recruiterName : (rd.createdBy && rd.createdBy !== rdComp ? rd.createdBy : defaultRecName),
+                                recruiterEmail: (rd.recruiterEmail && rd.recruiterEmail !== "recruiter@company.com") ? rd.recruiterEmail : defaultRecEmail,
+                                recruiterPhone: (rd.recruiterPhone && rd.recruiterPhone !== "+91 98765 43210") ? rd.recruiterPhone : defaultRecPhone,
                                 jobRole: rdRole,
                                 salaryPackage: rd.packageCtc || rd.ctc || "₹18.0 LPA",
                                 driveDate: rd.driveDate || rd.deadline || "28 Aug 2026",
@@ -80,7 +101,17 @@ const CompanyManagement: React.FC = () => {
                                 status: rd.status || "Pending Officer Approval",
                                 logoUrl: rd.logo || "https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg",
                                 industry: "Technology",
-                                jobType: rd.jobType || "Full-Time"
+                                jobType: rd.jobType || "Full-Time",
+                                rounds: rd.rounds || rd.roundsWorkflow,
+                                selectionProcess: rd.selectionProcess,
+                                eligibility: rd.eligibility || {
+                                    departments: Array.isArray(rd.eligibleBranches) ? rd.eligibleBranches.join(", ") : (rd.eligibleBranches || "CSE, IT"),
+                                    minCgpa: rd.minCgpa !== undefined ? String(rd.minCgpa) : "7.0",
+                                    tenthCutoff: rd.minTenth ? `${rd.minTenth}%+` : "65%+",
+                                    twelfthCutoff: rd.minTwelfth ? `${rd.minTwelfth}%+` : "65%+",
+                                    maxBacklogs: rd.maxBacklogs !== undefined ? String(rd.maxBacklogs) : "0",
+                                    gradYear: rd.gradYear ? String(rd.gradYear) : "2026"
+                                }
                             });
                         }
                     });
@@ -95,39 +126,51 @@ const CompanyManagement: React.FC = () => {
                 const parsedDrives = JSON.parse(savedDrives);
                 if (Array.isArray(parsedDrives) && parsedDrives.length > 0) {
                     parsedDrives.forEach((pd: any) => {
-                        if (["comp_amazon", "comp_zoho", "comp_jac", "comp_cognizant"].includes(pd.id || pd._id)) return;
+                        const pId = String(pd.id || pd._id);
+                        if (["comp_amazon", "comp_zoho", "comp_jac", "comp_cognizant"].includes(pId) || deletedIds.includes(pId)) return;
                         const pdComp = pd.companyName || pd.company || "Amazon Development Center";
                         const pdRole = pd.jobRole || pd.jobTitle || pd.role || "Software Developer";
-                        const existingIndex = combined.findIndex(c => 
-                            (c.companyName || "").toLowerCase().trim() === pdComp.toLowerCase().trim() && 
-                            (c.jobRole || "").toLowerCase().trim() === pdRole.toLowerCase().trim()
+                        const existingIndex = combined.findIndex(c =>
+                            (c.id && (String(c.id) === pId || String(c._id) === pId)) ||
+                            ((c.companyName || "").toLowerCase().trim() === pdComp.toLowerCase().trim() &&
+                                (c.jobRole || "").toLowerCase().trim() === pdRole.toLowerCase().trim())
                         );
                         const newDriveObj = {
-                            id: pd.id || pd._id || `comp_${Date.now()}_${Math.random()}`,
+                            id: pId,
                             companyName: pdComp,
-                            recruiterName: pd.createdBy || pd.recruiterName || pdComp,
-                            recruiterEmail: pd.recruiterEmail || "recruiter@company.com",
-                            recruiterPhone: "+91 98765 43210",
+                            recruiterName: (pd.recruiterName && pd.recruiterName !== pdComp) ? pd.recruiterName : (pd.createdBy && pd.createdBy !== pdComp ? pd.createdBy : defaultRecName),
+                            recruiterEmail: (pd.recruiterEmail && pd.recruiterEmail !== "recruiter@company.com") ? pd.recruiterEmail : defaultRecEmail,
+                            recruiterPhone: (pd.recruiterPhone && pd.recruiterPhone !== "+91 98765 43210") ? pd.recruiterPhone : defaultRecPhone,
                             jobRole: pdRole,
                             salaryPackage: pd.salaryPackage || pd.packageCtc || pd.ctc || "₹18.0 LPA",
                             driveDate: pd.driveDate || pd.deadline || "28 Aug 2026",
                             applications: pd.applications !== undefined ? pd.applications : (pd.appliedCount || 0),
                             shortlisted: pd.shortlisted !== undefined ? pd.shortlisted : 0,
-                            registrationStatus: pd.status || "Pending Officer Approval",
-                            status: pd.status || "Pending Officer Approval",
+                            registrationStatus: pd.status || pd.registrationStatus || "Pending Officer Approval",
+                            status: pd.status || pd.registrationStatus || "Pending Officer Approval",
                             logoUrl: pd.logoUrl || pd.logo || "https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg",
                             industry: "Technology",
-                            jobType: pd.jobType || "Full-Time"
+                            jobType: pd.jobType || "Full-Time",
+                            rounds: pd.rounds || pd.roundsWorkflow,
+                            selectionProcess: pd.selectionProcess,
+                            eligibility: pd.eligibility || {
+                                departments: Array.isArray(pd.eligibleBranches) ? pd.eligibleBranches.join(", ") : (pd.eligibleBranches || "CSE, IT"),
+                                minCgpa: pd.minCgpa !== undefined ? String(pd.minCgpa) : "7.0",
+                                tenthCutoff: pd.minTenth ? `${pd.minTenth}%+` : "65%+",
+                                twelfthCutoff: pd.minTwelfth ? `${pd.minTwelfth}%+` : "65%+",
+                                maxBacklogs: pd.maxBacklogs !== undefined ? String(pd.maxBacklogs) : "0",
+                                gradYear: pd.gradYear ? String(pd.gradYear) : "2026"
+                            }
                         };
 
                         if (existingIndex >= 0) {
-                            const existingComp = combined[existingIndex];
-                            const isApproved = existingComp.registrationStatus === "Approved" || existingComp.status === "Approved";
                             combined[existingIndex] = {
-                                ...existingComp,
+                                ...combined[existingIndex],
                                 ...newDriveObj,
-                                registrationStatus: isApproved ? "Approved" : newDriveObj.registrationStatus,
-                                status: isApproved ? "Approved" : newDriveObj.status
+                                rounds: newDriveObj.rounds || combined[existingIndex].rounds,
+                                selectionProcess: newDriveObj.selectionProcess || combined[existingIndex].selectionProcess,
+                                registrationStatus: combined[existingIndex].registrationStatus || newDriveObj.registrationStatus,
+                                status: combined[existingIndex].status || newDriveObj.status
                             };
                         } else {
                             combined.unshift(newDriveObj);
@@ -136,6 +179,21 @@ const CompanyManagement: React.FC = () => {
                 }
             }
         } catch (e) { }
+
+        combined = combined.map(item => {
+            const overrideStatus = localStorage.getItem(`cpms_override_status_${item.id}`) ||
+                localStorage.getItem(`cpms_company_status_${item.id}`);
+            if (overrideStatus) {
+                const reason = localStorage.getItem(`cpms_company_status_${item.id}_reason`) || item.rejectionReason;
+                return {
+                    ...item,
+                    registrationStatus: overrideStatus,
+                    status: overrideStatus,
+                    rejectionReason: overrideStatus === "Rejected" ? (reason || "Revoked by Placement Officer") : item.rejectionReason
+                };
+            }
+            return item;
+        });
 
         setCompanies(combined);
     };
@@ -246,11 +304,9 @@ const CompanyManagement: React.FC = () => {
     }, [selectedCompany, showAddNewModal]);
 
     const handleApprove = async (id: string) => {
-        let approvedCompName = "";
         setCompanies(prev => {
             const updated = prev.map(c => {
                 if (c.id === id || c._id === id || String(c.id) === String(id)) {
-                    approvedCompName = c.companyName || c.company || "";
                     return { ...c, registrationStatus: "Approved", status: "Approved" };
                 }
                 return c;
@@ -268,8 +324,7 @@ const CompanyManagement: React.FC = () => {
                 if (Array.isArray(driveArr)) {
                     let changed = false;
                     driveArr = driveArr.map((d: any) => {
-                        const dComp = (d.companyName || d.company || "").toLowerCase().trim();
-                        if (d.id === id || d._id === id || String(d.id) === String(id) || (approvedCompName && dComp === approvedCompName.toLowerCase().trim())) {
+                        if (d.id === id || d._id === id || String(d.id) === String(id)) {
                             changed = true;
                             return { ...d, status: "Approved", registrationStatus: "Approved" };
                         }
@@ -280,7 +335,12 @@ const CompanyManagement: React.FC = () => {
                     }
                 }
             }
-        } catch (e) {}
+        } catch (e) { }
+
+        try {
+            localStorage.setItem(`cpms_override_status_${id}`, "Approved");
+            localStorage.setItem(`cpms_company_status_${id}`, "Approved");
+        } catch (e) { }
 
         window.dispatchEvent(new Event("storage"));
         window.dispatchEvent(new CustomEvent("cpms_companies_updated"));
@@ -291,7 +351,7 @@ const CompanyManagement: React.FC = () => {
         }
 
         try {
-            await fetch(`http://localhost:5001/api/company/profiles/${id}/approve`, {
+            await fetch(`${API_BASE_URL}/api/company/profiles/${id}/approve`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ approvedBy: "Placement Officer" })
@@ -300,24 +360,55 @@ const CompanyManagement: React.FC = () => {
     };
 
     const handleReject = async (id: string) => {
-        const reason = window.prompt("Enter reason for rejecting this placement drive:", "Criteria not met") || "Criteria not met";
+        const reason = window.prompt("Enter reason for revoking / rejecting this company credentials:", "Company credentials criteria not met") || "Company credentials criteria not met";
         setCompanies(prev => {
-            const updated = prev.map(c => c.id === id ? { ...c, registrationStatus: "Rejected", status: "Rejected", rejectionReason: reason } : c);
+            const updated = prev.map(c => {
+                if (c.id === id || c._id === id || String(c.id) === String(id)) {
+                    return { ...c, registrationStatus: "Rejected", status: "Rejected", rejectionReason: reason };
+                }
+                return c;
+            });
             try {
                 localStorage.setItem("cpms_companies", JSON.stringify(updated));
             } catch (e) { }
             return updated;
         });
 
-        window.dispatchEvent(new Event("storage"));
-        window.dispatchEvent(new CustomEvent("cpms_companies_updated"));
-
-        if (selectedCompany && selectedCompany.id === id) {
-            setSelectedCompany((prev: any) => ({ ...prev, registrationStatus: "Rejected", status: "Rejected", rejectionReason: reason }));
-        }
+        try {
+            const savedDrives = localStorage.getItem("cpms_drives");
+            if (savedDrives) {
+                let driveArr = JSON.parse(savedDrives);
+                if (Array.isArray(driveArr)) {
+                    let changed = false;
+                    driveArr = driveArr.map((d: any) => {
+                        if (d.id === id || d._id === id || String(d.id) === String(id)) {
+                            changed = true;
+                            return { ...d, status: "Rejected", registrationStatus: "Rejected", rejectionReason: reason };
+                        }
+                        return d;
+                    });
+                    if (changed) {
+                        localStorage.setItem("cpms_drives", JSON.stringify(driveArr));
+                    }
+                }
+            }
+        } catch (e) { }
 
         try {
-            await fetch(`http://localhost:5001/api/company/profiles/${id}/reject`, {
+            localStorage.setItem(`cpms_override_status_${id}`, "Rejected");
+            localStorage.setItem(`cpms_company_status_${id}`, "Rejected");
+            localStorage.setItem(`cpms_company_status_${id}_reason`, reason);
+        } catch (e) { }
+
+        window.dispatchEvent(new Event("storage"));
+        window.dispatchEvent(new CustomEvent("cpms_companies_updated"));
+        window.dispatchEvent(new CustomEvent("cpms_drives_updated"));
+
+        if (selectedCompany && (selectedCompany.id === id || selectedCompany._id === id || String(selectedCompany.id) === String(id))) {
+            setSelectedCompany((prev: any) => ({ ...prev, registrationStatus: "Rejected", status: "Rejected", rejectionReason: reason }));
+        }
+        try {
+            await fetch(`${API_BASE_URL}/api/company/profiles/${id}/reject`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ rejectedBy: "Placement Officer", reason })
@@ -327,24 +418,90 @@ const CompanyManagement: React.FC = () => {
 
     const handleDeleteCompany = (id: string) => {
         if (!window.confirm("Are you sure you want to delete this company record?")) return;
+
+        try {
+            const delSaved = localStorage.getItem("cpms_deleted_company_ids");
+            let deletedArr: string[] = delSaved ? JSON.parse(delSaved) : [];
+            if (!deletedArr.includes(String(id))) {
+                deletedArr.push(String(id));
+                localStorage.setItem("cpms_deleted_company_ids", JSON.stringify(deletedArr));
+            }
+        } catch (e) { }
+
         setCompanies(prev => {
-            const updated = prev.filter(c => c.id !== id);
+            const updated = prev.filter(c => c.id !== id && c._id !== id && String(c.id) !== String(id));
             try {
                 localStorage.setItem("cpms_companies", JSON.stringify(updated));
-                window.dispatchEvent(new Event("storage"));
-                window.dispatchEvent(new CustomEvent("cpms_companies_updated"));
             } catch (e) { }
             return updated;
         });
-        if (selectedCompany && selectedCompany.id === id) {
+
+        try {
+            const savedDrives = localStorage.getItem("cpms_drives");
+            if (savedDrives) {
+                let driveArr = JSON.parse(savedDrives);
+                if (Array.isArray(driveArr)) {
+                    const filtered = driveArr.filter((d: any) => d.id !== id && d._id !== id && String(d.id) !== String(id));
+                    localStorage.setItem("cpms_drives", JSON.stringify(filtered));
+                }
+            }
+        } catch (e) { }
+
+        try {
+            localStorage.removeItem(`cpms_override_status_${id}`);
+            localStorage.removeItem(`cpms_company_status_${id}`);
+            localStorage.removeItem(`cpms_company_status_${id}_reason`);
+        } catch (e) { }
+
+        window.dispatchEvent(new Event("storage"));
+        window.dispatchEvent(new CustomEvent("cpms_companies_updated"));
+        window.dispatchEvent(new CustomEvent("cpms_drives_updated"));
+
+        if (selectedCompany && (selectedCompany.id === id || selectedCompany._id === id || String(selectedCompany.id) === String(id))) {
             setSelectedCompany(null);
         }
     };
 
     const handleRevokeApproval = (id: string) => {
-        setCompanies(prev => prev.map(c => c.id === id ? { ...c, registrationStatus: "Pending Officer Approval" } : c));
-        if (selectedCompany && selectedCompany.id === id) {
-            setSelectedCompany((prev: any) => ({ ...prev, registrationStatus: "Pending Officer Approval" }));
+        setCompanies(prev => {
+            const updated = prev.map(c => (c.id === id || c._id === id || String(c.id) === String(id)) ? { ...c, registrationStatus: "Pending Officer Approval", status: "Pending Officer Approval" } : c);
+            try {
+                localStorage.setItem("cpms_companies", JSON.stringify(updated));
+            } catch (e) { }
+            return updated;
+        });
+
+        try {
+            const savedDrives = localStorage.getItem("cpms_drives");
+            if (savedDrives) {
+                let driveArr = JSON.parse(savedDrives);
+                if (Array.isArray(driveArr)) {
+                    let changed = false;
+                    driveArr = driveArr.map((d: any) => {
+                        if (d.id === id || d._id === id || String(d.id) === String(id)) {
+                            changed = true;
+                            return { ...d, status: "Pending Officer Approval", registrationStatus: "Pending Officer Approval" };
+                        }
+                        return d;
+                    });
+                    if (changed) {
+                        localStorage.setItem("cpms_drives", JSON.stringify(driveArr));
+                    }
+                }
+            }
+        } catch (e) { }
+
+        try {
+            localStorage.setItem(`cpms_override_status_${id}`, "Pending Officer Approval");
+            localStorage.setItem(`cpms_company_status_${id}`, "Pending Officer Approval");
+        } catch (e) { }
+
+        window.dispatchEvent(new Event("storage"));
+        window.dispatchEvent(new CustomEvent("cpms_companies_updated"));
+        window.dispatchEvent(new CustomEvent("cpms_drives_updated"));
+
+        if (selectedCompany && (selectedCompany.id === id || selectedCompany._id === id || String(selectedCompany.id) === String(id))) {
+            setSelectedCompany((prev: any) => ({ ...prev, registrationStatus: "Pending Officer Approval", status: "Pending Officer Approval" }));
         }
     };
 
@@ -397,8 +554,8 @@ const CompanyManagement: React.FC = () => {
             id: `comp_${Date.now()}`,
             ...newCompany,
             registrationStatus: "Pending Officer Approval",
-            requiredSkills: typeof newCompany.requiredSkills === "string" 
-                ? newCompany.requiredSkills.split(",").map(s => s.trim()).filter(Boolean) 
+            requiredSkills: typeof newCompany.requiredSkills === "string"
+                ? newCompany.requiredSkills.split(",").map(s => s.trim()).filter(Boolean)
                 : newCompany.requiredSkills
         };
         try {
@@ -447,7 +604,7 @@ const CompanyManagement: React.FC = () => {
 
     const handleClearAllCompanies = async () => {
         if (!window.confirm("⚠️ Are you sure you want to delete ALL company records? This action cannot be undone.")) return;
-        
+
         try {
             localStorage.setItem("cpms_companies_cleared", "true");
             localStorage.setItem("cpms_companies", "[]");
@@ -455,15 +612,15 @@ const CompanyManagement: React.FC = () => {
             window.dispatchEvent(new Event("storage"));
             window.dispatchEvent(new CustomEvent("cpms_companies_updated"));
         } catch (e) { }
-        
+
         setCompanies([]);
         setSelectedCompany(null);
-        
+
         try {
-            await fetch("http://localhost:5001/api/company/profiles/all", {
+            await fetch(`${API_BASE_URL}/api/company/profiles/all`, {
                 method: "DELETE"
             });
-            await fetch("http://localhost:5001/api/company/drives", {
+            await fetch(`${API_BASE_URL}/api/company/drives`, {
                 method: "DELETE"
             });
         } catch (e) { }
@@ -526,28 +683,28 @@ const CompanyManagement: React.FC = () => {
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px", marginBottom: "24px" }}>
                 <div style={{ backgroundColor: "#f8fafc", borderRadius: "14px", padding: "18px 22px", border: "1px solid #e2e8f0", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
                     <div style={{ fontSize: "13px", color: "#475569", fontWeight: "800", display: "flex", alignItems: "center", gap: "6px" }}>
-                        🏢 Total Companies
+                        <span>🏢</span> Total Companies
                     </div>
                     <div style={{ fontSize: "28px", color: "#0f172a", fontWeight: "900", marginTop: "8px" }}>{totalCount}</div>
                 </div>
 
                 <div style={{ backgroundColor: "#fffbeb", borderRadius: "14px", padding: "18px 22px", border: "1px solid #fde68a", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
                     <div style={{ fontSize: "13px", color: "#92400e", fontWeight: "800", display: "flex", alignItems: "center", gap: "6px" }}>
-                        ⏳ Pending Approval
+                        <span>⏳</span> Pending Approval
                     </div>
                     <div style={{ fontSize: "28px", color: "#d97706", fontWeight: "900", marginTop: "8px" }}>{pendingCount}</div>
                 </div>
 
                 <div style={{ backgroundColor: "#f0fdf4", borderRadius: "14px", padding: "18px 22px", border: "1px solid #bbf7d0", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
                     <div style={{ fontSize: "13px", color: "#166534", fontWeight: "800", display: "flex", alignItems: "center", gap: "6px" }}>
-                        ✅ Approved / Active
+                        <span>✅</span> Approved
                     </div>
                     <div style={{ fontSize: "28px", color: "#16a34a", fontWeight: "900", marginTop: "8px" }}>{approvedCount}</div>
                 </div>
 
                 <div style={{ backgroundColor: "#fef2f2", borderRadius: "14px", padding: "18px 22px", border: "1px solid #fecaca", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
                     <div style={{ fontSize: "13px", color: "#991b1b", fontWeight: "800", display: "flex", alignItems: "center", gap: "6px" }}>
-                        ❌ Rejected
+                        <span>❌</span> Rejected
                     </div>
                     <div style={{ fontSize: "28px", color: "#dc2626", fontWeight: "900", marginTop: "8px" }}>{rejectedCount}</div>
                 </div>
@@ -555,9 +712,8 @@ const CompanyManagement: React.FC = () => {
             {/* Search & Filters Bar matching spec */}
             <div style={{ backgroundColor: "#ffffff", padding: "14px 18px", borderRadius: "14px", border: "1px solid #eaedf0", marginBottom: "20px", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
                 <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", gap: "12px", alignItems: "center" }}>
-                    {/* Search Bar with Search Icon */}
+                    {/* Clean Search Bar */}
                     <div style={{ position: "relative", width: "100%" }}>
-                        <span style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", fontSize: "14px", color: "#94a3b8" }}>🔍</span>
                         <input
                             type="text"
                             placeholder="Search company, recruiter, or job role..."
@@ -565,7 +721,7 @@ const CompanyManagement: React.FC = () => {
                             onChange={(e) => setSearchQuery(e.target.value)}
                             style={{
                                 width: "100%",
-                                padding: "9px 12px 9px 36px",
+                                padding: "9px 12px",
                                 borderRadius: "8px",
                                 border: "1px solid #cbd5e1",
                                 fontSize: "13px",
@@ -645,10 +801,10 @@ const CompanyManagement: React.FC = () => {
                 </div>
             </div>
 
-            <div className="responsive-table-wrapper" style={{ overflowX: "auto", borderRadius: "12px", border: "1px solid #e2e8f0" }}>
+            <div className="responsive-table-wrapper" style={{ overflowX: "auto", overflowY: "auto", maxHeight: "550px", borderRadius: "12px", border: "1px solid #e2e8f0", boxShadow: "0 1px 3px rgba(0,0,0,0.02)" }}>
                 <table style={{ width: "100%", minWidth: "650px", borderCollapse: "collapse", textAlign: "left", fontSize: "13px" }}>
                     <thead>
-                        <tr style={{ backgroundColor: "#f8fafc", borderBottom: "1px solid #e2e8f0", color: "#64748b" }}>
+                        <tr style={{ backgroundColor: "#f8fafc", borderBottom: "1px solid #e2e8f0", color: "#64748b", position: "sticky", top: 0, zIndex: 10 }}>
                             <th style={{ padding: "14px 16px" }}>Company</th>
                             <th style={{ padding: "14px 16px" }}>Job Role</th>
                             <th style={{ padding: "14px 16px" }}>Drive Date</th>
@@ -730,95 +886,136 @@ const CompanyManagement: React.FC = () => {
                                         </span>
                                     </td>
 
-                                    {/* Actions: ✓ | ✕ | 👁️ | 🗑️ */}
+                                    {/* Actions: View (👁️) | Delete (🗑️) | Quick Approve (✓) | Quick Reject (✕) */}
                                     <td style={{ padding: "14px 16px", textAlign: "center" }}>
-                                        <div style={{ display: "flex", gap: "8px", justifyContent: "center", alignItems: "center" }}>
+                                        <div style={{ display: "inline-flex", gap: "8px", justifyContent: "center", alignItems: "center" }}>
+                                            {/* 1. View Icon Button (Always Position 1) */}
+                                            <button
+                                                type="button"
+                                                onClick={() => setSelectedCompany(c)}
+                                                title="View Details"
+                                                style={{
+                                                    width: "36px",
+                                                    height: "36px",
+                                                    borderRadius: "10px",
+                                                    backgroundColor: "#ffffff",
+                                                    border: "1.5px solid #cbd5e1",
+                                                    color: "#334155",
+                                                    cursor: "pointer",
+                                                    display: "inline-flex",
+                                                    alignItems: "center",
+                                                    justifyContent: "center",
+                                                    transition: "all 0.15s ease",
+                                                    flexShrink: 0,
+                                                    boxShadow: "0 1px 2px rgba(0, 0, 0, 0.03)"
+                                                }}
+                                                onMouseEnter={(e: any) => {
+                                                    e.currentTarget.style.backgroundColor = "#eff6ff";
+                                                    e.currentTarget.style.borderColor = "#2563eb";
+                                                    e.currentTarget.style.color = "#2563eb";
+                                                }}
+                                                onMouseLeave={(e: any) => {
+                                                    e.currentTarget.style.backgroundColor = "#ffffff";
+                                                    e.currentTarget.style.borderColor = "#cbd5e1";
+                                                    e.currentTarget.style.color = "#334155";
+                                                }}
+                                            >
+                                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                                                    <circle cx="12" cy="12" r="3" />
+                                                </svg>
+                                            </button>
+
+                                            {/* 2. Delete / Bin Icon Button (Always Position 2) */}
+                                            <button
+                                                type="button"
+                                                onClick={() => handleDeleteCompany(c.id)}
+                                                title="Delete Record"
+                                                style={{
+                                                    width: "36px",
+                                                    height: "36px",
+                                                    borderRadius: "10px",
+                                                    backgroundColor: "#fff5f5",
+                                                    color: "#dc2626",
+                                                    border: "1.5px solid #fecaca",
+                                                    cursor: "pointer",
+                                                    display: "inline-flex",
+                                                    alignItems: "center",
+                                                    justifyContent: "center",
+                                                    transition: "all 0.15s ease",
+                                                    flexShrink: 0,
+                                                    boxShadow: "0 1px 2px rgba(0, 0, 0, 0.03)"
+                                                }}
+                                                onMouseEnter={(e: any) => {
+                                                    e.currentTarget.style.backgroundColor = "#fee2e2";
+                                                    e.currentTarget.style.borderColor = "#ef4444";
+                                                }}
+                                                onMouseLeave={(e: any) => {
+                                                    e.currentTarget.style.backgroundColor = "#fff5f5";
+                                                    e.currentTarget.style.borderColor = "#fecaca";
+                                                }}
+                                            >
+                                                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                    <polyline points="3 6 5 6 21 6" />
+                                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                                    <line x1="10" y1="11" x2="10" y2="17" />
+                                                    <line x1="14" y1="11" x2="14" y2="17" />
+                                                </svg>
+                                            </button>
+
+                                            {/* 3. Quick Approve & Reject Buttons (Shown only when Pending) */}
                                             {isPending && (
                                                 <>
                                                     <button
+                                                        type="button"
                                                         onClick={() => handleApprove(c.id)}
                                                         title="Approve Company"
                                                         style={{
-                                                            width: "32px",
-                                                            height: "32px",
-                                                            borderRadius: "8px",
+                                                            width: "36px",
+                                                            height: "36px",
+                                                            borderRadius: "10px",
                                                             backgroundColor: "#16a34a",
                                                             color: "#ffffff",
                                                             border: "none",
-                                                            fontSize: "15px",
+                                                            fontSize: "16px",
                                                             fontWeight: "800",
                                                             cursor: "pointer",
                                                             display: "inline-flex",
                                                             alignItems: "center",
                                                             justifyContent: "center",
-                                                            boxShadow: "0 2px 4px rgba(22,163,74,0.25)",
-                                                            flexShrink: 0
+                                                            boxShadow: "0 2px 4px rgba(22, 163, 74, 0.25)",
+                                                            flexShrink: 0,
+                                                            transition: "all 0.15s ease"
                                                         }}
                                                     >
                                                         ✓
                                                     </button>
                                                     <button
+                                                        type="button"
                                                         onClick={() => handleReject(c.id)}
                                                         title="Reject Company"
                                                         style={{
-                                                            width: "32px",
-                                                            height: "32px",
-                                                            borderRadius: "8px",
+                                                            width: "36px",
+                                                            height: "36px",
+                                                            borderRadius: "10px",
                                                             backgroundColor: "#dc2626",
                                                             color: "#ffffff",
                                                             border: "none",
-                                                            fontSize: "15px",
+                                                            fontSize: "16px",
                                                             fontWeight: "800",
                                                             cursor: "pointer",
                                                             display: "inline-flex",
                                                             alignItems: "center",
                                                             justifyContent: "center",
-                                                            boxShadow: "0 2px 4px rgba(220,38,38,0.25)",
-                                                            flexShrink: 0
+                                                            boxShadow: "0 2px 4px rgba(220, 38, 38, 0.25)",
+                                                            flexShrink: 0,
+                                                            transition: "all 0.15s ease"
                                                         }}
                                                     >
                                                         ✕
                                                     </button>
                                                 </>
                                             )}
-                                            <button
-                                                onClick={() => setSelectedCompany(c)}
-                                                title="View Details"
-                                                style={{
-                                                    width: "32px",
-                                                    height: "32px",
-                                                    borderRadius: "8px",
-                                                    backgroundColor: "#f1f5f9",
-                                                    color: "#64748b",
-                                                    border: "1px solid #cbd5e1",
-                                                    cursor: "pointer",
-                                                    display: "inline-flex",
-                                                    alignItems: "center",
-                                                    justifyContent: "center",
-                                                    flexShrink: 0
-                                                }}
-                                            >
-                                                👁️
-                                            </button>
-                                            <button
-                                                onClick={() => handleDeleteCompany(c.id)}
-                                                title="Delete Record"
-                                                style={{
-                                                    width: "32px",
-                                                    height: "32px",
-                                                    borderRadius: "8px",
-                                                    backgroundColor: "#fef2f2",
-                                                    color: "#dc2626",
-                                                    border: "1px solid #fecaca",
-                                                    cursor: "pointer",
-                                                    display: "inline-flex",
-                                                    alignItems: "center",
-                                                    justifyContent: "center",
-                                                    flexShrink: 0
-                                                }}
-                                            >
-                                                🗑️
-                                            </button>
                                         </div>
                                     </td>
                                 </tr>
@@ -830,13 +1027,13 @@ const CompanyManagement: React.FC = () => {
 
             {/* View / Edit Company Complete Details Popup Modal */}
             {selectedCompany && (
-                <div 
+                <div
                     onClick={() => { setSelectedCompany(null); setIsEditing(false); }}
                     style={{ position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", backgroundColor: "rgba(15, 23, 42, 0.65)", backdropFilter: "blur(4px)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}
                 >
-                    <div 
+                    <div
                         onClick={(e) => e.stopPropagation()}
-                        style={{ backgroundColor: "#ffffff", borderRadius: "18px", maxWidth: "600px", width: "100%", overflow: "hidden", boxShadow: "0 25px 50px -12px rgba(0,0,0,0.25)" }}
+                        style={{ backgroundColor: "#ffffff", borderRadius: "18px", maxWidth: "700px", width: "100%", overflow: "hidden", boxShadow: "0 25px 50px -12px rgba(0,0,0,0.25)" }}
                     >
                         {/* Modal Header */}
                         <div style={{ backgroundColor: "#0f172a", color: "#ffffff", padding: "20px 24px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -959,47 +1156,89 @@ const CompanyManagement: React.FC = () => {
                             ) : (
                                 <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
                                     {/* Section 1: Company Information */}
-                                    <div style={{ backgroundColor: "#f8fafc", padding: "10px 14px", borderRadius: "10px", border: "1px solid #eaedf0" }}>
-                                        <h4 style={{ margin: "0 0 6px 0", fontSize: "11px", fontWeight: "800", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px" }}>1. Company Information</h4>
-                                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px", fontSize: "12px", color: "#334155" }}>
-                                            <div><strong>Company Name:</strong> {selectedCompany.companyName}</div>
-                                            <div><strong>Industry:</strong> {selectedCompany.industry}</div>
-                                            <div><strong>Website:</strong> <a href={selectedCompany.website} target="_blank" rel="noreferrer" style={{ color: "#2563eb", fontWeight: "600" }}>{selectedCompany.website}</a></div>
-                                            <div><strong>Location:</strong> {selectedCompany.location}</div>
+                                    <div style={{ backgroundColor: "#f8fafc", padding: "12px 16px", borderRadius: "10px", border: "1px solid #eaedf0" }}>
+                                        <h4 style={{ margin: "0 0 8px 0", fontSize: "11px", fontWeight: "800", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px" }}>1. Company Information</h4>
+                                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 20px", fontSize: "12px", color: "#334155" }}>
+                                            <div style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}><strong>Company Name:</strong> {selectedCompany.companyName}</div>
+                                            <div style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}><strong>Industry:</strong> {selectedCompany.industry || "Technology"}</div>
+                                            <div style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}><strong>Website:</strong> <a href={selectedCompany.website ? (selectedCompany.website.startsWith("http") ? selectedCompany.website : `https://${selectedCompany.website}`) : "https://amazon.com"} target="_blank" rel="noreferrer" style={{ color: "#2563eb", fontWeight: "600" }}>{selectedCompany.website || "https://amazon.com"}</a></div>
+                                            <div style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}><strong>Location:</strong> {selectedCompany.location || "Bangalore, India"}</div>
                                         </div>
                                     </div>
 
                                     {/* Section 2: Recruiter Contact Details */}
-                                    <div style={{ backgroundColor: "#f8fafc", padding: "10px 14px", borderRadius: "10px", border: "1px solid #eaedf0" }}>
-                                        <h4 style={{ margin: "0 0 6px 0", fontSize: "11px", fontWeight: "800", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px" }}>2. Recruiter Contact Details</h4>
-                                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "6px", fontSize: "12px", color: "#334155" }}>
-                                            <div><strong>Recruiter Name:</strong> {selectedCompany.recruiterName}</div>
-                                            <div><strong>Recruiter Email:</strong> {selectedCompany.recruiterEmail}</div>
-                                            <div><strong>Recruiter Phone:</strong> {selectedCompany.recruiterPhone}</div>
+                                    <div style={{ backgroundColor: "#f8fafc", padding: "12px 16px", borderRadius: "10px", border: "1px solid #eaedf0" }}>
+                                        <h4 style={{ margin: "0 0 8px 0", fontSize: "11px", fontWeight: "800", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px" }}>2. Recruiter Contact Details</h4>
+                                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 20px", fontSize: "12px", color: "#334155" }}>
+                                            <div style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}><strong>Recruiter Name:</strong> {(!selectedCompany.recruiterName || selectedCompany.recruiterName === selectedCompany.companyName) ? (selectedCompany.createdBy || "Arya (Placement Lead)") : selectedCompany.recruiterName}</div>
+                                            <div style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}><strong>Recruiter Phone:</strong> {(!selectedCompany.recruiterPhone || selectedCompany.recruiterPhone === "+91 98765 43210") ? "+91 98765 12345" : selectedCompany.recruiterPhone}</div>
+                                            <div style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", gridColumn: "span 2" }}><strong>Recruiter Email:</strong> {(!selectedCompany.recruiterEmail || selectedCompany.recruiterEmail === "recruiter@company.com") ? "arya@amazon.com" : selectedCompany.recruiterEmail}</div>
                                         </div>
                                     </div>
 
                                     {/* Section 3: Job Details & Package */}
-                                    <div style={{ backgroundColor: "#f8fafc", padding: "10px 14px", borderRadius: "10px", border: "1px solid #eaedf0" }}>
-                                        <h4 style={{ margin: "0 0 6px 0", fontSize: "11px", fontWeight: "800", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px" }}>3. Job Details & Package</h4>
-                                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px", fontSize: "12px", color: "#334155" }}>
-                                            <div><strong>Job Role:</strong> {selectedCompany.jobRole}</div>
-                                            <div><strong>Salary Package:</strong> <strong style={{ color: "#16a34a" }}>{selectedCompany.salaryPackage}</strong></div>
-                                            <div><strong>Job Type:</strong> {selectedCompany.jobType}</div>
-                                            <div><strong>Required Skills:</strong> {Array.isArray(selectedCompany.requiredSkills) ? selectedCompany.requiredSkills.join(", ") : selectedCompany.requiredSkills}</div>
+                                    <div style={{ backgroundColor: "#f8fafc", padding: "12px 16px", borderRadius: "10px", border: "1px solid #eaedf0" }}>
+                                        <h4 style={{ margin: "0 0 8px 0", fontSize: "11px", fontWeight: "800", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px" }}>3. Job Details & Package</h4>
+                                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 20px", fontSize: "12px", color: "#334155" }}>
+                                            <div style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}><strong>Job Role:</strong> {selectedCompany.jobRole}</div>
+                                            <div style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}><strong>Salary Package:</strong> <strong style={{ color: "#16a34a" }}>{selectedCompany.salaryPackage}</strong></div>
+                                            <div style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}><strong>Job Type:</strong> {selectedCompany.jobType || "Full-Time (FTE)"}</div>
+                                            <div style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}><strong>Required Skills:</strong> {(Array.isArray(selectedCompany.requiredSkills) ? selectedCompany.requiredSkills.join(", ") : selectedCompany.requiredSkills) || "Java, Python, DSA"}</div>
                                         </div>
                                     </div>
 
                                     {/* Section 4: Student Eligibility Requirements */}
+                                    <div style={{ backgroundColor: "#f8fafc", padding: "12px 16px", borderRadius: "10px", border: "1px solid #eaedf0" }}>
+                                        <h4 style={{ margin: "0 0 8px 0", fontSize: "11px", fontWeight: "800", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px" }}>4. Student Eligibility Requirements</h4>
+                                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px 16px", fontSize: "12px", color: "#334155" }}>
+                                            <div style={{ whiteSpace: "nowrap" }}><strong>Depts:</strong> {selectedCompany.eligibility?.departments || "CSE, IT, ECE"}</div>
+                                            <div style={{ whiteSpace: "nowrap" }}><strong>Min CGPA:</strong> {selectedCompany.eligibility?.minCgpa || "7.0"}</div>
+                                            <div style={{ whiteSpace: "nowrap" }}><strong>Graduation Year:</strong> {selectedCompany.eligibility?.gradYear || "2026"}</div>
+                                            <div style={{ whiteSpace: "nowrap" }}><strong>10th Cutoff:</strong> {selectedCompany.eligibility?.tenthCutoff || "60%+"}</div>
+                                            <div style={{ whiteSpace: "nowrap" }}><strong>12th Cutoff:</strong> {selectedCompany.eligibility?.twelfthCutoff || "60%+"}</div>
+                                            <div style={{ whiteSpace: "nowrap" }}><strong>Max Backlogs:</strong> {selectedCompany.eligibility?.maxBacklogs || "0"}</div>
+                                        </div>
+                                    </div>
+
+                                    {/* Section 5: Selection Rounds Workflow */}
                                     <div style={{ backgroundColor: "#f8fafc", padding: "10px 14px", borderRadius: "10px", border: "1px solid #eaedf0" }}>
-                                        <h4 style={{ margin: "0 0 6px 0", fontSize: "11px", fontWeight: "800", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px" }}>4. Student Eligibility Requirements</h4>
-                                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "6px", fontSize: "12px", color: "#334155" }}>
-                                            <div><strong>Depts:</strong> {selectedCompany.eligibility?.departments || "CSE, IT"}</div>
-                                            <div><strong>Min CGPA:</strong> {selectedCompany.eligibility?.minCgpa || "7.0"}</div>
-                                            <div><strong>Graduation Year:</strong> {selectedCompany.eligibility?.gradYear || "2026"}</div>
-                                            <div><strong>10th Cutoff:</strong> {selectedCompany.eligibility?.tenthCutoff || "65%+"}</div>
-                                            <div><strong>12th Cutoff:</strong> {selectedCompany.eligibility?.twelfthCutoff || "65%+"}</div>
-                                            <div><strong>Max Backlogs:</strong> {selectedCompany.eligibility?.maxBacklogs || "0"}</div>
+                                        <h4 style={{ margin: "0 0 8px 0", fontSize: "11px", fontWeight: "800", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                                            🔄 5. Selection Rounds Workflow
+                                        </h4>
+
+                                        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                                            {((selectedCompany.rounds && selectedCompany.rounds.length > 0)
+                                                ? selectedCompany.rounds
+                                                : (selectedCompany.roundsWorkflow && selectedCompany.roundsWorkflow.length > 0)
+                                                    ? selectedCompany.roundsWorkflow
+                                                    : [
+                                                        { roundNumber: 1, roundName: "Round 1: Online Coding & Aptitude Assessment", mode: "Online", date: selectedCompany.driveDate || "05 Sep 2026", description: "Online coding test and quantitative aptitude" },
+                                                        { roundNumber: 2, roundName: "Round 2: Technical Interview (DSA & Core)", mode: "Online", date: "07 Sep 2026", description: "Data structures, problem solving, system design" },
+                                                        { roundNumber: 3, roundName: "Round 3: HR & Management Discussion", mode: "Online", date: "09 Sep 2026", description: "Behavioral assessment and culture fit" }
+                                                    ]
+                                            ).map((round: any, rIdx: number) => (
+                                                <div key={rIdx} style={{ backgroundColor: "#ffffff", padding: "8px 12px", borderRadius: "8px", border: "1px solid #cbd5e1" }}>
+                                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
+                                                        <span style={{ fontSize: "11px", fontWeight: "800", color: "#2563eb", backgroundColor: "#dbeafe", padding: "2px 8px", borderRadius: "10px" }}>
+                                                            Round {round.roundNumber || rIdx + 1}
+                                                        </span>
+                                                        <div style={{ display: "flex", gap: "12px", fontSize: "11px", color: "#475569" }}>
+                                                            <span><strong>Mode:</strong> {round.mode || "Online"}</span>
+                                                            {(round.date || selectedCompany.driveDate) && (
+                                                                <span><strong>Date:</strong> {round.date || selectedCompany.driveDate}</span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    <div style={{ fontSize: "12.5px", fontWeight: "700", color: "#0f172a" }}>
+                                                        {round.roundName || round.name || `Round ${rIdx + 1}`}
+                                                    </div>
+                                                    {round.description && (
+                                                        <div style={{ fontSize: "11px", color: "#64748b", marginTop: "2px", lineHeight: "1.3" }}>
+                                                            {round.description}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ))}
                                         </div>
                                     </div>
 
@@ -1040,11 +1279,11 @@ const CompanyManagement: React.FC = () => {
 
             {/* Modal for Register New Company */}
             {showAddNewModal && (
-                <div 
+                <div
                     onClick={() => setShowAddNewModal(false)}
                     style={{ position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", backgroundColor: "rgba(15, 23, 42, 0.65)", backdropFilter: "blur(4px)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}
                 >
-                    <div 
+                    <div
                         onClick={(e) => e.stopPropagation()}
                         style={{ backgroundColor: "#ffffff", borderRadius: "18px", maxWidth: "680px", width: "100%", overflow: "hidden", boxShadow: "0 25px 50px -12px rgba(0,0,0,0.25)" }}
                     >
@@ -1175,29 +1414,28 @@ const CompanyManagement: React.FC = () => {
                                 <span style={{ fontSize: "12px", fontWeight: "800", color: "#0f172a" }}>Eligibility Criteria Setup</span>
                                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px", marginTop: "8px" }}>
                                     <div>
-                                        <label style={{ fontSize: "11px", fontWeight: "700", color: "#64748b" }}>Eligible Depts</label>
-                                        <input type="text" placeholder="CSE, IT, ECE" value={newCompany.eligibility?.departments || ""} onChange={e => setNewCompany({ ...newCompany, eligibility: { ...newCompany.eligibility, departments: e.target.value } })} style={{ width: "100%", padding: "6px 10px", borderRadius: "6px", border: "1px solid #cbd5e1", fontSize: "12px" }} />
+                                        <label style={{ fontSize: "11px", fontWeight: "700", color: "#64748b" }}>Eligible Depts <span style={{ color: "#dc2626" }}>*</span></label>
+                                        <input type="text" required placeholder="CSE, IT, ECE" value={newCompany.eligibility?.departments || ""} onChange={e => setNewCompany({ ...newCompany, eligibility: { ...newCompany.eligibility, departments: e.target.value } })} style={{ width: "100%", padding: "6px 10px", borderRadius: "6px", border: "1px solid #cbd5e1", fontSize: "12px" }} />
                                     </div>
                                     <div>
-                                        <label style={{ fontSize: "11px", fontWeight: "700", color: "#64748b" }}>Min CGPA</label>
-                                        <input type="text" placeholder="7.5" value={newCompany.eligibility?.minCgpa || ""} onChange={e => setNewCompany({ ...newCompany, eligibility: { ...newCompany.eligibility, minCgpa: e.target.value } })} style={{ width: "100%", padding: "6px 10px", borderRadius: "6px", border: "1px solid #cbd5e1", fontSize: "12px" }} />
+                                        <label style={{ fontSize: "11px", fontWeight: "700", color: "#64748b" }}>Min CGPA <span style={{ color: "#dc2626" }}>*</span></label>
+                                        <input type="text" required placeholder="7.5" value={newCompany.eligibility?.minCgpa || ""} onChange={e => setNewCompany({ ...newCompany, eligibility: { ...newCompany.eligibility, minCgpa: e.target.value } })} style={{ width: "100%", padding: "6px 10px", borderRadius: "6px", border: "1px solid #cbd5e1", fontSize: "12px" }} />
                                     </div>
                                     <div>
-                                        <label style={{ fontSize: "11px", fontWeight: "700", color: "#64748b" }}>Grad Year</label>
-                                        <input type="text" placeholder="2026" value={newCompany.eligibility?.gradYear || ""} onChange={e => setNewCompany({ ...newCompany, eligibility: { ...newCompany.eligibility, gradYear: e.target.value } })} style={{ width: "100%", padding: "6px 10px", borderRadius: "6px", border: "1px solid #cbd5e1", fontSize: "12px" }} />
+                                        <label style={{ fontSize: "11px", fontWeight: "700", color: "#64748b" }}>Grad Year <span style={{ color: "#dc2626" }}>*</span></label>
+                                        <input type="text" required placeholder="2026" value={newCompany.eligibility?.gradYear || ""} onChange={e => setNewCompany({ ...newCompany, eligibility: { ...newCompany.eligibility, gradYear: e.target.value } })} style={{ width: "100%", padding: "6px 10px", borderRadius: "6px", border: "1px solid #cbd5e1", fontSize: "12px" }} />
                                     </div>
                                     <div>
-                                        <label style={{ fontSize: "11px", fontWeight: "700", color: "#64748b" }}>Min 10th %</label>
-                                        <input type="text" placeholder="60%+" value={newCompany.eligibility?.tenthCutoff || ""} onChange={e => setNewCompany({ ...newCompany, eligibility: { ...newCompany.eligibility, tenthCutoff: e.target.value } })} style={{ width: "100%", padding: "6px 10px", borderRadius: "6px", border: "1px solid #cbd5e1", fontSize: "12px" }} />
+                                        <label style={{ fontSize: "11px", fontWeight: "700", color: "#64748b" }}>Min 10th % <span style={{ color: "#dc2626" }}>*</span></label>
+                                        <input type="text" required placeholder="60%+" value={newCompany.eligibility?.tenthCutoff || ""} onChange={e => setNewCompany({ ...newCompany, eligibility: { ...newCompany.eligibility, tenthCutoff: e.target.value } })} style={{ width: "100%", padding: "6px 10px", borderRadius: "6px", border: "1px solid #cbd5e1", fontSize: "12px" }} />
                                     </div>
                                     <div>
-                                        <label style={{ fontSize: "11px", fontWeight: "700", color: "#64748b" }}>Min 12th %</label>
-                                        <input type="text" placeholder="60%+" value={newCompany.eligibility?.twelfthCutoff || ""} onChange={e => setNewCompany({ ...newCompany, eligibility: { ...newCompany.eligibility, twelfthCutoff: e.target.value } })} style={{ width: "100%", padding: "6px 10px", borderRadius: "6px", border: "1px solid #cbd5e1", fontSize: "12px" }} />
+                                        <label style={{ fontSize: "11px", fontWeight: "700", color: "#64748b" }}>Min 12th % <span style={{ color: "#dc2626" }}>*</span></label>
+                                        <input type="text" required placeholder="60%+" value={newCompany.eligibility?.twelfthCutoff || ""} onChange={e => setNewCompany({ ...newCompany, eligibility: { ...newCompany.eligibility, twelfthCutoff: e.target.value } })} style={{ width: "100%", padding: "6px 10px", borderRadius: "6px", border: "1px solid #cbd5e1", fontSize: "12px" }} />
                                     </div>
                                     <div>
-                                        <label style={{ fontSize: "11px", fontWeight: "700", color: "#64748b" }}>Max Backlogs</label>
-                                        <input type="text" placeholder="0" value={newCompany.eligibility?.maxBacklogs || ""} onChange={e => setNewCompany({ ...newCompany, eligibility: { ...newCompany.eligibility, maxBacklogs: e.target.value } })} style={{ width: "100%", padding: "6px 10px", borderRadius: "6px", border: "1px solid #cbd5e1", fontSize: "12px" }} />
-
+                                        <label style={{ fontSize: "11px", fontWeight: "700", color: "#64748b" }}>Max Backlogs <span style={{ color: "#dc2626" }}>*</span></label>
+                                        <input type="text" required placeholder="0" value={newCompany.eligibility?.maxBacklogs || ""} onChange={e => setNewCompany({ ...newCompany, eligibility: { ...newCompany.eligibility, maxBacklogs: e.target.value } })} style={{ width: "100%", padding: "6px 10px", borderRadius: "6px", border: "1px solid #cbd5e1", fontSize: "12px" }} />
                                     </div>
                                 </div>
                             </div>
