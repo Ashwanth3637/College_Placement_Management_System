@@ -74,16 +74,6 @@ export const EnterpriseShell: React.FC<EnterpriseShellProps> = ({
       localStorage.setItem('user', JSON.stringify(demoUser));
       navigate('/officer/dashboard');
       window.location.reload();
-    } else if (targetRole === 'recruiter') {
-      const demoUser = { name: 'Amazon Recruiter', email: 'recruiter@amazon.com', role: 'recruiter', companyName: 'Amazon Development Center' };
-      localStorage.setItem('user', JSON.stringify(demoUser));
-      navigate('/recruiter/dashboard');
-      window.location.reload();
-    } else if (targetRole === 'coordinator') {
-      const demoUser = { name: 'Prof. Rajesh Sharma', email: 'coordinator@college.edu', role: 'coordinator', department: 'Computer Science & Engineering' };
-      localStorage.setItem('user', JSON.stringify(demoUser));
-      navigate('/coordinator/dashboard');
-      window.location.reload();
     }
   };
 
@@ -162,8 +152,6 @@ export const EnterpriseShell: React.FC<EnterpriseShellProps> = ({
             style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}
             onClick={() => {
               if (role === 'student') navigate('/student/dashboard');
-              else if (role === 'recruiter') navigate('/recruiter/dashboard');
-              else if (role === 'coordinator') navigate('/coordinator/dashboard');
               else navigate('/officer/dashboard');
             }}
           >
@@ -291,8 +279,6 @@ export const EnterpriseShell: React.FC<EnterpriseShellProps> = ({
                 {[
                   { id: 'student', label: 'Student Persona', icon: '🎓' },
                   { id: 'officer', label: 'Placement Officer / Admin', icon: '🏛️' },
-                  { id: 'recruiter', label: 'Recruiter Persona', icon: '💼' },
-                  { id: 'coordinator', label: 'Coordinator Persona', icon: '🏫' },
                 ].map(p => (
                   <button
                     key={p.id}

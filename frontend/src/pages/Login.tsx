@@ -22,10 +22,9 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     const [resetSent, setResetSent] = useState(false);
 
     const demoAccounts = [
-        { label: "Student Demo", role: "student", name: "Ashwanth S", email: "ashwanth@college.edu", pass: "password123", icon: "🎓" },
-        { label: "Placement Officer / TPO", role: "admin", name: "Placement Director", email: "admin@college.edu", pass: "password123", icon: "🏛️" },
-        { label: "Amazon Recruiter", role: "recruiter", name: "Amazon Recruiter", email: "recruiter@amazon.com", pass: "password123", icon: "💼" },
-        { label: "CSE Coordinator", role: "coordinator", name: "Prof. Rajesh Sharma", email: "coordinator@college.edu", pass: "password123", icon: "🏫" },
+        { label: "Student Portal", role: "student", name: "Ashwanth S", email: "ashwanth@college.edu", pass: "password123", icon: "🎓" },
+        { label: "Placement Officer", role: "officer", name: "Placement Officer", email: "officer@college.edu", pass: "password123", icon: "🏛️" },
+        { label: "Super Admin", role: "admin", name: "Super Admin", email: "admin@college.edu", pass: "password123", icon: "👑" },
     ];
 
     const applyDemo = (acc: typeof demoAccounts[0]) => {
@@ -402,10 +401,9 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                                     cursor: "pointer",
                                 }}
                             >
-                                <option value="student">Student (Job Seeker / Candidate)</option>
-                                <option value="admin">Placement Officer / Super Admin</option>
-                                <option value="recruiter">Corporate Recruiter (Employer)</option>
-                                <option value="coordinator">Department Placement Coordinator</option>
+                                <option value="student">🎓 Student (Job Seeker / Candidate)</option>
+                                <option value="officer">🏛️ Placement Officer (Cell Administration)</option>
+                                <option value="admin">👑 Super Admin (System & Institutional Governance)</option>
                             </select>
                         </div>
 

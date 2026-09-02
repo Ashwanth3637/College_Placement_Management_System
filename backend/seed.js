@@ -47,27 +47,6 @@ const seedAllModules = async () => {
                 cgpa: 8.80
             },
             {
-                name: "Amazon Campus Recruiter",
-                email: "recruiter@amazon.com",
-                password: defaultPassword,
-                role: "recruiter",
-                companyName: "Amazon Development Center"
-            },
-            {
-                name: "TCS Recruiter",
-                email: "recruiter@tcs.com",
-                password: defaultPassword,
-                role: "recruiter",
-                companyName: "Tata Consultancy Services"
-            },
-            {
-                name: "Prof. Rajesh Sharma",
-                email: "coordinator@college.edu",
-                password: defaultPassword,
-                role: "coordinator",
-                department: "Computer Science & Engineering"
-            },
-            {
                 name: "Placement Director",
                 email: "admin@college.edu",
                 password: defaultPassword,

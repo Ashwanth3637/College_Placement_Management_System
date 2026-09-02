@@ -3,12 +3,12 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const User = require("../models/user");
 
-// Standard demo accounts map
+// Standard demo accounts map for 3 Core Roles: Student, Placement Officer, Super Admin
 const DEMO_USERS = {
-    "student@college.edu": { name: "Demo Student", role: "student" },
-    "recruiter@company.com": { name: "Demo Recruiter", role: "recruiter" },
-    "coordinator@college.edu": { name: "Demo Coordinator", role: "coordinator" },
-    "admin@college.edu": { name: "Demo Admin", role: "admin" },
+    "ashwanth@college.edu": { name: "Ashwanth S", role: "student" },
+    "student@college.edu": { name: "Ashwanth S (Student)", role: "student" },
+    "officer@college.edu": { name: "Placement Officer", role: "officer" },
+    "admin@college.edu": { name: "Super Admin", role: "admin" }
 };
 
 const registerUser = async (req, res) => {

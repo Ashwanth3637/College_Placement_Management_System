@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { INITIAL_COMPANIES } from "./CompanyManagement";
-import { addRecruiterActivity } from "../../utils/recruiterActivityUtils";
 import { API_BASE_URL } from "../../config/api";
 
 export const INITIAL_DRIVES: any[] = [];
@@ -212,15 +211,6 @@ const DriveManagement: React.FC = () => {
             return next;
         });
 
-        // 🔔 Log Dynamic Recruiter Activity
-        addRecruiterActivity({
-            type: "PLACEMENT_DRIVE_APPROVED",
-            title: "Placement Drive Approved",
-            message: `${drive.jobRole || drive.jobTitle || "Placement"} placement drive has been approved and applications are now open.`,
-            company: compName || "Amazon Development Center",
-            driveRole: drive.jobRole || drive.jobTitle || "Software Engineer"
-        });
-
         if (selectedDrive && selectedDrive.id === drive.id) {
             setSelectedDrive({ ...selectedDrive, status: updatedStatus });
         }
@@ -252,15 +242,6 @@ const DriveManagement: React.FC = () => {
             localStorage.setItem("cpms_drives", JSON.stringify(next));
             window.dispatchEvent(new Event("storage"));
             return next;
-        });
-
-        // 🔔 Log Dynamic Recruiter Activity
-        addRecruiterActivity({
-            type: "PLACEMENT_DRIVE_REJECTED",
-            title: "Placement Drive Rejected",
-            message: `${rejectModalDrive.jobRole || rejectModalDrive.jobTitle || "Placement"} placement drive was rejected. Reason: ${reason}`,
-            company: rejectModalDrive.companyName || rejectModalDrive.company || "Amazon Development Center",
-            driveRole: rejectModalDrive.jobRole || rejectModalDrive.jobTitle || "Software Engineer"
         });
 
         if (selectedDrive && selectedDrive.id === rejectModalDrive.id) {

@@ -18,8 +18,7 @@ const autoSeed = async () => {
         // 1. Seed Users
         const usersToSeed = [
             { name: "Demo Student", email: "student@college.edu", password: defaultPassword, role: "student" },
-            { name: "Demo Recruiter", email: "recruiter@company.com", password: defaultPassword, role: "recruiter" },
-            { name: "Demo Coordinator", email: "coordinator@college.edu", password: defaultPassword, role: "coordinator" },
+            { name: "Placement Officer", email: "officer@college.edu", password: defaultPassword, role: "officer" },
             { name: "Demo Admin", email: "admin@college.edu", password: defaultPassword, role: "admin" },
             { name: "Ashwanth S", email: "ashwanth@college.edu", password: defaultPassword, role: "student" }
         ];

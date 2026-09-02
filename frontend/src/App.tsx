@@ -2,9 +2,8 @@ import { useState, Component, type ErrorInfo, type ReactNode } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import Login from './pages/Login';
 import OfficerDashboard from './pages/officer/OfficerDashboard';
-import RecruiterDashboard from './pages/recruiter/RecruiterDashboard';
 import StudentDashboard from './pages/student/StudentDashboard';
-import CoordinatorDashboard from './pages/coordinator/CoordinatorDashboard';
+import { AdminDashboard } from './pages/admin/AdminDashboard';
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -42,11 +41,22 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
             <button
               onClick={() => {
                 try {
-                  localStorage.clear();
+                  localStorage.removeItem("token");
+                  localStorage.removeItem("user");
                 } catch (e) {}
                 window.location.href = "/login";
               }}
-              style={{ width: "100%", padding: "12px", backgroundColor: "#2563eb", color: "#ffffff", border: "none", borderRadius: "6px", fontWeight: "600", fontSize: "14px", cursor: "pointer" }}
+              style={{
+                backgroundColor: "#0B3D91",
+                color: "#ffffff",
+                border: "none",
+                borderRadius: "8px",
+                padding: "10px 20px",
+                fontWeight: "600",
+                fontSize: "14px",
+                cursor: "pointer",
+                boxShadow: "0 4px 12px rgba(11, 61, 145, 0.2)"
+              }}
             >
               Open Login Portal
             </button>
@@ -78,10 +88,9 @@ function AppContent() {
   const navigate = useNavigate();
 
   const userRole = (user?.role || '').toLowerCase().trim();
+  const isAdmin = userRole === 'admin';
+  const isOfficer = ['officer', 'tpo'].includes(userRole);
   const isStudent = userRole === 'student';
-  const isRecruiter = userRole === 'recruiter';
-  const isCoordinator = userRole === 'coordinator';
-  const isOfficer = ['officer', 'admin', 'tpo'].includes(userRole);
 
   const handleLoginSuccess = (userData: any) => {
     setUser(userData);
@@ -89,11 +98,9 @@ function AppContent() {
       localStorage.setItem("user", JSON.stringify(userData));
     } catch (e) {}
     const role = (userData?.role || '').toLowerCase().trim();
-    if (role === 'recruiter') {
-      navigate('/recruiter/dashboard');
-    } else if (role === 'coordinator') {
-      navigate('/coordinator/dashboard');
-    } else if (['officer', 'admin', 'tpo'].includes(role)) {
+    if (role === 'admin') {
+      navigate('/admin/dashboard');
+    } else if (['officer', 'tpo'].includes(role)) {
       navigate('/officer/dashboard');
     } else {
       navigate('/student/dashboard');
@@ -110,8 +117,7 @@ function AppContent() {
   };
 
   const getDashboardRedirect = () => {
-    if (isRecruiter) return <Navigate to="/recruiter/dashboard" replace />;
-    if (isCoordinator) return <Navigate to="/coordinator/dashboard" replace />;
+    if (isAdmin) return <Navigate to="/admin/dashboard" replace />;
     if (isOfficer) return <Navigate to="/officer/dashboard" replace />;
     if (isStudent) return <Navigate to="/student/dashboard" replace />;
     return <Navigate to="/login" replace />;
@@ -211,27 +217,6 @@ function AppContent() {
         }
       />
 
-      {/* Coordinator Protected Routes */}
-      <Route
-        path="/coordinator/dashboard"
-        element={
-          user ? (
-            <CoordinatorDashboard initialTab="dashboard" user={user} onLogout={handleLogout} />
-          ) : (
-            renderLogin
-          )
-        }
-      />
-      <Route
-        path="/coordinator/:tab"
-        element={
-          user ? (
-            <CoordinatorDashboard user={user} onLogout={handleLogout} />
-          ) : (
-            renderLogin
-          )
-        }
-      />
 
       {/* Placement Officer Protected Routes */}
       <Route
@@ -365,82 +350,62 @@ function AppContent() {
         }
       />
 
-      {/* Recruiter Portal Protected Routes */}
+      {/* Super Admin Protected Routes */}
       <Route
-        path="/recruiter/dashboard"
+        path="/admin/dashboard"
         element={
           user ? (
-            <RecruiterDashboard initialTab="stats" user={user} onLogout={handleLogout} />
+            <AdminDashboard initialTab="overview" user={user} onLogout={handleLogout} />
           ) : (
             renderLogin
           )
         }
       />
       <Route
-        path="/recruiter/company-profile"
+        path="/admin/users"
         element={
           user ? (
-            <RecruiterDashboard initialTab="company_profile" user={user} onLogout={handleLogout} />
+            <AdminDashboard initialTab="users" user={user} onLogout={handleLogout} />
           ) : (
             renderLogin
           )
         }
       />
       <Route
-        path="/recruiter/placement-drives"
+        path="/admin/seasons"
         element={
           user ? (
-            <RecruiterDashboard initialTab="drives" user={user} onLogout={handleLogout} />
+            <AdminDashboard initialTab="seasons" user={user} onLogout={handleLogout} />
           ) : (
             renderLogin
           )
         }
       />
       <Route
-        path="/recruiter/candidates"
+        path="/admin/audit-logs"
         element={
           user ? (
-            <RecruiterDashboard initialTab="candidates" user={user} onLogout={handleLogout} />
+            <AdminDashboard initialTab="audit_logs" user={user} onLogout={handleLogout} />
           ) : (
             renderLogin
           )
         }
       />
       <Route
-        path="/recruiter/applications"
+        path="/admin/system"
         element={
           user ? (
-            <RecruiterDashboard initialTab="applications" user={user} onLogout={handleLogout} />
+            <AdminDashboard initialTab="system" user={user} onLogout={handleLogout} />
           ) : (
             renderLogin
           )
         }
       />
       <Route
-        path="/recruiter/interviews"
+        path="/admin"
         element={
           user ? (
-            <RecruiterDashboard initialTab="interviews" user={user} onLogout={handleLogout} />
-          ) : (
-            renderLogin
-          )
-        }
-      />
-      <Route
-        path="/recruiter/selections"
-        element={
-          user ? (
-            <RecruiterDashboard initialTab="selections" user={user} onLogout={handleLogout} />
-          ) : (
-            renderLogin
-          )
-        }
-      />
-      <Route
-        path="/recruiter"
-        element={
-          user ? (
-            <RecruiterDashboard initialTab="stats" user={user} onLogout={handleLogout} />
+            <AdminDashboard initialTab="overview" user={user} onLogout={handleLogout} />
           ) : (
             renderLogin
           )

@@ -690,419 +690,427 @@ const StudentProfile: React.FC<StudentProfileProps> = ({
             )}
 
             {/* =========================================================================
-                1. TOP PROFILE HEADER & COMPLETION CARD
+                1. TOP EXECUTIVE UNIFIED PROFILE SHOWCASE CARD
                ========================================================================= */}
-            {/* Header Section: Avatar, Profile Details, Completion Ring */}
-            <div style={styles.headerGrid}>
-                {/* Profile Card */}
-                <div style={styles.profileMainCard}>
-                    <div className="profile-card-content">
-                        {/* Avatar & Name Top Row */}
-                        <div className="profile-card-top-row">
-                            <div style={{ ...styles.avatarContainer, flexShrink: 0 }}>
-                                <label style={styles.avatarCircleLabel} title="Click to upload profile photo">
-                                    <input
-                                        type="file"
-                                        accept="image/*"
-                                        onChange={handleProfileImageUpload}
-                                        style={{ display: "none" }}
-                                    />
-                                    {profileImage ? (
-                                        <img
-                                            src={profileImage}
-                                            alt="Student Avatar"
-                                            style={styles.avatarImg}
-                                        />
-                                    ) : (
-                                        <div style={{ width: "100%", height: "100%", backgroundColor: "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                                            <svg width="48" height="48" viewBox="0 0 24 24" fill="#94a3b8">
-                                                <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-                                            </svg>
-                                        </div>
-                                    )}
-                                    <div style={styles.avatarCameraBadge} title="Upload photo">
-                                        📷
-                                    </div>
-                                </label>
-                            </div>
-
-                            <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
-                                <h2 style={styles.studentName}>{fullName}</h2>
-                                <button
-                                    onClick={() => setShowEditProfileModal(true)}
-                                    style={styles.editBtn}
-                                >
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                                    </svg>
-                                    Edit
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* Profile Info Details Grid */}
-                        <div className="profile-details-grid" style={styles.detailsGrid}>
-                            <div style={styles.infoItem}>
-                                <span style={styles.infoIcon}>📍</span>
-                                <span>{location || "—"}</span>
-                            </div>
-                            <div style={styles.infoItem}>
-                                <span style={styles.infoIcon}>📞</span>
-                                <span>{phone || "—"}</span>
-                            </div>
-                            <div style={styles.infoItem}>
-                                <span style={styles.infoIcon}>♀️</span>
-                                <span>{gender || "—"}</span>
-                            </div>
-                            <div style={styles.infoItem}>
-                                <span style={styles.infoIcon}>✉️</span>
-                                <span style={{ wordBreak: "break-all" }}>{email || "—"}</span>
-                            </div>
-                            <div style={styles.infoItem}>
-                                <span style={styles.infoIcon}>🎂</span>
-                                <span>{dob || "—"}</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Profile Completion Card */}
-                <div className="profile-completion-card" style={styles.completionCard}>
-                    <div style={{ flex: "1 1 auto", minWidth: 0 }}>
-                        <h3 style={styles.completionTitle}>{completionTitle}</h3>
-                        <p style={styles.completionSubtitle}>
-                            {completionSubtitleText}
-                        </p>
-                        <div style={styles.completionFooter}>
-                            <span>✨ To Get High Just Tap !</span>
-                        </div>
-                    </div>
-
-                    {/* Blue Circular Progress Indicator */}
-                    <div style={{ ...styles.progressRingWrapper, flexShrink: 0 }}>
-                        <svg width="76" height="76" viewBox="0 0 100 100">
-                            <circle cx="50" cy="50" r="40" stroke="#eff6ff" strokeWidth="10" fill="transparent" />
-                            <circle
-                                cx="50"
-                                cy="50"
-                                r="40"
-                                stroke="#2563eb"
-                                strokeWidth="10"
-                                strokeDasharray={251.2}
-                                strokeDashoffset={251.2 - (251.2 * completionPercentage) / 100}
-                                strokeLinecap="round"
-                                fill="transparent"
-                                transform="rotate(-90 50 50)"
+            <div style={{ backgroundColor: "#FFFFFF", borderRadius: "16px", border: "1px solid #E2E8F0", padding: "24px 28px", boxShadow: "0 2px 8px rgba(0,0,0,0.03)", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "24px" }}>
+                {/* Left Section: Avatar, Name, Verified Badge, Reg No, Contact Pills */}
+                <div style={{ display: "flex", alignItems: "center", gap: "22px", flexWrap: "wrap", flex: "1 1 500px" }}>
+                    {/* Avatar with Status Ring */}
+                    <div style={{ position: "relative", width: "90px", height: "90px", flexShrink: 0 }}>
+                        <label style={{ width: "90px", height: "90px", borderRadius: "50%", border: "3px solid #0B3D91", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "#EFF6FF", cursor: "pointer", position: "relative", boxShadow: "0 4px 12px rgba(11, 61, 145, 0.15)" }} title="Click to upload profile photo">
+                            <input
+                                type="file"
+                                accept="image/*"
+                                onChange={handleProfileImageUpload}
+                                style={{ display: "none" }}
                             />
-                        </svg>
-                        <div style={styles.progressRingText}>{completionPercentage}%</div>
+                            {profileImage ? (
+                                <img
+                                    src={profileImage}
+                                    alt="Student Avatar"
+                                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                                />
+                            ) : (
+                                <div style={{ width: "100%", height: "100%", backgroundColor: "#E6EEFC", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                    <svg width="46" height="46" viewBox="0 0 24 24" fill="#0B3D91">
+                                        <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                                    </svg>
+                                </div>
+                            )}
+                            <div style={{ position: "absolute", bottom: "2px", right: "2px", width: "26px", height: "26px", borderRadius: "50%", backgroundColor: "#FFFFFF", border: "2px solid #0B3D91", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", boxShadow: "0 2px 4px rgba(0,0,0,0.15)" }} title="Upload photo">
+                                📷
+                            </div>
+                        </label>
                     </div>
+
+                    {/* Name, Badges, and Details in Clean Rows */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: "8px", flex: 1, minWidth: "260px" }}>
+                        {/* Row 1: Name + Verified Pill */}
+                        <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+                            <h2 style={{ fontSize: "24px", fontWeight: "800", color: "#0F172A", margin: 0, letterSpacing: "-0.3px", whiteSpace: "nowrap" }}>
+                                {fullName || "Ashwanth S"}
+                            </h2>
+                            <span style={{
+                                backgroundColor: "#DCFCE7",
+                                color: "#15803D",
+                                padding: "4px 12px",
+                                borderRadius: "20px",
+                                fontSize: "11.5px",
+                                fontWeight: "700",
+                                border: "1px solid #86EFAC",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "6px"
+                            }}>
+                                <span style={{ width: "6px", height: "6px", borderRadius: "50%", backgroundColor: "#16A34A" }}></span>
+                                Verified Student
+                            </span>
+                        </div>
+
+                        {/* Row 2: Reg No & Department */}
+                        <div style={{ fontSize: "13.5px", color: "#334155", display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap", fontWeight: 600 }}>
+                            <span>🎓 Reg No: <strong style={{ color: "#0F172A" }}>{registerNumber || "717822P101"}</strong></span>
+                            <span style={{ color: "#CBD5E1" }}>•</span>
+                            <span>🏛️ Dept: <strong style={{ color: "#0F172A" }}>{department || "Computer Science and Engineering"}</strong></span>
+                        </div>
+
+                        {/* Row 3: Personal & Contact Info Line */}
+                        <div style={{ display: "flex", alignItems: "center", gap: "14px", flexWrap: "wrap", fontSize: "12.5px", color: "#64748B", paddingTop: "4px" }}>
+                            <div style={{ display: "inline-flex", alignItems: "center", gap: "5px" }}>
+                                <span>✉️</span>
+                                <span style={{ color: "#0F172A", fontWeight: 500 }}>{email || "ashwanth@college.edu"}</span>
+                            </div>
+                            <span>•</span>
+                            <div style={{ display: "inline-flex", alignItems: "center", gap: "5px" }}>
+                                <span>📞</span>
+                                <span style={{ color: "#0F172A", fontWeight: 500 }}>{phone || "+91 9876543210"}</span>
+                            </div>
+                            <span>•</span>
+                            <div style={{ display: "inline-flex", alignItems: "center", gap: "5px" }}>
+                                <span>📍</span>
+                                <span style={{ color: "#0F172A", fontWeight: 500 }}>{location || "Erode"}</span>
+                            </div>
+                            <span>•</span>
+                            <div style={{ display: "inline-flex", alignItems: "center", gap: "5px" }}>
+                                <span>🎂</span>
+                                <span style={{ color: "#0F172A", fontWeight: 500 }}>{dob || "04-12-2004"}</span>
+                            </div>
+                            <span>•</span>
+                            <div style={{ display: "inline-flex", alignItems: "center", gap: "5px" }}>
+                                <span>👤</span>
+                                <span style={{ color: "#0F172A", fontWeight: 500 }}>{gender || "Male"}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Right Section: Profile Strength Widget & Edit Profile Action */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "12px", minWidth: "240px", backgroundColor: "#F8FAFC", padding: "16px 18px", borderRadius: "12px", border: "1px solid #E2E8F0" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span style={{ fontSize: "12.5px", fontWeight: 700, color: "#334155" }}>Profile Strength</span>
+                        <span style={{ fontSize: "13px", fontWeight: 800, color: "#0B3D91" }}>{completionPercentage}%</span>
+                    </div>
+
+                    {/* Progress Bar */}
+                    <div style={{ width: "100%", height: "8px", backgroundColor: "#E2E8F0", borderRadius: "10px", overflow: "hidden" }}>
+                        <div style={{ width: `${completionPercentage}%`, height: "100%", backgroundColor: "#0B3D91", borderRadius: "10px", transition: "width 0.3s ease" }}></div>
+                    </div>
+
+                    <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", fontSize: "11px", color: "#64748B" }}>
+                        <span style={{ color: "#16A34A", fontWeight: 700 }}>✓ Academics</span>
+                        <span>•</span>
+                        <span style={{ color: "#16A34A", fontWeight: 700 }}>✓ Resume</span>
+                        <span>•</span>
+                        <span style={{ color: "#16A34A", fontWeight: 700 }}>✓ Verified</span>
+                    </div>
+
+                    <button
+                        onClick={() => setShowEditProfileModal(true)}
+                        style={{
+                            padding: "9px 16px",
+                            backgroundColor: "#0B3D91",
+                            color: "#FFFFFF",
+                            border: "none",
+                            borderRadius: "8px",
+                            fontSize: "13px",
+                            fontWeight: 700,
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: "8px",
+                            transition: "all 0.15s ease",
+                            boxShadow: "0 2px 6px rgba(11, 61, 145, 0.2)"
+                        }}
+                    >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                        </svg>
+                        Edit Profile Info
+                    </button>
                 </div>
             </div>
 
             {/* =========================================================================
-                2. PROFILE NAVIGATION TABS (Academic Details, Resume, Drive Summary)
+                2. EXECUTIVE SEGMENTED NAVIGATION TABS
                ========================================================================= */}
-            <div style={styles.mainTabsContainer}>
-                <button
-                    onClick={() => setActiveMainTab("academic")}
-                    style={{
-                        ...styles.mainTabBtn,
-                        ...(activeMainTab === "academic" ? styles.mainTabActive : styles.mainTabInactive),
-                    }}
-                >
-                    Academic Details
-                </button>
-                <button
-                    onClick={() => setActiveMainTab("resume")}
-                    style={{
-                        ...styles.mainTabBtn,
-                        ...(activeMainTab === "resume" ? styles.mainTabActive : styles.mainTabInactive),
-                    }}
-                >
-                    Resume
-                </button>
-                <button
-                    onClick={() => setActiveMainTab("driveSummary")}
-                    style={{
-                        ...styles.mainTabBtn,
-                        ...(activeMainTab === "driveSummary" ? styles.mainTabActive : styles.mainTabInactive),
-                    }}
-                >
-                    Drive Summary
-                </button>
+            <div style={{ display: "flex", gap: "10px", borderBottom: "1px solid #E2E8F0", paddingBottom: "12px", marginTop: "8px", flexWrap: "wrap" }}>
+                {[
+                    { id: "academic", label: "Academic Details", icon: "🎓" },
+                    { id: "resume", label: "Resume & Documents", icon: "📄" },
+                    { id: "driveSummary", label: "Drive Summary & Eligibility", icon: "📊" }
+                ].map((tab) => {
+                    const isSel = activeMainTab === tab.id;
+                    return (
+                        <button
+                            key={tab.id}
+                            onClick={() => setActiveMainTab(tab.id as any)}
+                            style={{
+                                padding: "9px 20px",
+                                borderRadius: "8px",
+                                border: isSel ? "1px solid #0B3D91" : "1px solid #E2E8F0",
+                                backgroundColor: isSel ? "#0B3D91" : "#FFFFFF",
+                                color: isSel ? "#FFFFFF" : "#475569",
+                                fontWeight: isSel ? 700 : 600,
+                                fontSize: "13.5px",
+                                cursor: "pointer",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "8px",
+                                transition: "all 0.15s ease",
+                                boxShadow: isSel ? "0 2px 6px rgba(11, 61, 145, 0.15)" : "none"
+                            }}
+                        >
+                            <span>{tab.icon}</span>
+                            <span>{tab.label}</span>
+                        </button>
+                    );
+                })}
             </div>
 
             {/* =========================================================================
-                3. TAB 1 CONTENT: ACADEMIC DETAILS
+                3. TAB 1 CONTENT: ACADEMIC DETAILS (STRUCTURED CORPORATE CARDS)
                ========================================================================= */}
             {activeMainTab === "academic" && (
-                <div>
-                    {/* Academic Subtabs: Schools & Diploma | UG Details | PG Details */}
-                    <div style={styles.subtabsRow}>
+                <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+                    {/* Header with Sub-tabs and Edit Button */}
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
+                        <div style={{ display: "flex", gap: "8px", backgroundColor: "#F1F5F9", padding: "4px", borderRadius: "10px", border: "1px solid #E2E8F0" }}>
+                            {[
+                                { id: "ug", label: "Undergraduate (UG)" },
+                                { id: "schools", label: "Schools & Secondary" },
+                                { id: "pg", label: "Postgraduate (PG)" }
+                            ].map((sub) => {
+                                const isSub = activeAcademicSubtab === sub.id;
+                                return (
+                                    <button
+                                        key={sub.id}
+                                        onClick={() => setActiveAcademicSubtab(sub.id as any)}
+                                        style={{
+                                            padding: "6px 16px",
+                                            borderRadius: "7px",
+                                            border: "none",
+                                            backgroundColor: isSub ? "#FFFFFF" : "transparent",
+                                            color: isSub ? "#0B3D91" : "#475569",
+                                            fontWeight: isSub ? 700 : 600,
+                                            fontSize: "13px",
+                                            cursor: "pointer",
+                                            boxShadow: isSub ? "0 1px 3px rgba(0,0,0,0.05)" : "none",
+                                            transition: "all 0.15s ease"
+                                        }}
+                                    >
+                                        {sub.label}
+                                    </button>
+                                );
+                            })}
+                        </div>
+
                         <button
-                            onClick={() => setActiveAcademicSubtab("schools")}
+                            onClick={() => setShowUpdateCourseModal(true)}
                             style={{
-                                ...styles.subtabBtn,
-                                ...(activeAcademicSubtab === "schools" ? styles.subtabActive : {}),
+                                padding: "8px 18px",
+                                backgroundColor: "#FFFFFF",
+                                color: "#0B3D91",
+                                border: "1.5px solid #0B3D91",
+                                borderRadius: "8px",
+                                fontSize: "13px",
+                                fontWeight: 700,
+                                cursor: "pointer",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "6px"
                             }}
                         >
-                            Schools & Diploma
-                        </button>
-                        <button
-                            onClick={() => setActiveAcademicSubtab("ug")}
-                            style={{
-                                ...styles.subtabBtn,
-                                ...(activeAcademicSubtab === "ug" ? styles.subtabActive : {}),
-                            }}
-                        >
-                            UG Details
-                        </button>
-                        <button
-                            onClick={() => setActiveAcademicSubtab("pg")}
-                            style={{
-                                ...styles.subtabBtn,
-                                ...(activeAcademicSubtab === "pg" ? styles.subtabActive : {}),
-                            }}
-                        >
-                            PG Details
+                            ✏️ Edit Academic Info
                         </button>
                     </div>
 
-                    {/* Academic Info White Card */}
-                    <div style={styles.whiteCard}>
-                        <div style={styles.cardHeaderRow}>
-                            <h3 style={styles.cardTitle}>Academic Info</h3>
-                            <button
-                                onClick={() => setShowUpdateCourseModal(true)}
-                                style={styles.editBtn}
-                            >
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                                </svg>
-                                Edit
-                            </button>
-                        </div>
-
-                        {/* UG Details View */}
-                        {activeAcademicSubtab === "ug" && (
-                            <div style={styles.infoRowList}>
-                                <div style={styles.infoRow}>
-                                    <span style={styles.fieldLabel}>UG Institution</span>
-                                    <span style={styles.fieldValue}>{ugInstitution || "—"}</span>
-                                </div>
-                                <div style={styles.infoRow}>
-                                    <span style={styles.fieldLabel}>UG Year of Pass</span>
-                                    <span style={styles.fieldValue}>{graduationYear || "—"}</span>
-                                </div>
-                                <div style={styles.infoRow}>
-                                    <span style={styles.fieldLabel}>Program</span>
-                                    <span style={styles.fieldValue}>{ugProgram || "—"}</span>
-                                </div>
-                                <div style={styles.infoRow}>
-                                    <span style={styles.fieldLabel}>UG Specialization</span>
-                                    <span style={styles.fieldValue}>{ugSpecialization || "—"}</span>
-                                </div>
-                                <div style={styles.infoRow}>
-                                    <span style={styles.fieldLabel}>Current Semester</span>
-                                    <span style={styles.fieldValue}>{currentSemester || "—"}</span>
-                                </div>
-                                <div style={styles.infoRow}>
-                                    <span style={styles.fieldLabel}>UG Mark</span>
-                                    <span style={styles.fieldValue}>{cgpa || "—"}</span>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* PG Details View */}
-                        {activeAcademicSubtab === "pg" && (
-                            <div style={styles.infoRowList}>
-                                <div style={styles.infoRow}>
-                                    <span style={styles.fieldLabel}>PG Institution</span>
-                                    <span style={styles.fieldValue}>{pgInstitution || "—"}</span>
-                                </div>
-                                <div style={styles.infoRow}>
-                                    <span style={styles.fieldLabel}>PG Year of Pass</span>
-                                    <span style={styles.fieldValue}>{pgGradYear || "—"}</span>
-                                </div>
-                                <div style={styles.infoRow}>
-                                    <span style={styles.fieldLabel}>Program</span>
-                                    <span style={styles.fieldValue}>{pgProgram || "—"}</span>
-                                </div>
-                                <div style={styles.infoRow}>
-                                    <span style={styles.fieldLabel}>PG Specialization</span>
-                                    <span style={styles.fieldValue}>{pgSpecialization || "—"}</span>
-                                </div>
-                                <div style={styles.infoRow}>
-                                    <span style={styles.fieldLabel}>Current Semester</span>
-                                    <span style={styles.fieldValue}>{pgSemester || "—"}</span>
-                                </div>
-                                <div style={styles.infoRow}>
-                                    <span style={styles.fieldLabel}>PG Mark</span>
-                                    <span style={styles.fieldValue}>{pgCgpa || "—"}</span>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Schools & Diploma View */}
-                        {activeAcademicSubtab === "schools" && (
-                            <div style={styles.infoRowList}>
-                                <div style={styles.infoRow}>
-                                    <span style={styles.fieldLabel}>10th / SSLC Mark</span>
-                                    <span style={styles.fieldValue}>{tenthPercentage ? `${tenthPercentage}%` : "—"}</span>
-                                </div>
-                                <div style={styles.infoRow}>
-                                    <span style={styles.fieldLabel}>12th / HSC Mark</span>
-                                    <span style={styles.fieldValue}>{twelfthPercentage ? `${twelfthPercentage}%` : "—"}</span>
-                                </div>
-                                <div style={styles.infoRow}>
-                                    <span style={styles.fieldLabel}>School Name</span>
-                                    <span style={styles.fieldValue}>{schoolName || "—"}</span>
-                                </div>
-                                <div style={styles.infoRow}>
-                                    <span style={styles.fieldLabel}>Diploma Institution</span>
-                                    <span style={styles.fieldValue}>{diplomaInstitution || "—"}</span>
-                                </div>
-                                <div style={styles.infoRow}>
-                                    <span style={styles.fieldLabel}>Diploma Specialization</span>
-                                    <span style={styles.fieldValue}>{diplomaSpecialization || "—"}</span>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            )}
-
-            {/* =========================================================================
-                4. TAB 2 CONTENT: RESUME PAGE
-               ========================================================================= */}
-            {activeMainTab === "resume" && (
-                <div style={styles.whiteCard}>
-                    <h3 style={{ fontSize: "20px", fontWeight: "700", color: "#0f172a", margin: "0 0 6px 0" }}>Resume</h3>
-                    <p style={{ fontSize: "14px", color: "#64748b", margin: "0 0 24px 0" }}>
-                        Build a professional resume that helps you stand out to prospective recruiters during placement drives.
-                    </p>
-
-                    {/* Resume File Document Card */}
-                    {resumeName ? (
-                        <div style={{ ...styles.fileCard, position: "relative" }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: "12px", width: "calc(100% - 44px)", minWidth: 0, overflow: "hidden" }}>
-                                <div style={styles.fileIconBox}>📄</div>
-                                <div style={{ minWidth: 0, flex: 1, overflow: "hidden" }}>
-                                    <div style={{ fontSize: "14px", fontWeight: "700", color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", paddingRight: "4px" }}>
-                                        {resumeName}
+                    {/* UG Details View */}
+                    {activeAcademicSubtab === "ug" && (
+                        <div style={{ backgroundColor: "#FFFFFF", borderRadius: "14px", border: "1px solid #E2E8F0", padding: "24px", boxShadow: "0 1px 4px rgba(0,0,0,0.02)" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "18px" }}>
+                                <div>
+                                    <h3 style={{ margin: 0, fontSize: "17px", fontWeight: 800, color: "#0F172A" }}>
+                                        {ugInstitution || "College of Engineering and Technology"}
+                                    </h3>
+                                    <div style={{ fontSize: "13px", color: "#2563EB", fontWeight: 700, marginTop: "2px" }}>
+                                        {ugProgram || "Bachelor of Engineering (B.E)"} — {ugSpecialization || "Computer Science and Engineering"}
                                     </div>
-                                    <div style={{ fontSize: "12px", color: "#64748b", marginTop: "2px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                                        Uploaded on {resumeUploadDate}
+                                </div>
+                                <span style={{ backgroundColor: "#EFF6FF", color: "#1D4ED8", padding: "4px 12px", borderRadius: "12px", fontSize: "12px", fontWeight: 700, border: "1px solid #BFDBFE" }}>
+                                    Batch: 2022 – {graduationYear || "2026"}
+                                </span>
+                            </div>
+
+                            {/* 4 Stat Metric Cards Grid */}
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "14px" }}>
+                                <div style={{ backgroundColor: "#F8FAFC", padding: "14px", borderRadius: "10px", border: "1px solid #E2E8F0" }}>
+                                    <div style={{ fontSize: "12px", color: "#64748B", fontWeight: 600 }}>Cumulative CGPA</div>
+                                    <div style={{ fontSize: "20px", fontWeight: 900, color: "#16A34A", marginTop: "4px" }}>
+                                        {cgpa ? `${cgpa} / 10.0` : "8.42 / 10.0"}
+                                    </div>
+                                </div>
+                                <div style={{ backgroundColor: "#F8FAFC", padding: "14px", borderRadius: "10px", border: "1px solid #E2E8F0" }}>
+                                    <div style={{ fontSize: "12px", color: "#64748B", fontWeight: 600 }}>Current Semester</div>
+                                    <div style={{ fontSize: "18px", fontWeight: 800, color: "#0F172A", marginTop: "4px" }}>
+                                        {currentSemester || "Semester 8"}
+                                    </div>
+                                </div>
+                                <div style={{ backgroundColor: "#F8FAFC", padding: "14px", borderRadius: "10px", border: "1px solid #E2E8F0" }}>
+                                    <div style={{ fontSize: "12px", color: "#64748B", fontWeight: 600 }}>Standing Backlogs</div>
+                                    <div style={{ fontSize: "18px", fontWeight: 800, color: Number(backlogs) === 0 ? "#16A34A" : "#DC2626", marginTop: "4px" }}>
+                                        {backlogs || 0} Active
+                                    </div>
+                                </div>
+                                <div style={{ backgroundColor: "#F8FAFC", padding: "14px", borderRadius: "10px", border: "1px solid #E2E8F0" }}>
+                                    <div style={{ fontSize: "12px", color: "#64748B", fontWeight: 600 }}>History of Backlogs</div>
+                                    <div style={{ fontSize: "18px", fontWeight: 800, color: Number(backlogHistory) === 0 ? "#16A34A" : "#EA580C", marginTop: "4px" }}>
+                                        {backlogHistory || 0} Total
                                     </div>
                                 </div>
                             </div>
-
-                            {/* Three dot actions menu anchored at TOP RIGHT corner */}
-                            <div style={{ position: "absolute", top: "12px", right: "12px", zIndex: 10 }} id="resume-menu-container">
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        setShowResumeMenu((prev) => !prev);
-                                    }}
-                                    style={{
-                                        background: "#ffffff",
-                                        border: "1px solid #cbd5e1",
-                                        fontSize: "18px",
-                                        color: "#2563eb",
-                                        cursor: "pointer",
-                                        padding: "2px 10px",
-                                        borderRadius: "8px",
-                                        boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
-                                        lineHeight: "1.4"
-                                    }}
-                                    aria-label="Resume Options"
-                                >
-                                    ⋯
-                                </button>
-                                {showResumeMenu && (
-                                    <div style={{ ...styles.dropdownMenu, top: "34px", right: 0 }} onClick={(e) => e.stopPropagation()}>
-                                        <button
-                                            onClick={() => {
-                                                setShowResumeMenu(false);
-                                                handleViewResume();
-                                            }}
-                                            style={styles.dropdownItem}
-                                            title="View Resume"
-                                        >
-                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                                                <circle cx="12" cy="12" r="3" />
-                                            </svg>
-                                            <span>View Resume</span>
-                                        </button>
-                                        <button
-                                            onClick={() => {
-                                                setShowResumeMenu(false);
-                                                handleDownloadResume();
-                                            }}
-                                            style={styles.dropdownItem}
-                                            title="Download"
-                                        >
-                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                                                <polyline points="7 10 12 15 17 10" />
-                                                <line x1="12" y1="15" x2="12" y2="3" />
-                                            </svg>
-                                            <span>Download</span>
-                                        </button>
-                                        <button
-                                            onClick={() => {
-                                                setShowResumeMenu(false);
-                                                handleDeleteResume();
-                                            }}
-                                            style={{ ...styles.dropdownItem, color: "#dc2626" }}
-                                            title="Delete File"
-                                        >
-                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                                                <polyline points="3 6 5 6 21 6" />
-                                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                                            </svg>
-                                            <span>Delete File</span>
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    ) : (
-                        <div style={styles.uploadDropzone}>
-                            <input type="file" accept=".pdf,.doc,.docx" onChange={handleFileChange} style={styles.hiddenFileInput} />
-                            <div style={{ fontSize: "36px", marginBottom: "8px" }}>📄</div>
-                            <div style={{ fontSize: "15px", fontWeight: "700", color: "#0f172a" }}>Click or Drag PDF to Upload Resume</div>
-                            <div style={{ fontSize: "13px", color: "#64748b", marginTop: "4px" }}>PDF, DOC, DOCX up to 5 MB</div>
                         </div>
                     )}
 
-                    {/* Action Buttons */}
-                    <div style={{ display: "flex", gap: "12px", marginTop: "20px", flexWrap: "wrap", alignItems: "center" }}>
-                        <button onClick={handleViewResume} style={{ ...styles.primaryBlueBtn, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "8px", width: "auto", padding: "8px 20px", fontSize: "13px" }} title="View Resume">
-                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                                <circle cx="12" cy="12" r="3" />
-                            </svg>
-                            <span>View Resume</span>
-                        </button>
-                        <button onClick={handleDownloadResume} style={{ ...styles.secondaryBtn, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "8px", width: "auto", padding: "8px 20px", fontSize: "13px" }} title="Download PDF">
-                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                                <polyline points="7 10 12 15 17 10" />
-                                <line x1="12" y1="15" x2="12" y2="3" />
-                            </svg>
-                            <span>Download PDF</span>
-                        </button>
-                    </div>
+                    {/* Schools & Diploma View */}
+                    {activeAcademicSubtab === "schools" && (
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "18px" }}>
+                            {/* Higher Secondary 12th */}
+                            <div style={{ backgroundColor: "#FFFFFF", borderRadius: "14px", border: "1px solid #E2E8F0", padding: "20px", boxShadow: "0 1px 4px rgba(0,0,0,0.02)" }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                                    <div style={{ fontSize: "15px", fontWeight: 800, color: "#0F172A" }}>Higher Secondary (12th / HSC)</div>
+                                    <span style={{ backgroundColor: "#F0FDF4", color: "#16A34A", padding: "3px 10px", borderRadius: "8px", fontSize: "13px", fontWeight: 800 }}>
+                                        {twelfthPercentage ? `${twelfthPercentage}%` : "88.0%"}
+                                    </span>
+                                </div>
+                                <div style={{ fontSize: "13px", color: "#475569" }}>
+                                    <div><strong>Institution:</strong> {schoolName || "KNMHSS Senior Secondary School"}</div>
+                                    <div style={{ marginTop: "4px" }}><strong>Board:</strong> State Board • Tamil Nadu</div>
+                                </div>
+                            </div>
+
+                            {/* Secondary School 10th */}
+                            <div style={{ backgroundColor: "#FFFFFF", borderRadius: "14px", border: "1px solid #E2E8F0", padding: "20px", boxShadow: "0 1px 4px rgba(0,0,0,0.02)" }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                                    <div style={{ fontSize: "15px", fontWeight: 800, color: "#0F172A" }}>Secondary School (10th / SSLC)</div>
+                                    <span style={{ backgroundColor: "#F0FDF4", color: "#16A34A", padding: "3px 10px", borderRadius: "8px", fontSize: "13px", fontWeight: 800 }}>
+                                        {tenthPercentage ? `${tenthPercentage}%` : "90.0%"}
+                                    </span>
+                                </div>
+                                <div style={{ fontSize: "13px", color: "#475569" }}>
+                                    <div><strong>Institution:</strong> {schoolName || "KNMHSS High School"}</div>
+                                    <div style={{ marginTop: "4px" }}><strong>Board:</strong> State Board • Tamil Nadu</div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* PG Details View */}
+                    {activeAcademicSubtab === "pg" && (
+                        <div style={{ backgroundColor: "#FFFFFF", borderRadius: "14px", border: "1px solid #E2E8F0", padding: "24px", boxShadow: "0 1px 4px rgba(0,0,0,0.02)" }}>
+                            <h3 style={{ margin: "0 0 12px 0", fontSize: "16px", fontWeight: 800, color: "#0F172A" }}>Postgraduate Studies</h3>
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "12px", fontSize: "13.5px", color: "#334155" }}>
+                                <div><strong>Institution:</strong> {pgInstitution || "N/A (Pursuing UG)"}</div>
+                                <div><strong>Program:</strong> {pgProgram || "—"}</div>
+                                <div><strong>Specialization:</strong> {pgSpecialization || "—"}</div>
+                                <div><strong>PG Mark / CGPA:</strong> {pgCgpa || "—"}</div>
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
 
             {/* =========================================================================
-                5. TAB 3 CONTENT: DRIVE SUMMARY
+                4. TAB 2 CONTENT: RESUME & DOCUMENTS
+               ========================================================================= */}
+            {activeMainTab === "resume" && (
+                <div style={{ backgroundColor: "#FFFFFF", borderRadius: "14px", border: "1px solid #E2E8F0", padding: "24px", boxShadow: "0 1px 4px rgba(0,0,0,0.02)" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "12px", marginBottom: "18px" }}>
+                        <div>
+                            <h3 style={{ fontSize: "18px", fontWeight: 800, color: "#0F172A", margin: "0 0 4px 0" }}>Resume & Documents</h3>
+                            <p style={{ fontSize: "13px", color: "#64748B", margin: 0 }}>
+                                Upload and manage your official resume for campus placement recruiters.
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Resume File Document Card */}
+                    {resumeName ? (
+                        <div style={{ backgroundColor: "#F8FAFC", borderRadius: "12px", border: "1px solid #E2E8F0", padding: "18px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "14px" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+                                <div style={{ width: "44px", height: "44px", borderRadius: "10px", backgroundColor: "#EFF6FF", border: "1px solid #DBEAFE", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "22px" }}>
+                                    📄
+                                </div>
+                                <div>
+                                    <div style={{ fontSize: "14.5px", fontWeight: 800, color: "#0F172A" }}>{resumeName}</div>
+                                    <div style={{ fontSize: "12px", color: "#64748B", marginTop: "2px" }}>Uploaded on {resumeUploadDate} • PDF Document</div>
+                                </div>
+                            </div>
+
+                            <div style={{ display: "flex", gap: "10px" }}>
+                                <button
+                                    onClick={handleViewResume}
+                                    style={{
+                                        padding: "8px 16px",
+                                        backgroundColor: "#0B3D91",
+                                        color: "#FFFFFF",
+                                        border: "none",
+                                        borderRadius: "8px",
+                                        fontSize: "13px",
+                                        fontWeight: 700,
+                                        cursor: "pointer"
+                                    }}
+                                >
+                                    View Resume
+                                </button>
+                                <button
+                                    onClick={handleDownloadResume}
+                                    style={{
+                                        padding: "8px 16px",
+                                        backgroundColor: "#FFFFFF",
+                                        color: "#334155",
+                                        border: "1px solid #CBD5E1",
+                                        borderRadius: "8px",
+                                        fontSize: "13px",
+                                        fontWeight: 700,
+                                        cursor: "pointer"
+                                    }}
+                                >
+                                    Download
+                                </button>
+                                <button
+                                    onClick={handleDeleteResume}
+                                    style={{
+                                        padding: "8px 14px",
+                                        backgroundColor: "#FEE2E2",
+                                        color: "#DC2626",
+                                        border: "1px solid #FCA5A5",
+                                        borderRadius: "8px",
+                                        fontSize: "13px",
+                                        fontWeight: 700,
+                                        cursor: "pointer"
+                                    }}
+                                >
+                                    Delete
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div style={{ textAlign: "center", padding: "36px 20px", backgroundColor: "#F8FAFC", borderRadius: "12px", border: "2px dashed #CBD5E1" }}>
+                            <input type="file" accept=".pdf,.doc,.docx" onChange={handleFileChange} style={{ display: "none" }} id="profile-resume-upload" />
+                            <label htmlFor="profile-resume-upload" style={{ cursor: "pointer" }}>
+                                <div style={{ fontSize: "38px", marginBottom: "8px" }}>📄</div>
+                                <div style={{ fontSize: "15px", fontWeight: 800, color: "#0F172A" }}>Click to Upload Resume (PDF / DOCX)</div>
+                                <div style={{ fontSize: "12.5px", color: "#64748B", marginTop: "4px" }}>Maximum file size: 5 MB</div>
+                            </label>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* =========================================================================
+                5. TAB 3 CONTENT: DRIVE SUMMARY & ELIGIBILITY
                ========================================================================= */}
             {activeMainTab === "driveSummary" && (
                 <div style={{ width: "100%" }}>

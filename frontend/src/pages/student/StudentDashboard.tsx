@@ -47,11 +47,14 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
     const userId = user?.id || user?._id || "";
 
     const formatCtc = (rawCtc?: string) => {
-        if (!rawCtc) return "$18 LPA";
-        return String(rawCtc)
-            .replace(/₹\s*/g, "$")
-            .replace(/Rs\.?\s*/gi, "$")
-            .replace(/\.0(?=\s*lpa)/gi, "");
+        if (!rawCtc) return "18 LPA";
+        let str = String(rawCtc).trim();
+        str = str.replace(/[$₹]/g, "").replace(/Rs\.?\s*/gi, "").trim();
+        str = str.replace(/\.0(?=\s*lpa)/gi, "");
+        if (!str.toLowerCase().includes("lpa") && !isNaN(Number(str))) {
+            return `${str} LPA`;
+        }
+        return str;
     };
 
     const getFormattedName = (rawName?: string) => {
@@ -130,12 +133,12 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
         }
     }, [initialTab]);
 
-    type CampusDriveFilter = "All" | "Opted-In" | "Opted-Out" | "Eligible" | "Not Eligible" | "Up coming" | "On coming" | "Completed";
+    type CampusDriveFilter = "All" | "Opted-In" | "Opted-Out" | "Eligible" | "Not Eligible" | "Up coming" | "Completed";
 
     const [driveFilter, setDriveFilterState] = useState<CampusDriveFilter>(() => {
         try {
             const saved = localStorage.getItem(`cpms_drive_filter_student_${userKey}`);
-            if (saved && ["All", "Opted-In", "Opted-Out", "Eligible", "Not Eligible", "Up coming", "On coming", "Completed"].includes(saved)) {
+            if (saved && ["All", "Opted-In", "Opted-Out", "Eligible", "Not Eligible", "Up coming", "Completed"].includes(saved)) {
                 return saved as CampusDriveFilter;
             }
         } catch (e) {}
@@ -160,6 +163,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
     const [optOutReason, setOptOutReason] = useState<string>("");
     const [showNotificationsModal, setShowNotificationsModal] = useState<boolean>(false);
     const [activeNotifFilter, setActiveNotifFilter] = useState<string>("All");
+    const [appTrackerFilter, setAppTrackerFilter] = useState<"all" | "in_progress" | "completed">("all");
 
     const [showFilterModal, setShowFilterModal] = useState<boolean>(false);
 
@@ -769,7 +773,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                                     logo: pd.logoUrl || pd.logo || "https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg",
                                     bgColor: "#ffffff",
                                     role: pd.jobRole || pd.jobTitle || pd.role || "Software Developer",
-                                    ctc: pd.salaryPackage || pd.packageCtc || pd.ctc || "$18 LPA",
+                                    ctc: pd.salaryPackage || pd.packageCtc || pd.ctc || "18 LPA",
                                     minCgpa: Number(pd.minCgpa ?? pd.eligibility?.minCgpa) || 6.5,
                                     minTenth: Number(pd.minTenth ?? pd.eligibility?.minTenth ?? pd.eligibility?.tenthCutoff) || 60,
                                     minTwelfth: Number(pd.minTwelfth ?? pd.eligibility?.minTwelfth ?? pd.eligibility?.twelfthCutoff) || 60,
@@ -883,7 +887,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                         logo: pd.logoUrl || pd.logo || "https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg",
                         bgColor: "#ffffff",
                         role: pd.jobRole || pd.jobTitle || pd.role || "Software Developer",
-                        ctc: pd.salaryPackage || pd.packageCtc || pd.ctc || "$18 LPA",
+                        ctc: pd.salaryPackage || pd.packageCtc || pd.ctc || "18 LPA",
                         minCgpa: minCgpaVal,
                         minTenth: minTenthVal,
                         minTwelfth: minTwelfthVal,
@@ -1619,17 +1623,17 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
             />
 
             {/* Sidebar matching clean white placement portal design */}
-            <aside className={`app-drawer-sidebar ${isMobileMenuOpen ? "open" : ""}`} style={{ width: "240px", backgroundColor: "#ffffff", borderRight: "1px solid #e2e8f0", display: "flex", flexDirection: "column", justifyContent: "space-between", flexShrink: 0, height: "100vh", overflowY: "auto" }}>
+            <aside className={`app-drawer-sidebar ${isMobileMenuOpen ? "open" : ""}`} style={{ width: "240px", backgroundColor: "#ffffff", borderRight: "1px solid #e2e8f0", display: "flex", flexDirection: "column", justifyContent: "space-between", flexShrink: 0, height: "100vh", overflowY: "auto", boxShadow: "2px 0 10px rgba(11,61,145,0.03)" }}>
                 <div>
                     {/* Brand */}
-                    <div style={{ padding: "20px 20px", borderBottom: "1px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                            <div style={{ width: "38px", height: "38px", backgroundColor: "#2563eb", borderRadius: "10px", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "800", fontSize: "20px", boxShadow: "0 4px 12px rgba(37,99,235,0.25)" }}>
+                    <div style={{ padding: "20px 18px", borderBottom: "1px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "space-between", backgroundColor: "#FFFFFF" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                            <div style={{ width: "36px", height: "36px", backgroundColor: "#0B3D91", borderRadius: "8px", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "800", fontSize: "18px", boxShadow: "0 2px 8px rgba(11,61,145,0.25)" }}>
                                 🎓
                             </div>
                             <div>
-                                <div style={{ fontWeight: "800", color: "#0f172a", fontSize: "14px", letterSpacing: "-0.2px", lineHeight: "1.2" }}>College Placement</div>
-                                <div style={{ fontSize: "10px", color: "#2563eb", fontWeight: "800", textTransform: "uppercase", letterSpacing: "0.5px" }}>PORTAL</div>
+                                <div style={{ fontWeight: "800", color: "#0B3D91", fontSize: "13.5px", letterSpacing: "-0.2px", lineHeight: "1.2" }}>CAMPUS PLACEMENT</div>
+                                <div style={{ fontSize: "10px", color: "#64748b", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.5px" }}>STUDENT PORTAL</div>
                             </div>
                         </div>
                         <button
@@ -1642,14 +1646,45 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                     </div>
 
                     {/* Navigation Menu */}
-                    <div style={{ padding: "20px 14px" }}>
-                        <div style={{ fontSize: "11px", fontWeight: "700", color: "#94a3b8", letterSpacing: "1px", padding: "0 10px 12px 10px", textTransform: "uppercase" }}>NAVIGATION</div>
+                    <div style={{ padding: "16px 10px" }}>
+                        <div style={{ fontSize: "11px", fontWeight: "700", color: "#94a3b8", letterSpacing: "0.06em", padding: "0 10px 10px 10px", textTransform: "uppercase" }}>PORTAL NAVIGATION</div>
                         <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                             {[
-                                { id: "dashboard", label: "Home", svg: <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /> },
-                                { id: "companies", label: "Drives", svg: <path d="M3 21h18M3 7v14M21 7v14M6 10h4M6 14h4M6 18h4M14 10h4M14 14h4M14 18h4M9 3h6v4H9z" /> },
-                                { id: "applications", label: "My Application", svg: <path d="M9 11l3 3L22 4M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" /> },
-                                { id: "profile", label: "Profile", svg: <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" /> },
+                                {
+                                    id: "dashboard",
+                                    label: "Dashboard",
+                                    svg: <path d="M3 10.5L12 3l9 7.5v10.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 21V10.5z" />
+                                },
+                                {
+                                    id: "companies",
+                                    label: "Campus Drives",
+                                    svg: (
+                                        <>
+                                            <rect x="4" y="6" width="16" height="15" rx="3" />
+                                            <path d="M9 3.5h6v2.5H9zM7.5 10.5h9M7.5 13.5h9M7.5 16.5h6" />
+                                        </>
+                                    )
+                                },
+                                {
+                                    id: "applications",
+                                    label: "My Applications",
+                                    svg: (
+                                        <>
+                                            <rect x="4" y="4" width="16" height="16" rx="3.5" />
+                                            <path d="M8 12.5l3 3 5-5.5" />
+                                        </>
+                                    )
+                                },
+                                {
+                                    id: "profile",
+                                    label: "Profile",
+                                    svg: (
+                                        <>
+                                            <circle cx="12" cy="7.5" r="3.8" />
+                                            <path d="M5.5 21v-1.5a6.5 6.5 0 0 1 13 0V21" />
+                                        </>
+                                    )
+                                },
                             ].map((item) => {
                                 const isActive = currentTab === item.id;
                                 return (
@@ -1660,25 +1695,26 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                                             display: "flex",
                                             alignItems: "center",
                                             gap: "12px",
-                                            padding: "12px 16px",
+                                            padding: "11px 14px",
                                             borderRadius: "10px",
                                             border: "none",
-                                            backgroundColor: isActive ? "#eff6ff" : "transparent",
-                                            color: isActive ? "#2563eb" : "#64748b",
-                                            fontWeight: isActive ? "700" : "500",
-                                            fontSize: "14px",
+                                            backgroundColor: isActive ? "#EBF3FF" : "transparent",
+                                            color: isActive ? "#0B3D91" : "#475569",
+                                            fontWeight: isActive ? "700" : "600",
+                                            fontSize: "13.5px",
                                             fontFamily: "Inter, -apple-system, sans-serif",
                                             cursor: "pointer",
                                             textAlign: "left",
                                             transition: "all 0.15s ease-in-out",
                                             outline: "none",
                                             width: "100%",
+                                            borderLeft: isActive ? "4px solid #0B3D91" : "4px solid transparent",
                                         }}
                                     >
-                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={isActive ? "#2563eb" : "#64748b"} strokeWidth={isActive ? "2.4" : "1.8"} strokeLinecap="round" strokeLinejoin="round">
+                                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={isActive ? "#0B3D91" : "#5b6b82"} strokeWidth={isActive ? "2.4" : "2"} strokeLinecap="round" strokeLinejoin="round">
                                             {item.svg}
                                         </svg>
-                                        <span style={{ color: isActive ? "#2563eb" : "#64748b" }}>{item.label}</span>
+                                        <span style={{ color: isActive ? "#0B3D91" : "#475569" }}>{item.label}</span>
                                     </button>
                                 );
                             })}
@@ -1687,141 +1723,125 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                 </div>
 
                 {/* Footer Account */}
-                <div style={{ padding: "16px", borderTop: "1px solid #e2e8f0" }}>
-                    <div style={{ backgroundColor: "#f8fafc", borderRadius: "12px", padding: "10px 12px", marginBottom: "12px", display: "flex", alignItems: "center", gap: "10px", border: "1px solid #e2e8f0" }}>
-                        <div style={{ width: "34px", height: "34px", borderRadius: "50%", backgroundColor: "#f1f5f9", border: "1px solid #cbd5e1", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+                <div style={{ padding: "14px", borderTop: "1px solid #e2e8f0", backgroundColor: "#F8FAFC" }}>
+                    <div style={{ backgroundColor: "#FFFFFF", borderRadius: "10px", padding: "10px 12px", marginBottom: "10px", display: "flex", alignItems: "center", gap: "10px", border: "1px solid #e2e8f0", boxShadow: "0 1px 3px rgba(0,0,0,0.02)" }}>
+                        <div style={{ width: "34px", height: "34px", borderRadius: "50%", backgroundColor: "#E6EEFC", color: "#0B3D91", border: "1px solid #BFDBFE", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", fontWeight: 700 }}>
                             {userAvatarImg ? (
                                 <img src={userAvatarImg} alt="Avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                             ) : (
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="#94a3b8">
-                                    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-                                </svg>
+                                displayName.charAt(0).toUpperCase()
                             )}
                         </div>
                         <div style={{ overflow: "hidden" }}>
                             <div style={{ fontSize: "13px", fontWeight: "700", color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{displayName}</div>
-                            <div style={{ fontSize: "11px", color: "#64748b" }}>Student</div>
+                            <div style={{ fontSize: "11px", color: "#0F766E", fontWeight: 600 }}>● Verified Student</div>
                         </div>
                     </div>
                     <button
                         onClick={onLogout}
                         style={{
                             width: "100%",
-                            padding: "10px 14px",
-                            backgroundColor: "#fef2f2",
-                            color: "#dc2626",
-                            border: "1px solid #fecaca",
-                            borderRadius: "10px",
+                            padding: "8px 12px",
+                            backgroundColor: "#FEE2E2",
+                            color: "#B91C1C",
+                            border: "1px solid #FCA5A5",
+                            borderRadius: "8px",
                             fontWeight: "700",
-                            fontSize: "13px",
+                            fontSize: "12.5px",
                             cursor: "pointer",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
-                            gap: "8px",
+                            gap: "6px",
                             transition: "all 0.15s ease",
                         }}
                     >
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                            <polyline points="16 17 21 12 16 7" />
-                            <line x1="21" y1="12" x2="9" y2="12" />
-                        </svg>
-                        <span>Log Out</span>
+                        <span>🚪</span>
+                        <span>Sign Out</span>
                     </button>
                 </div>
             </aside>
 
             {/* Main Area */}
-            <main style={{ flex: 1, height: "100vh", padding: "clamp(14px, 4vw, 24px) clamp(12px, 4vw, 32px)", overflowY: "auto", overflowX: "hidden", backgroundColor: "#f8fafc" }}>
+            <main style={{ flex: 1, height: "100vh", padding: "clamp(14px, 3vw, 24px) clamp(14px, 3vw, 32px)", overflowY: "auto", overflowX: "hidden", backgroundColor: "#f8fafc" }}>
                 {/* Top Header Bar */}
-                {currentTab !== "profile" ? (
-                    <div className="student-top-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px", backgroundColor: "#ffffff", padding: "12px 20px", borderRadius: "14px", border: "1px solid #eaedf0", gap: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.02)" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                            <button
-                                onClick={() => setIsMobileMenuOpen(true)}
-                                className="mobile-hamburger-toggle"
-                                style={{ display: "none", alignItems: "center", justifyContent: "center", width: "36px", height: "36px", borderRadius: "8px", border: "1px solid #e2e8f0", backgroundColor: "#ffffff", cursor: "pointer", fontSize: "18px", color: "#0f172a", flexShrink: 0 }}
-                                aria-label="Open Menu"
-                            >
-                                ☰
-                            </button>
-                            <h2 style={{ margin: 0, fontSize: "18px", fontWeight: "800", color: "#0f172a", letterSpacing: "-0.3px" }}>
-                                {currentTab === "dashboard" ? "Dashboard" : currentTab === "companies" ? "Campus Drives" : currentTab === "applications" ? "My Applications" : currentTab === "schedule" ? "Interview Schedule" : currentTab === "results" ? "Placement Offers" : "Student Space"}
-                            </h2>
-                        </div>
-
-                        <div style={{ display: "flex", alignItems: "center", gap: "16px", flexShrink: 0 }}>
-                            <button
-                                onClick={() => setShowNotificationsModal(true)}
-                                style={{
-                                    position: "relative",
-                                    width: "40px",
-                                    height: "40px",
-                                    borderRadius: "12px",
-                                    backgroundColor: "#f8fafc",
-                                    border: "1px solid #cbd5e1",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    cursor: "pointer",
-                                    fontSize: "18px",
-                                    color: "#475569",
-                                    transition: "all 0.15s ease",
-                                    outline: "none"
-                                }}
-                                title="Live Notifications"
-                            >
-                                🔔
-                                <span style={{
-                                    position: "absolute",
-                                    top: "-4px",
-                                    right: "-4px",
-                                    backgroundColor: "#ef4444",
-                                    color: "#ffffff",
-                                    borderRadius: "50%",
-                                    width: "18px",
-                                    height: "18px",
-                                    fontSize: "10px",
-                                    fontWeight: "800",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    border: "2px solid #ffffff"
-                                }}>
-                                    3
-                                </span>
-                            </button>
-
-                            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                                <div style={{ width: "38px", height: "38px", borderRadius: "50%", backgroundColor: "#f1f5f9", border: "1px solid #cbd5e1", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", flexShrink: 0 }}>
-                                    {userAvatarImg ? (
-                                        <img src={userAvatarImg} alt="Avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                                    ) : (
-                                        <svg width="22" height="22" viewBox="0 0 24 24" fill="#94a3b8">
-                                            <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-                                        </svg>
-                                    )}
-                                </div>
-                                <div>
-                                    <div style={{ fontSize: "14px", fontWeight: "700", color: "#0f172a", lineHeight: "1.2", whiteSpace: "nowrap" }}>{displayName}</div>
-                                    <div style={{ fontSize: "11px", color: "#64748b", marginTop: "1px", whiteSpace: "nowrap" }}>Let's land that offer.</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                ) : (
-                    <div className="mobile-hamburger-toggle" style={{ display: "none", alignItems: "center", justifyContent: "space-between", marginBottom: "16px", backgroundColor: "#ffffff", padding: "10px 16px", borderRadius: "12px", border: "1px solid #e2e8f0", boxShadow: "0 1px 3px rgba(0,0,0,0.02)" }}>
+                <div className="student-top-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px", backgroundColor: "#ffffff", padding: "12px 20px", borderRadius: "12px", border: "1px solid #e2e8f0", borderLeft: "4px solid #0B3D91", gap: "12px", boxShadow: "0 2px 8px rgba(11,61,145,0.04)" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                         <button
                             onClick={() => setIsMobileMenuOpen(true)}
-                            style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: "36px", height: "36px", borderRadius: "8px", border: "1px solid #e2e8f0", backgroundColor: "#ffffff", cursor: "pointer", fontSize: "18px", color: "#0f172a" }}
+                            className="mobile-hamburger-toggle"
+                            style={{ display: "none", alignItems: "center", justifyContent: "center", width: "36px", height: "36px", borderRadius: "8px", border: "1px solid #e2e8f0", backgroundColor: "#ffffff", cursor: "pointer", fontSize: "18px", color: "#0B3D91", flexShrink: 0 }}
                             aria-label="Open Menu"
                         >
                             ☰
                         </button>
-                        <div style={{ fontSize: "14px", fontWeight: "700", color: "#0f172a" }}>My Profile</div>
+                        <div>
+                            <h2 style={{ margin: 0, fontSize: "19px", fontWeight: "800", color: "#0f172a", letterSpacing: "-0.3px" }}>
+                                {currentTab === "dashboard" ? "Student Placement Dashboard" : currentTab === "companies" ? "Campus Placement Drives" : currentTab === "applications" ? "My Applications & Rounds" : currentTab === "schedule" ? "Interview Schedule & Calendar" : currentTab === "results" ? "Placement Offers & Results" : "Student Profile & Resume"}
+                            </h2>
+                            <div style={{ fontSize: "11.5px", color: "#64748B", fontWeight: 500, marginTop: "2px" }}>
+                                Academic Year 2025–2026 • Graduating Batch
+                            </div>
+                        </div>
                     </div>
-                )}
+
+                    <div style={{ display: "flex", alignItems: "center", gap: "14px", flexShrink: 0 }}>
+                        <button
+                            onClick={() => setShowNotificationsModal(true)}
+                            style={{
+                                position: "relative",
+                                width: "38px",
+                                height: "38px",
+                                borderRadius: "8px",
+                                backgroundColor: "#f8fafc",
+                                border: "1px solid #cbd5e1",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                cursor: "pointer",
+                                fontSize: "16px",
+                                color: "#475569",
+                                transition: "all 0.15s ease",
+                                outline: "none"
+                            }}
+                            title="Live Notifications"
+                        >
+                            🔔
+                            <span style={{
+                                position: "absolute",
+                                top: "-3px",
+                                right: "-3px",
+                                backgroundColor: "#B91C1C",
+                                color: "#ffffff",
+                                borderRadius: "50%",
+                                width: "16px",
+                                height: "16px",
+                                fontSize: "9.5px",
+                                fontWeight: "800",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                border: "1.5px solid #ffffff"
+                            }}>
+                                3
+                            </span>
+                        </button>
+
+                        <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "4px 8px", backgroundColor: "#F8FAFC", borderRadius: "8px", border: "1px solid #E2E8F0" }}>
+                            <div style={{ width: "32px", height: "32px", borderRadius: "50%", backgroundColor: "#E6EEFC", color: "#0B3D91", border: "1px solid #BFDBFE", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", flexShrink: 0, fontWeight: 700, fontSize: "13px" }}>
+                                {userAvatarImg ? (
+                                    <img src={userAvatarImg} alt="Avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                                ) : (
+                                    displayName.charAt(0).toUpperCase()
+                                )}
+                            </div>
+                            <div>
+                                <div style={{ fontSize: "13px", fontWeight: "700", color: "#0B3D91", lineHeight: "1.2", whiteSpace: "nowrap" }}>{displayName}</div>
+                                <div style={{ fontSize: "10.5px", color: "#64748b", marginTop: "1px", whiteSpace: "nowrap" }}>{user?.email || "ashwanth@college.edu"}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
                 {/* Success / Error Notification Alert Banner */}
                 {alertBanner && (
@@ -1870,7 +1890,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                             id: "closing-1",
                             company: "Mallow Technologies",
                             role: "Software Developer",
-                            ctc: "$12 LPA",
+                            ctc: "12 LPA",
                             requiredSkills: ["Java", "Python", "MERN", "SQL"],
                             deadline: "May 30, 2026",
                             applicantCount: 580
@@ -1879,7 +1899,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                             id: "closing-2",
                             company: "TCS",
                             role: "Frontend Developer",
-                            ctc: "$5 LPA",
+                            ctc: "5 LPA",
                             requiredSkills: ["React", "TypeScript", "CSS", "HTML"],
                             deadline: "May 30, 2026",
                             applicantCount: 840
@@ -1890,21 +1910,21 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                         {
                             company: "Google",
                             role: "FullStack Developer",
-                            ctc: "$21 LPA",
+                            ctc: "21 LPA",
                             status: "Shortlisted",
                             progressPercent: "65%"
                         },
                         {
                             company: "TCS",
                             role: "Frontend Developer",
-                            ctc: "$5 LPA",
+                            ctc: "5 LPA",
                             status: "Pending",
                             progressPercent: "35%"
                         },
                         {
                             company: "CTS (Cognizant)",
                             role: "Programmer Analyst",
-                            ctc: "$6.8 LPA",
+                            ctc: "6.8 LPA",
                             status: "Shortlisted",
                             progressPercent: "50%"
                         }
@@ -1915,7 +1935,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                             id: "recent-1",
                             company: "Mallow Technologies",
                             role: "Software Developer",
-                            ctc: "$12 LPA",
+                            ctc: "12 LPA",
                             requiredSkills: ["Java", "Python", "MERN", "SQL"],
                             deadline: "May 30, 2026",
                             applicantCount: 580
@@ -1924,7 +1944,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                             id: "recent-2",
                             company: "Google",
                             role: "FullStack Developer",
-                            ctc: "$21 LPA",
+                            ctc: "21 LPA",
                             requiredSkills: ["Java", "Python", "MERN", "SQL"],
                             deadline: "May 30, 2026",
                             applicantCount: 1290
@@ -1933,7 +1953,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                             id: "recent-3",
                             company: "TCS",
                             role: "Frontend Developer",
-                            ctc: "$5 LPA",
+                            ctc: "5 LPA",
                             requiredSkills: ["React", "TypeScript", "CSS", "HTML"],
                             deadline: "May 30, 2026",
                             applicantCount: 840
@@ -1942,7 +1962,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                             id: "recent-4",
                             company: "CTS (Cognizant)",
                             role: "Programmer Analyst",
-                            ctc: "$6.8 LPA",
+                            ctc: "6.8 LPA",
                             requiredSkills: ["C++", "Java", "SQL", "Web Tech"],
                             deadline: "May 30, 2026",
                             applicantCount: 910
@@ -1951,7 +1971,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                             id: "recent-5",
                             company: "Accenture",
                             role: "System Engineer",
-                            ctc: "$7 LPA",
+                            ctc: "7 LPA",
                             requiredSkills: ["C++", "Java", "Cloud", "DevOps"],
                             deadline: "May 30, 2026",
                             applicantCount: 950
@@ -1960,7 +1980,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                             id: "recent-6",
                             company: "Zoho Corporation",
                             role: "Software Developer",
-                            ctc: "$10 LPA",
+                            ctc: "10 LPA",
                             requiredSkills: ["Java", "C++", "Data Structures"],
                             deadline: "May 30, 2026",
                             applicantCount: 620
@@ -1969,7 +1989,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                             id: "recent-7",
                             company: "Amazon Development Center",
                             role: "Software Development Engineer",
-                            ctc: "$18 LPA",
+                            ctc: "18 LPA",
                             requiredSkills: ["Java", "Problem Solving", "System Design"],
                             deadline: "May 30, 2026",
                             applicantCount: 1450
@@ -1978,7 +1998,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                             id: "recent-8",
                             company: "Infosys",
                             role: "Specialist Programmer",
-                            ctc: "$9.5 LPA",
+                            ctc: "9.5 LPA",
                             requiredSkills: ["Java", "Python", "SQL", "Cloud"],
                             deadline: "May 30, 2026",
                             applicantCount: 780
@@ -2040,474 +2060,359 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
 
                     return (
                         <div>
-                            {/* Dark Navy/Slate Welcome Hero Banner (Matching Screenshot Layout without Purple) */}
+                            {/* Executive Welcome Hero Banner */}
                             <div style={{
-                                backgroundColor: "#0f172a",
-                                borderRadius: "20px",
-                                padding: "28px 32px",
+                                background: "linear-gradient(135deg, #07255A 0%, #0B3D91 50%, #1E5FCC 100%)",
+                                borderRadius: "16px",
+                                padding: "24px 28px",
                                 color: "#ffffff",
-                                marginBottom: "32px",
-                                position: "relative",
-                                overflow: "hidden",
-                                boxShadow: "0 10px 25px -5px rgba(15, 23, 42, 0.2)"
+                                marginBottom: "22px",
+                                boxShadow: "0 10px 25px -5px rgba(11, 61, 145, 0.25)",
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                                flexWrap: "wrap",
+                                gap: "16px"
                             }}>
-                                <div style={{ position: "relative", zIndex: 2 }}>
-                                    <div style={{
-                                        display: "inline-flex",
-                                        alignItems: "center",
-                                        gap: "8px",
-                                        backgroundColor: "rgba(255, 255, 255, 0.12)",
-                                        padding: "5px 14px",
-                                        borderRadius: "20px",
-                                        fontSize: "12px",
-                                        fontWeight: "700",
-                                        color: "#ffffff",
-                                        marginBottom: "14px"
-                                    }}>
-                                        <span style={{ width: "7px", height: "7px", borderRadius: "50%", backgroundColor: "#38bdf8" }}></span>
-                                        Placement Batch 2027
+                                <div>
+                                    <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", backgroundColor: "rgba(255,255,255,0.15)", padding: "4px 12px", borderRadius: "16px", fontSize: "11.5px", fontWeight: 700, color: "#E0F2FE", marginBottom: "8px" }}>
+                                        <span style={{ width: "7px", height: "7px", borderRadius: "50%", backgroundColor: "#38BDF8" }}></span>
+                                        Placement Season 2025–2026 • Verified Candidate
                                     </div>
-
-                                    <h1 style={{ fontSize: "26px", fontWeight: "800", margin: "0 0 10px 0", color: "#ffffff", lineHeight: "1.3" }}>
-                                        You're eligible for {filterCounts["Eligible"] || 4} new drives this week.
+                                    <h1 style={{ fontSize: "23px", fontWeight: 800, margin: "0 0 6px 0", color: "#FFFFFF", letterSpacing: "-0.3px" }}>
+                                        Welcome back, {displayName || "Ashwanth"}! 👋
                                     </h1>
-
-                                    <p style={{ fontSize: "14px", color: "#cbd5e1", margin: "0 0 20px 0", lineHeight: "1.5", fontWeight: "400" }}>
-                                        {placementDrives.length > 0 && placementDrives[0]?.company
-                                            ? `${placementDrives[0].company} deadline is in 2 days. Don't miss out Opt -in takes one tap`
-                                            : "Accenture deadline is in 2 days. Don't miss out Opt -in takes one tap"}
+                                    <p style={{ fontSize: "13.5px", color: "#BFDBFE", margin: 0, lineHeight: 1.5 }}>
+                                        You are eligible for <strong>{filterCounts["Eligible"] || 14} campus drives</strong> this week. Check closing deadlines and track your interview rounds below.
                                     </p>
-
+                                </div>
+                                <div style={{ display: "flex", gap: "10px" }}>
                                     <button
                                         onClick={() => { setDriveFilter("Eligible"); setCurrentTab("companies"); }}
+                                        style={{ backgroundColor: "#FFFFFF", color: "#0B3D91", border: "none", borderRadius: "8px", padding: "10px 18px", fontWeight: 700, fontSize: "13px", cursor: "pointer", boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}
+                                    >
+                                        Browse Campus Drives →
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* 4 KPI Stack Cards with Crisp Vector Outline SVGs and Interactive Navigation */}
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: "16px", marginBottom: "28px" }}>
+                                {[
+                                    {
+                                        label: "Eligible Campus Drives",
+                                        value: filterCounts["Eligible"] || 14,
+                                        color: "#0B3D91",
+                                        bg: "#E6EEFC",
+                                        onClick: () => {
+                                            setCurrentTab("companies");
+                                            setDriveFilter("Eligible");
+                                            window.scrollTo({ top: 0, behavior: "smooth" });
+                                        },
+                                        svg: (
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0B3D91" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
+                                                <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
+                                                <path d="M6 12v5c3 3 9 3 12 0v-5" />
+                                            </svg>
+                                        )
+                                    },
+                                    {
+                                        label: "Closing Soon (< 48 hrs)",
+                                        value: closingDrivesList.length || 4,
+                                        color: "#B91C1C",
+                                        bg: "#FEE2E2",
+                                        onClick: () => {
+                                            setCurrentTab("companies");
+                                            setDriveFilter("All");
+                                            window.scrollTo({ top: 0, behavior: "smooth" });
+                                        },
+                                        svg: (
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#B91C1C" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
+                                                <circle cx="12" cy="12" r="10" />
+                                                <polyline points="12 6 12 12 16 14" />
+                                            </svg>
+                                        )
+                                    },
+                                    {
+                                        label: "Applications In Progress",
+                                        value: inProgressDrivesList.length || 3,
+                                        color: "#0F766E",
+                                        bg: "#DCFCE7",
+                                        onClick: () => {
+                                            setCurrentTab("applications");
+                                            setAppTrackerFilter("in_progress");
+                                            window.scrollTo({ top: 0, behavior: "smooth" });
+                                        },
+                                        svg: (
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0F766E" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
+                                                <rect x="3" y="3" width="18" height="18" rx="4" ry="4" />
+                                                <path d="M9 12l2 2 4-4" />
+                                            </svg>
+                                        )
+                                    },
+                                    {
+                                        label: "Upcoming Placement Drives",
+                                        value: 14,
+                                        color: "#6366F1",
+                                        bg: "#EEF2FF",
+                                        onClick: () => {
+                                            setCurrentTab("companies");
+                                            setDriveFilter("Up coming");
+                                            window.scrollTo({ top: 0, behavior: "smooth" });
+                                        },
+                                        svg: (
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6366F1" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
+                                                <rect x="3" y="4" width="18" height="18" rx="3" ry="3" />
+                                                <line x1="16" y1="2" x2="16" y2="6" />
+                                                <line x1="8" y1="2" x2="8" y2="6" />
+                                                <line x1="3" y1="10" x2="21" y2="10" />
+                                            </svg>
+                                        )
+                                    },
+                                ].map((kpi, kIdx) => (
+                                    <div
+                                        key={kIdx}
+                                        onClick={kpi.onClick}
                                         style={{
-                                            backgroundColor: "#ffffff",
-                                            color: "#0f172a",
-                                            border: "none",
+                                            backgroundColor: "#FFFFFF",
+                                            padding: "16px 18px",
                                             borderRadius: "12px",
-                                            padding: "11px 22px",
-                                            fontWeight: "700",
-                                            fontSize: "14px",
+                                            border: "1px solid #E2E8F0",
+                                            borderTop: `4px solid ${kpi.color}`,
+                                            boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
                                             cursor: "pointer",
-                                            display: "inline-flex",
-                                            alignItems: "center",
-                                            gap: "8px",
-                                            boxShadow: "0 4px 12px rgba(0, 0, 0, 0.12)",
-                                            transition: "transform 0.15s ease"
+                                            transition: "all 0.18s ease-in-out"
                                         }}
+                                        onMouseEnter={(e) => {
+                                            e.currentTarget.style.transform = "translateY(-3px)";
+                                            e.currentTarget.style.boxShadow = "0 8px 18px rgba(0,0,0,0.07)";
+                                            e.currentTarget.style.borderColor = "#CBD5E1";
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.currentTarget.style.transform = "translateY(0)";
+                                            e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.02)";
+                                            e.currentTarget.style.borderColor = "#E2E8F0";
+                                        }}
+                                        title={`Click to view ${kpi.label}`}
                                     >
-                                        Browse Drives &rarr;
-                                    </button>
-                                </div>
+                                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                            <span style={{ fontSize: "12px", color: "#64748B", fontWeight: 600 }}>{kpi.label}</span>
+                                            <span style={{ width: "32px", height: "32px", borderRadius: "8px", backgroundColor: kpi.bg, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                                {kpi.svg}
+                                            </span>
+                                        </div>
+                                        <div style={{ fontSize: "22px", fontWeight: 800, color: "#0F172A", marginTop: "6px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                                            <span>{kpi.value}</span>
+                                            <span style={{ fontSize: "12px", color: kpi.color, fontWeight: 700 }}>View →</span>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
 
-                            {/* SECTION 1: Closing soon */}
-                            <div style={{ marginBottom: "36px" }}>
-                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-                                    <h3 style={{ fontSize: "20px", fontWeight: "800", color: "#0f172a", margin: 0 }}>
-                                        Closing soon
-                                    </h3>
-                                    <button
-                                        onClick={() => { setDriveFilter("Eligible"); setCurrentTab("companies"); }}
-                                        style={{ background: "none", border: "none", color: "#2563eb", fontWeight: "700", fontSize: "14px", cursor: "pointer" }}
-                                    >
-                                        See all &gt;
-                                    </button>
-                                </div>
-
-                                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(310px, 1fr))", gap: "18px" }}>
-                                    {closingDrivesList.slice(0, 2).map((drive: any, idx: number) => {
-                                        const skills = drive.requiredSkills && drive.requiredSkills.length > 0
-                                            ? drive.requiredSkills
-                                            : ["Java", "Python", "MERN", "SQL"];
-                                        return (
-                                            <div
-                                                key={drive.id || drive._id || idx}
-                                                onClick={() => setSelectedDriveCriteria(drive)}
+                            {/* DUAL CARD CONTAINER (Closing Soon Drives + Upcoming Drives) MATCHING USER IMAGE */}
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))", gap: "20px", marginBottom: "32px" }}>
+                                
+                                {/* LEFT CARD: Closing Soon Placement Drives (Today's Task Sheet Style) */}
+                                <div style={{ backgroundColor: "#FFFFFF", borderRadius: "16px", border: "1px solid #E2E8F0", padding: "20px 22px", boxShadow: "0 1px 4px rgba(0,0,0,0.03)", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+                                    <div>
+                                        {/* Card Header */}
+                                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "16px" }}>
+                                            <div>
+                                                <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "16px", fontWeight: 800, color: "#0F172A" }}>
+                                                    <span style={{ color: "#B91C1C", fontSize: "18px" }}>⏱️</span>
+                                                    Closing Soon Drives
+                                                </div>
+                                                <div style={{ fontSize: "12.5px", color: "#64748B", marginTop: "3px" }}>
+                                                    Deadlines ending in &lt; 48 hours • ({closingDrivesList.length || 4} items remaining)
+                                                </div>
+                                            </div>
+                                            <button
+                                                onClick={() => { setDriveFilter("Eligible"); setCurrentTab("companies"); }}
                                                 style={{
-                                                    backgroundColor: "#ffffff",
-                                                    borderRadius: "16px",
-                                                    padding: "20px 22px",
-                                                    border: "1px solid #eaedf0",
-                                                    boxShadow: "0 2px 6px rgba(0,0,0,0.02)",
-                                                    display: "flex",
-                                                    flexDirection: "column",
-                                                    justifyContent: "space-between",
-                                                    gap: "16px",
+                                                    padding: "6px 14px",
+                                                    backgroundColor: "#FFFFFF",
+                                                    color: "#334155",
+                                                    border: "1px solid #CBD5E1",
+                                                    borderRadius: "8px",
+                                                    fontSize: "12px",
+                                                    fontWeight: 700,
                                                     cursor: "pointer"
                                                 }}
                                             >
-                                                <div>
-                                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "12px" }}>
-                                                        <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
-                                                            <div style={{
-                                                                width: "48px",
-                                                                height: "48px",
-                                                                borderRadius: "12px",
-                                                                backgroundColor: "#f8fafc",
-                                                                border: "1px solid #e2e8f0",
-                                                                display: "flex",
-                                                                alignItems: "center",
-                                                                justifyContent: "center",
-                                                                overflow: "hidden",
-                                                                fontSize: "22px",
-                                                                fontWeight: "800",
-                                                                color: "#2563eb",
-                                                                flexShrink: 0
-                                                            }}>
-                                                                {drive.company?.includes("Google") ? (
-                                                                    <span style={{ color: "#4285F4" }}>G</span>
-                                                                ) : drive.logo ? (
-                                                                    <img src={drive.logo} alt={drive.company} style={{ width: "100%", height: "100%", objectFit: "contain" }} onError={(e: any) => { e.target.style.display = 'none'; }} />
-                                                                ) : (
-                                                                    drive.company?.charAt(0) || "C"
-                                                                )}
+                                                View all
+                                            </button>
+                                        </div>
+
+                                        <div style={{ height: "1px", backgroundColor: "#F1F5F9", marginBottom: "16px" }}></div>
+
+                                        {/* List of Sub-Card Rows */}
+                                        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                                            {closingDrivesList.slice(0, 3).map((drive: any, idx: number) => {
+                                                const isOptedIn = isDriveOptedIn(drive) || drive.statusTag === "Opted-In";
+                                                return (
+                                                    <div
+                                                        key={idx}
+                                                        style={{
+                                                            backgroundColor: "#FFFFFF",
+                                                            borderRadius: "10px",
+                                                            border: "1.5px solid #E2E8F0",
+                                                            padding: "14px 16px",
+                                                            display: "flex",
+                                                            justifyContent: "space-between",
+                                                            alignItems: "center",
+                                                            gap: "12px"
+                                                        }}
+                                                    >
+                                                        <div>
+                                                            <div style={{ fontWeight: 800, fontSize: "14.5px", color: "#0F172A" }}>
+                                                                {drive.company}
                                                             </div>
-                                                            <div>
-                                                                <h4 style={{ margin: "0 0 3px 0", fontSize: "15px", fontWeight: "800", color: "#0f172a" }}>
-                                                                    {drive.company || "Amazon Development Center"}
-                                                                </h4>
-                                                                <div style={{ fontSize: "13px", color: "#2563eb", fontWeight: "600" }}>
-                                                                    {drive.role || "java"}
-                                                                </div>
-                                                                <div style={{ fontSize: "14px", fontWeight: "800", color: "#0f172a", marginTop: "3px" }}>
-                                                                    {formatCtc(drive.ctc)}
-                                                                </div>
+                                                            <div style={{ fontSize: "12px", color: "#64748B", marginTop: "2px" }}>
+                                                                {drive.role || "Software Trainee"} • <strong style={{ color: "#0B3D91" }}>{formatCtc(drive.ctc)}</strong> • Min CGPA: {drive.minCgpa || 6.5}
                                                             </div>
                                                         </div>
-                                                        <span style={{
-                                                            backgroundColor: "#eff6ff",
-                                                            color: "#2563eb",
-                                                            padding: "4px 10px",
-                                                            borderRadius: "12px",
-                                                            fontSize: "11px",
-                                                            fontWeight: "700",
-                                                            border: "1px solid #bfdbfe"
-                                                        }}>
-                                                            Eligible
-                                                        </span>
-                                                    </div>
 
-                                                    {/* Skill Pills */}
-                                                    <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-                                                        {skills.map((skill: string, sIdx: number) => (
-                                                            <span key={sIdx} style={{
-                                                                backgroundColor: "#f1f5f9",
-                                                                color: "#475569",
-                                                                padding: "3px 10px",
-                                                                borderRadius: "8px",
-                                                                fontSize: "11px",
-                                                                fontWeight: "600"
-                                                            }}>
-                                                                {skill}
-                                                            </span>
-                                                        ))}
+                                                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                                                            {isOptedIn && (
+                                                                <span style={{
+                                                                    backgroundColor: "#DCFCE7",
+                                                                    color: "#15803D",
+                                                                    padding: "3px 9px",
+                                                                    borderRadius: "12px",
+                                                                    fontSize: "11px",
+                                                                    fontWeight: 700,
+                                                                    border: "1px solid #86EFAC",
+                                                                    whiteSpace: "nowrap"
+                                                                }}>
+                                                                    ✓ Opted-In
+                                                                </span>
+                                                            )}
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setSelectedDriveCriteria(drive);
+                                                                }}
+                                                                style={{
+                                                                    padding: "5px 10px",
+                                                                    backgroundColor: "#F8FAFC",
+                                                                    color: "#0B3D91",
+                                                                    border: "1px solid #CBD5E1",
+                                                                    borderRadius: "6px",
+                                                                    fontSize: "11.5px",
+                                                                    fontWeight: 700,
+                                                                    cursor: "pointer",
+                                                                    whiteSpace: "nowrap"
+                                                                }}
+                                                            >
+                                                                Details →
+                                                            </button>
+                                                        </div>
                                                     </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* RIGHT CARD: Upcoming Placement Drives (Upcoming Holidays Style) */}
+                                <div style={{ backgroundColor: "#FFFFFF", borderRadius: "16px", border: "1px solid #E2E8F0", padding: "20px 22px", boxShadow: "0 1px 4px rgba(0,0,0,0.03)", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+                                    <div>
+                                        {/* Card Header */}
+                                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "16px" }}>
+                                            <div>
+                                                <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "16px", fontWeight: 800, color: "#0F172A" }}>
+                                                    <span style={{ color: "#4F46E5", fontSize: "18px" }}>📅</span>
+                                                    Upcoming Drives
                                                 </div>
-
-                                                <div style={{
-                                                    display: "flex",
-                                                    alignItems: "center",
-                                                    justifyContent: "space-between",
-                                                    paddingTop: "14px",
-                                                    borderTop: "1px solid #f1f5f9",
-                                                    fontSize: "12px"
-                                                }}>
-                                                    <div style={{ color: "#dc2626", fontWeight: "700", display: "flex", alignItems: "center", gap: "4px" }}>
-                                                        🕒 {drive.deadline || "May 30, 2026"}
-                                                    </div>
-                                                    <div style={{ color: "#64748b", fontWeight: "600", display: "flex", alignItems: "center", gap: "4px" }}>
-                                                        👥 {drive.applicantCount || 580}
-                                                    </div>
-                                                    <button
-                                                        onClick={() => setSelectedDriveCriteria(drive)}
-                                                        style={{ background: "none", border: "none", color: "#2563eb", fontWeight: "700", cursor: "pointer", padding: 0 }}
-                                                    >
-                                                        View &rarr;
-                                                    </button>
+                                                <div style={{ fontSize: "12.5px", color: "#64748B", marginTop: "3px" }}>
+                                                    Campus recruitment drives & test pipeline
                                                 </div>
                                             </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-
-                            {/* SECTION 2: In Progress */}
-                            <div style={{ marginBottom: "36px" }}>
-                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-                                    <h3 style={{ fontSize: "20px", fontWeight: "800", color: "#0f172a", margin: 0 }}>
-                                        In Progress
-                                    </h3>
-                                    <button
-                                        onClick={() => setCurrentTab("applications")}
-                                        style={{ background: "none", border: "none", color: "#2563eb", fontWeight: "700", fontSize: "14px", cursor: "pointer" }}
-                                    >
-                                        See all &gt;
-                                    </button>
-                                </div>
-
-                                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(310px, 1fr))", gap: "18px" }}>
-                                    {inProgressDrivesList.map((app: any, idx: number) => {
-                                        const statusLabel = app.status || "Shortlisted";
-                                        const isShortlisted = statusLabel === "Shortlisted";
-                                        return (
-                                            <div
-                                                key={idx}
+                                            <button
+                                                onClick={() => { setDriveFilter("Eligible"); setCurrentTab("companies"); }}
                                                 style={{
-                                                    backgroundColor: "#ffffff",
-                                                    borderRadius: "16px",
-                                                    padding: "20px 22px",
-                                                    border: "1px solid #eaedf0",
-                                                    boxShadow: "0 2px 6px rgba(0,0,0,0.02)",
-                                                    display: "flex",
-                                                    flexDirection: "column",
-                                                    justifyContent: "space-between",
-                                                    gap: "16px"
+                                                    background: "none",
+                                                    border: "none",
+                                                    color: "#64748B",
+                                                    fontSize: "12.5px",
+                                                    fontWeight: 600,
+                                                    cursor: "pointer"
                                                 }}
                                             >
-                                                <div>
-                                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "10px" }}>
-                                                        <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
-                                                            <div style={{
-                                                                width: "48px",
-                                                                height: "48px",
-                                                                borderRadius: "12px",
-                                                                backgroundColor: "#f8fafc",
-                                                                border: "1px solid #e2e8f0",
-                                                                display: "flex",
-                                                                alignItems: "center",
-                                                                justifyContent: "center",
-                                                                fontSize: "22px",
-                                                                fontWeight: "800",
-                                                                color: "#2563eb",
-                                                                flexShrink: 0
-                                                            }}>
-                                                                {app.company?.includes("Google") ? (
-                                                                    <span style={{ color: "#4285F4" }}>G</span>
-                                                                ) : (
-                                                                    app.company?.charAt(0) || "C"
-                                                                )}
-                                                            </div>
-                                                            <div>
-                                                                <h4 style={{ margin: "0 0 3px 0", fontSize: "15px", fontWeight: "800", color: "#0f172a" }}>
-                                                                    {app.company}
-                                                                </h4>
-                                                                <div style={{ fontSize: "13px", color: "#2563eb", fontWeight: "600" }}>
-                                                                    {app.role}
-                                                                </div>
-                                                                <div style={{ fontSize: "14px", fontWeight: "800", color: "#0f172a", marginTop: "3px" }}>
-                                                                    {formatCtc(app.ctc)}
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                        <span style={{
-                                                            backgroundColor: isShortlisted ? "#fef3c7" : "#ffedd5",
-                                                            color: isShortlisted ? "#d97706" : "#ea580c",
-                                                            padding: "4px 10px",
-                                                            borderRadius: "12px",
-                                                            fontSize: "11px",
-                                                            fontWeight: "700",
-                                                            border: isShortlisted ? "1px solid #fde68a" : "1px solid #fed7aa"
-                                                        }}>
-                                                            {statusLabel}
-                                                        </span>
-                                                    </div>
-                                                </div>
+                                                Calendar
+                                            </button>
+                                        </div>
 
-                                                {/* Progress Bar */}
-                                                <div>
-                                                    <div style={{ width: "100%", height: "7px", backgroundColor: "#e2e8f0", borderRadius: "10px", overflow: "hidden" }}>
+                                        <div style={{ height: "1px", backgroundColor: "#F1F5F9", marginBottom: "16px" }}></div>
+
+                                        {/* List of Date-Badged Rows */}
+                                        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                                            {[
+                                                { day: "4", month: "SEPT", company: "Google India", role: "Software Engineer", ctc: "₹18 LPA", dayName: "Friday" },
+                                                { day: "14", month: "SEPT", company: "Microsoft IDC", role: "FullStack Developer", ctc: "₹24 LPA", dayName: "Monday" },
+                                                { day: "2", month: "OCT", company: "Zoho Corporation", role: "Software Developer", ctc: "₹12 LPA", dayName: "Friday" }
+                                            ].map((item, dIdx) => (
+                                                <div
+                                                    key={dIdx}
+                                                    style={{
+                                                        backgroundColor: "#FFFFFF",
+                                                        borderRadius: "10px",
+                                                        border: "1.5px solid #E2E8F0",
+                                                        padding: "12px 14px",
+                                                        display: "flex",
+                                                        alignItems: "center",
+                                                        justifyContent: "space-between",
+                                                        gap: "14px"
+                                                    }}
+                                                >
+                                                    <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                                                        {/* Square Date Badge */}
                                                         <div style={{
-                                                            width: app.progressPercent || "65%",
-                                                            height: "100%",
-                                                            backgroundColor: "#16a34a",
-                                                            borderRadius: "10px"
-                                                        }} />
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
+                                                            width: "48px",
+                                                            height: "48px",
+                                                            borderRadius: "8px",
+                                                            backgroundColor: "#EFF6FF",
+                                                            border: "1px solid #DBEAFE",
+                                                            display: "flex",
+                                                            flexDirection: "column",
+                                                            alignItems: "center",
+                                                            justifyContent: "center",
+                                                            flexShrink: 0
+                                                        }}>
+                                                            <div style={{ fontSize: "15px", fontWeight: 900, color: "#1D4ED8", lineHeight: 1 }}>{item.day}</div>
+                                                            <div style={{ fontSize: "10px", fontWeight: 800, color: "#60A5FA", marginTop: "2px" }}>{item.month}</div>
+                                                        </div>
 
-                            {/* SECTION 3: Recent Drives */}
-                            <div>
-                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-                                    <h3 style={{ fontSize: "20px", fontWeight: "800", color: "#0f172a", margin: 0 }}>
-                                        Recent Drives
-                                    </h3>
-                                </div>
-
-                                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(310px, 1fr))", gap: "18px", marginBottom: "28px" }}>
-                                    {recentDrivesDisplay.map((drive: any, idx: number) => {
-                                        const skills = drive.requiredSkills && drive.requiredSkills.length > 0
-                                            ? drive.requiredSkills
-                                            : ["Java", "Python", "MERN", "SQL"];
-                                        return (
-                                            <div
-                                                key={drive.id || drive._id || idx}
-                                                onClick={() => setSelectedDriveCriteria(drive)}
-                                                style={{
-                                                    backgroundColor: "#ffffff",
-                                                    borderRadius: "16px",
-                                                    padding: "20px 22px",
-                                                    border: "1px solid #eaedf0",
-                                                    boxShadow: "0 2px 6px rgba(0,0,0,0.02)",
-                                                    display: "flex",
-                                                    flexDirection: "column",
-                                                    justifyContent: "space-between",
-                                                    gap: "16px",
-                                                    cursor: "pointer"
-                                                }}
-                                            >
-                                                <div>
-                                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "12px" }}>
-                                                        <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
-                                                            <div style={{
-                                                                width: "48px",
-                                                                height: "48px",
-                                                                borderRadius: "12px",
-                                                                backgroundColor: "#f8fafc",
-                                                                border: "1px solid #e2e8f0",
-                                                                display: "flex",
-                                                                alignItems: "center",
-                                                                justifyContent: "center",
-                                                                overflow: "hidden",
-                                                                fontSize: "22px",
-                                                                fontWeight: "800",
-                                                                color: "#2563eb",
-                                                                flexShrink: 0
-                                                            }}>
-                                                                {drive.company?.includes("Google") ? (
-                                                                    <span style={{ color: "#4285F4" }}>G</span>
-                                                                ) : drive.logo ? (
-                                                                    <img src={drive.logo} alt={drive.company} style={{ width: "100%", height: "100%", objectFit: "contain" }} onError={(e: any) => { e.target.style.display = 'none'; }} />
-                                                                ) : (
-                                                                    drive.company?.charAt(0) || "C"
-                                                                )}
+                                                        <div>
+                                                            <div style={{ fontWeight: 800, fontSize: "14px", color: "#0F172A" }}>
+                                                                {item.company}
                                                             </div>
-                                                            <div>
-                                                                <h4 style={{ margin: "0 0 3px 0", fontSize: "15px", fontWeight: "800", color: "#0f172a" }}>
-                                                                    {drive.company || "Amazon Development Center"}
-                                                                </h4>
-                                                                <div style={{ fontSize: "13px", color: "#2563eb", fontWeight: "600" }}>
-                                                                    {drive.role || "java"}
-                                                                </div>
-                                                                <div style={{ fontSize: "14px", fontWeight: "800", color: "#0f172a", marginTop: "3px" }}>
-                                                                    {formatCtc(drive.ctc)}
-                                                                </div>
+                                                            <div style={{ fontSize: "12px", color: "#64748B", marginTop: "2px" }}>
+                                                                {item.dayName} • {item.role} • <strong style={{ color: "#0B3D91" }}>{item.ctc}</strong>
                                                             </div>
                                                         </div>
-                                                        <span style={{
-                                                            backgroundColor: "#eff6ff",
-                                                            color: "#2563eb",
-                                                            padding: "4px 10px",
-                                                            borderRadius: "12px",
-                                                            fontSize: "11px",
-                                                            fontWeight: "700",
-                                                            border: "1px solid #bfdbfe"
-                                                        }}>
-                                                            Eligible
-                                                        </span>
                                                     </div>
 
-                                                    {/* Skill Pills */}
-                                                    <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-                                                        {skills.map((skill: string, sIdx: number) => (
-                                                            <span key={sIdx} style={{
-                                                                backgroundColor: "#f1f5f9",
-                                                                color: "#475569",
-                                                                padding: "3px 10px",
-                                                                borderRadius: "8px",
-                                                                fontSize: "11px",
-                                                                fontWeight: "600"
-                                                            }}>
-                                                                {skill}
-                                                            </span>
-                                                        ))}
-                                                    </div>
-                                                </div>
-
-                                                <div style={{
-                                                    display: "flex",
-                                                    alignItems: "center",
-                                                    justifyContent: "space-between",
-                                                    paddingTop: "14px",
-                                                    borderTop: "1px solid #f1f5f9",
-                                                    fontSize: "12px"
-                                                }}>
-                                                    <div style={{ color: "#64748b", fontWeight: "600", display: "flex", alignItems: "center", gap: "4px" }}>
-                                                        🕒 {drive.deadline || "May 30, 2026"}
-                                                    </div>
-                                                    <div style={{ color: "#64748b", fontWeight: "600", display: "flex", alignItems: "center", gap: "4px" }}>
-                                                        👥 {drive.applicantCount || (drive.company?.includes("Google") ? 1290 : 580)}
-                                                    </div>
                                                     <button
-                                                        onClick={() => setSelectedDriveCriteria(drive)}
-                                                        style={{ background: "none", border: "none", color: "#2563eb", fontWeight: "700", cursor: "pointer", padding: 0 }}
+                                                        onClick={() => { setDriveFilter("Eligible"); setCurrentTab("companies"); }}
+                                                        style={{
+                                                            padding: "5px 10px",
+                                                            backgroundColor: "#F8FAFC",
+                                                            color: "#0B3D91",
+                                                            border: "1px solid #CBD5E1",
+                                                            borderRadius: "6px",
+                                                            fontSize: "11.5px",
+                                                            fontWeight: 700,
+                                                            cursor: "pointer",
+                                                            whiteSpace: "nowrap"
+                                                        }}
                                                     >
-                                                        View &rarr;
+                                                        Details →
                                                     </button>
                                                 </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-
-                                {/* Pagination Controls */}
-                                <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "8px", marginTop: "24px" }}>
-                                    <button
-                                        onClick={() => setRecentDrivesPage(prev => Math.max(1, prev - 1))}
-                                        disabled={recentDrivesPage === 1}
-                                        style={{
-                                            background: "none",
-                                            border: "none",
-                                            color: recentDrivesPage === 1 ? "#94a3b8" : "#2563eb",
-                                            fontWeight: "700",
-                                            fontSize: "14px",
-                                            cursor: recentDrivesPage === 1 ? "not-allowed" : "pointer"
-                                        }}
-                                    >
-                                        Previous
-                                    </button>
-
-                                    {[1, 2, 3, 4].map(p => (
-                                        <button
-                                            key={p}
-                                            onClick={() => setRecentDrivesPage(p)}
-                                            style={{
-                                                width: "32px",
-                                                height: "32px",
-                                                borderRadius: "6px",
-                                                border: p === recentDrivesPage ? "1px solid #cbd5e1" : "none",
-                                                backgroundColor: p === recentDrivesPage ? "#ffffff" : "transparent",
-                                                color: p === recentDrivesPage ? "#0f172a" : "#64748b",
-                                                fontWeight: "700",
-                                                fontSize: "14px",
-                                                cursor: "pointer"
-                                            }}
-                                        >
-                                            {p}
-                                        </button>
-                                    ))}
-
-                                    <span style={{ color: "#94a3b8", fontWeight: "700" }}>. . .</span>
-
-                                    <button
-                                        onClick={() => setRecentDrivesPage(prev => Math.min(4, prev + 1))}
-                                        disabled={recentDrivesPage === 4}
-                                        style={{
-                                            background: "none",
-                                            border: "none",
-                                            color: recentDrivesPage === 4 ? "#94a3b8" : "#2563eb",
-                                            fontWeight: "700",
-                                            fontSize: "14px",
-                                            cursor: recentDrivesPage === 4 ? "not-allowed" : "pointer"
-                                        }}
-                                    >
-                                        Next
-                                    </button>
+                                            ))}
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -2631,7 +2536,6 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                         if (driveFilter === "Eligible" && (isOptedOut || isOptedIn || isIneligible)) return false;
                         if (driveFilter === "Not Eligible" && !isIneligible) return false;
                         if (driveFilter === "Up coming" && (isOptedOut || isOptedIn)) return false;
-                        if (driveFilter === "On coming" && !isOptedIn) return false;
                         if (driveFilter === "Opted-In" && !isOptedIn) return false;
                         if (driveFilter === "Opted-Out" && !isOptedOut) return false;
                         if (driveFilter === "Completed" && d.statusTag !== "Completed") return false;
@@ -2695,13 +2599,12 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                             </div>
 
                             {/* Filter Pills Bar (All on same line layout) */}
-                            <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", marginBottom: "24px" }}>
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "20px" }}>
                                 {[
                                     { key: "All", label: "All" },
                                     { key: "Eligible", label: "Eligible" },
                                     { key: "Not Eligible", label: "Not Eligible" },
                                     { key: "Up coming", label: "Up coming" },
-                                    { key: "On coming", label: "On coming" },
                                     { key: "Opted-In", label: "Opted-In" },
                                     { key: "Opted-Out", label: "Opted-Out" },
                                     { key: "Completed", label: "Completed" }
@@ -2712,17 +2615,17 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                                             key={filter.key}
                                             onClick={() => { setCampusDrivesPage(1); setDriveFilter(filter.key as any); }}
                                             style={{
-                                                backgroundColor: isSelected ? "#2563eb" : "#ffffff",
+                                                backgroundColor: isSelected ? "#0B3D91" : "#ffffff",
                                                 color: isSelected ? "#ffffff" : "#475569",
-                                                border: isSelected ? "none" : "1px solid #cbd5e1",
-                                                borderRadius: "24px",
-                                                padding: "10px 22px",
-                                                fontSize: "14px",
+                                                border: isSelected ? "none" : "1px solid #CBD5E1",
+                                                borderRadius: "20px",
+                                                padding: "6px 16px",
+                                                fontSize: "12.5px",
                                                 fontWeight: isSelected ? "700" : "600",
                                                 cursor: "pointer",
                                                 whiteSpace: "nowrap",
                                                 transition: "all 0.15s ease",
-                                                boxShadow: isSelected ? "0 2px 8px rgba(37,99,235,0.25)" : "none"
+                                                boxShadow: isSelected ? "0 2px 6px rgba(11,61,145,0.2)" : "none"
                                             }}
                                         >
                                             {filter.label}
@@ -2731,136 +2634,131 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                                 })}
                             </div>
 
-                            {/* Drives List Grid */}
-                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(330px, 1fr))", gap: "20px", marginBottom: "32px" }}>
-                                {pageDisplayDrives.length === 0 ? (
-                                    <div style={{ gridColumn: "1 / -1", textAlign: "center", padding: "48px 20px", backgroundColor: "#ffffff", borderRadius: "16px", border: "1px solid #eaedf0", color: "#64748b" }}>
-                                        <div style={{ fontSize: "32px", marginBottom: "12px" }}>🔍</div>
-                                        <div style={{ fontSize: "16px", fontWeight: "700", color: "#0f172a", marginBottom: "6px" }}>No {driveFilter} drives found</div>
-                                        <div style={{ fontSize: "14px" }}>There are currently no drives under the "{driveFilter}" category.</div>
+                            {/* Professional Corporate Campus Placement Drives Table */}
+                            {pageDisplayDrives.length === 0 ? (
+                                <div style={{ textAlign: "center", padding: "40px 20px", color: "#64748b", backgroundColor: "#F8FAFC", borderRadius: "14px", border: "1px dashed #CBD5E1", marginBottom: "24px" }}>
+                                    <div style={{ fontSize: "32px", marginBottom: "8px" }}>🔍</div>
+                                    <div style={{ fontSize: "14.5px", fontWeight: "700", color: "#0f172a", marginBottom: "4px" }}>No {driveFilter} drives found</div>
+                                    <div style={{ fontSize: "12.5px" }}>There are currently no placement drives under the "{driveFilter}" filter.</div>
+                                </div>
+                            ) : (
+                                <div style={{ backgroundColor: "#FFFFFF", borderRadius: "12px", border: "1px solid #E2E8F0", overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.02)", marginBottom: "24px" }}>
+                                    <div style={{ overflowX: "auto" }}>
+                                        <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: "12.5px" }}>
+                                            <thead>
+                                                <tr style={{ backgroundColor: "#F8FAFC", borderBottom: "1px solid #E2E8F0", color: "#475569", fontSize: "11.5px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                                                    <th style={{ padding: "11px 16px", fontWeight: 700 }}>#</th>
+                                                    <th style={{ padding: "11px 16px", fontWeight: 700 }}>Company</th>
+                                                    <th style={{ padding: "11px 16px", fontWeight: 700 }}>Job Role</th>
+                                                    <th style={{ padding: "11px 16px", fontWeight: 700 }}>Package CTC</th>
+                                                    <th style={{ padding: "11px 16px", fontWeight: 700 }}>Deadline</th>
+                                                    <th style={{ padding: "11px 16px", fontWeight: 700 }}>Status</th>
+                                                    <th style={{ padding: "11px 16px", fontWeight: 700, textAlign: "right" }}>Action</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {pageDisplayDrives.map((drive: any, idx: number) => {
+                                                    const isOptedIn = isDriveOptedIn(drive) || drive.statusTag === "Opted-In";
+                                                    const isOptedOut = isDriveOptedOut(drive) || drive.statusTag === "Opted-Out";
+                                                    const isIneligible = drive.statusTag === "Not Eligible" || (drive as any).isEligible === false;
+
+                                                    return (
+                                                        <tr
+                                                            key={drive.id || drive._id || idx}
+                                                            onClick={() => setSelectedDriveCriteria(drive)}
+                                                            style={{
+                                                                borderBottom: "1px solid #F1F5F9",
+                                                                cursor: "pointer",
+                                                                transition: "background-color 0.15s ease",
+                                                                backgroundColor: isOptedIn ? "#F0FDF4" : "#FFFFFF"
+                                                            }}
+                                                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = isOptedIn ? "#DCFCE7" : "#F8FAFC"}
+                                                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = isOptedIn ? "#F0FDF4" : "#FFFFFF"}
+                                                        >
+                                                            <td style={{ padding: "11px 16px", color: "#94A3B8", fontWeight: 700 }}>
+                                                                {(campusDrivesPage - 1) * pageSize + idx + 1}
+                                                            </td>
+                                                            <td style={{ padding: "11px 16px" }}>
+                                                                <div style={{ display: "flex", alignItems: "center", gap: "9px" }}>
+                                                                    <div style={{
+                                                                        width: "32px",
+                                                                        height: "32px",
+                                                                        borderRadius: "7px",
+                                                                        backgroundColor: "#EFF6FF",
+                                                                        border: "1px solid #DBEAFE",
+                                                                        display: "flex",
+                                                                        alignItems: "center",
+                                                                        justifyContent: "center",
+                                                                        fontWeight: 800,
+                                                                        color: "#1D4ED8",
+                                                                        fontSize: "13.5px",
+                                                                        flexShrink: 0
+                                                                    }}>
+                                                                        {drive.company?.charAt(0) || "C"}
+                                                                    </div>
+                                                                    <div>
+                                                                        <div style={{ fontWeight: 800, color: "#0F172A", fontSize: "13px" }}>
+                                                                            {drive.company}
+                                                                        </div>
+                                                                        <div style={{ fontSize: "11px", color: "#64748B", marginTop: "1px", display: "flex", alignItems: "center", gap: "3px" }}>
+                                                                            📍 {drive.location || "Bangalore, India"}
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </td>
+                                                            <td style={{ padding: "11px 16px", color: "#2563EB", fontWeight: 700 }}>
+                                                                {drive.role || "Software Trainee"}
+                                                            </td>
+                                                            <td style={{ padding: "11px 16px", color: "#16A34A", fontWeight: 900, fontFamily: "monospace", fontSize: "13.5px" }}>
+                                                                {formatCtc(drive.ctc)}
+                                                            </td>
+                                                            <td style={{ padding: "11px 16px", color: "#DC2626", fontWeight: 700, fontSize: "12px", whiteSpace: "nowrap" }}>
+                                                                {drive.deadline ? drive.deadline.replace(/^[⏰⏱️📅]\s*/, "") : "30 May 2026"}
+                                                            </td>
+                                                            <td style={{ padding: "11px 16px" }}>
+                                                                <span style={{
+                                                                    backgroundColor: isOptedIn ? "#DCFCE7" : (isOptedOut ? "#FEE2E2" : (isIneligible ? "#FEE2E2" : "#EFF6FF")),
+                                                                    color: isOptedIn ? "#15803D" : (isOptedOut ? "#B91C1C" : (isIneligible ? "#B91C1C" : "#1D4ED8")),
+                                                                    padding: "3px 8px",
+                                                                    borderRadius: "12px",
+                                                                    fontSize: "11px",
+                                                                    fontWeight: 700,
+                                                                    border: `1px solid ${isOptedIn ? "#86EFAC" : (isOptedOut ? "#FCA5A5" : (isIneligible ? "#FCA5A5" : "#BFDBFE"))}`,
+                                                                    whiteSpace: "nowrap"
+                                                                }}>
+                                                                    {isOptedIn ? "✓ Opted-In" : (isOptedOut ? "✕ Opted-Out" : (isIneligible ? "Not Eligible" : "Eligible"))}
+                                                                </span>
+                                                            </td>
+                                                            <td style={{ padding: "11px 16px", textAlign: "right" }}>
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        setSelectedDriveCriteria(drive);
+                                                                    }}
+                                                                    style={{
+                                                                        padding: "5px 12px",
+                                                                        backgroundColor: "#0B3D91",
+                                                                        color: "#FFFFFF",
+                                                                        border: "none",
+                                                                        borderRadius: "6px",
+                                                                        fontSize: "11.5px",
+                                                                        fontWeight: 700,
+                                                                        cursor: "pointer",
+                                                                        whiteSpace: "nowrap",
+                                                                        transition: "all 0.15s ease"
+                                                                    }}
+                                                                >
+                                                                    View Details →
+                                                                </button>
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
                                     </div>
-                                ) : (
-                                    pageDisplayDrives.map((drive: any, idx: number) => {
-                                        const isOptedIn = isDriveOptedIn(drive) || drive.statusTag === "Opted-In";
-                                        const isOptedOut = isDriveOptedOut(drive) || drive.statusTag === "Opted-Out";
-                                        const isIneligible = drive.statusTag === "Not Eligible" || (drive as any).isEligible === false;
-                                        const skills = drive.requiredSkills && drive.requiredSkills.length > 0
-                                            ? drive.requiredSkills
-                                            : ["Java", "Python", "MERN", "SQL"];
-
-                                        return (
-                                            <div
-                                                key={drive.id || drive._id || idx}
-                                                onClick={() => setSelectedDriveCriteria(drive)}
-                                                style={{
-                                                    backgroundColor: "#ffffff",
-                                                    borderRadius: "16px",
-                                                    padding: "20px 22px",
-                                                    border: "1px solid #eaedf0",
-                                                    boxShadow: "0 2px 6px rgba(0,0,0,0.02)",
-                                                    display: "flex",
-                                                    flexDirection: "column",
-                                                    justifyContent: "space-between",
-                                                    gap: "16px",
-                                                    cursor: "pointer"
-                                                }}
-                                            >
-                                                <div>
-                                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "12px" }}>
-                                                        <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
-                                                            <div style={{
-                                                                width: "48px",
-                                                                height: "48px",
-                                                                borderRadius: "12px",
-                                                                backgroundColor: "#f8fafc",
-                                                                border: "1px solid #e2e8f0",
-                                                                display: "flex",
-                                                                alignItems: "center",
-                                                                justifyContent: "center",
-                                                                overflow: "hidden",
-                                                                fontSize: "22px",
-                                                                fontWeight: "800",
-                                                                color: "#2563eb",
-                                                                flexShrink: 0
-                                                            }}>
-                                                                {drive.company?.includes("Google") ? (
-                                                                    <span style={{ color: "#4285F4" }}>G</span>
-                                                                ) : drive.logo ? (
-                                                                    <img src={drive.logo} alt={drive.company} style={{ width: "100%", height: "100%", objectFit: "contain" }} onError={(e: any) => { e.target.style.display = 'none'; }} />
-                                                                ) : (
-                                                                    drive.company?.charAt(0) || "C"
-                                                                )}
-                                                            </div>
-                                                            <div>
-                                                                <h4 style={{ margin: "0 0 3px 0", fontSize: "15px", fontWeight: "800", color: "#0f172a" }}>
-                                                                    {drive.company}
-                                                                </h4>
-                                                                <div style={{ fontSize: "13px", color: "#2563eb", fontWeight: "600" }}>
-                                                                    {drive.role}
-                                                                </div>
-                                                                <div style={{ fontSize: "14px", fontWeight: "800", color: "#0f172a", marginTop: "3px" }}>
-                                                                    {formatCtc(drive.ctc)}
-                                                                </div>
-                                                            </div>
-                                                        </div>
-
-                                                        <span style={{
-                                                            backgroundColor: isOptedIn ? "#dcfce7" : (isOptedOut ? "#fef2f2" : (isIneligible ? "#fef2f2" : "#eff6ff")),
-                                                            color: isOptedIn ? "#16a34a" : (isOptedOut ? "#dc2626" : (isIneligible ? "#dc2626" : "#2563eb")),
-                                                            padding: "4px 10px",
-                                                            borderRadius: "12px",
-                                                            fontSize: "11px",
-                                                            fontWeight: "700",
-                                                            border: `1px solid ${isOptedIn ? "#bbf7d0" : (isOptedOut ? "#fecaca" : (isIneligible ? "#fecaca" : "#bfdbfe"))}`,
-                                                            whiteSpace: "nowrap"
-                                                        }}>
-                                                            {isOptedIn ? "✓ Opted-In" : (isOptedOut ? "✕ Opted-Out" : (isIneligible ? "Not Eligible" : "Eligible"))}
-                                                        </span>
-                                                    </div>
-
-                                                    {/* Skill Pills */}
-                                                    <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-                                                        {skills.map((skill: string, sIdx: number) => (
-                                                            <span key={sIdx} style={{
-                                                                backgroundColor: "#f1f5f9",
-                                                                color: "#475569",
-                                                                padding: "3px 10px",
-                                                                borderRadius: "8px",
-                                                                fontSize: "11px",
-                                                                fontWeight: "600"
-                                                            }}>
-                                                                {skill}
-                                                            </span>
-                                                        ))}
-                                                    </div>
-                                                </div>
-
-                                                <div style={{
-                                                    display: "flex",
-                                                    alignItems: "center",
-                                                    justifyContent: "space-between",
-                                                    paddingTop: "14px",
-                                                    borderTop: "1px solid #f1f5f9",
-                                                    fontSize: "12px"
-                                                }}>
-                                                    <div style={{ color: "#dc2626", fontWeight: "700", display: "flex", alignItems: "center", gap: "4px" }}>
-                                                        🕒 {drive.deadline || "May 30, 2026"}
-                                                    </div>
-                                                    <div style={{ color: "#64748b", fontWeight: "600", display: "flex", alignItems: "center", gap: "4px" }}>
-                                                        👥 {drive.applicantCount || 580}
-                                                    </div>
-                                                    <button
-                                                        onClick={() => setSelectedDriveCriteria(drive)}
-                                                        style={{ background: "none", border: "none", color: "#2563eb", fontWeight: "700", cursor: "pointer", padding: 0 }}
-                                                    >
-                                                        View &rarr;
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        );
-                                    })
-                                )}
-                            </div>
+                                </div>
+                            )}
 
                             {/* Pagination Controls */}
                             <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "8px" }}>
@@ -3042,221 +2940,248 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                         }
                     });
 
-                    if (!hasGoogle && !displayList.some((a: any) => (a.company || "").toLowerCase().includes("google"))) {
-                        displayList.unshift(defaultTrackerApps[0]); // Google
-                    }
-                    if (!hasMicrosoft && !displayList.some((a: any) => (a.company || "").toLowerCase().includes("microsoft"))) {
-                        displayList.splice(1, 0, defaultTrackerApps[1]); // Microsoft
-                    }
+                    const normalizedApps = rawMapped.map((app: any) => {
+                        const st = (app.statusTag || app.currentWorkflowStage || "").toLowerCase();
+                        const isCompleted = st.includes("select") || st.includes("reject") || st.includes("complete") || st.includes("offer");
+                        const isSelected = st.includes("select") || st.includes("offer");
+                        const isRejected = st.includes("reject");
+
+                        return {
+                            ...app,
+                            isCompleted,
+                            isSelected,
+                            isRejected,
+                            statusCategory: isCompleted ? "completed" : "in_progress",
+                            statusDisplay: isCompleted ? (isSelected ? "Completed • Selected" : "Completed") : "In Progress"
+                        };
+                    });
+
+                    const filteredTrackerApps = normalizedApps.filter((app: any) => {
+                        if (appTrackerFilter === "in_progress") {
+                            return app.statusCategory === "in_progress";
+                        }
+                        if (appTrackerFilter === "completed") {
+                            return app.statusCategory === "completed";
+                        }
+                        return true;
+                    });
 
                     return (
-                        <div style={{ backgroundColor: "#ffffff", borderRadius: "18px", padding: "16px", border: "1px solid #eaedf0", width: "100%", boxSizing: "border-box" }}>
+                        <div style={{ backgroundColor: "#ffffff", borderRadius: "18px", padding: "24px", border: "1px solid #eaedf0", width: "100%", boxSizing: "border-box" }}>
                             {/* Tracker Header */}
-                            <div style={{ marginBottom: "20px" }}>
-                                <h2 style={{ fontSize: "22px", fontWeight: "800", color: "#0f172a", margin: "0 0 4px 0" }}>
-                                    Application Tracker
-                                </h2>
-                                <div style={{ fontSize: "13px", color: "#64748b", fontWeight: "600" }}>
-                                    Round-by-round process around all Drives
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "16px", marginBottom: "24px" }}>
+                                <div>
+                                    <h2 style={{ fontSize: "20px", fontWeight: "800", color: "#0f172a", margin: "0 0 4px 0" }}>
+                                        My Applications & Interview Status
+                                    </h2>
+                                    <div style={{ fontSize: "13px", color: "#64748b", fontWeight: "600" }}>
+                                        Manage your active recruitment drives and finalized placement results
+                                    </div>
+                                </div>
+
+                                {/* Filter Switcher: All, In Progress, Completed */}
+                                <div style={{ display: "flex", gap: "6px", backgroundColor: "#F1F5F9", padding: "4px", borderRadius: "10px", border: "1px solid #E2E8F0" }}>
+                                    {[
+                                        { id: "all", label: "All Applications", count: normalizedApps.length },
+                                        { id: "in_progress", label: "In Progress", count: normalizedApps.filter(a => a.statusCategory === "in_progress").length },
+                                        { id: "completed", label: "Completed", count: normalizedApps.filter(a => a.statusCategory === "completed").length }
+                                    ].map(f => {
+                                        const isSel = appTrackerFilter === f.id;
+                                        return (
+                                            <button
+                                                key={f.id}
+                                                onClick={() => setAppTrackerFilter(f.id as any)}
+                                                style={{
+                                                    padding: "7px 16px",
+                                                    borderRadius: "8px",
+                                                    border: "none",
+                                                    backgroundColor: isSel ? "#0B3D91" : "transparent",
+                                                    color: isSel ? "#FFFFFF" : "#475569",
+                                                    fontWeight: isSel ? 700 : 600,
+                                                    fontSize: "13px",
+                                                    cursor: "pointer",
+                                                    display: "flex",
+                                                    alignItems: "center",
+                                                    gap: "6px",
+                                                    transition: "all 0.15s ease"
+                                                }}
+                                            >
+                                                <span>{f.label}</span>
+                                                <span style={{
+                                                    backgroundColor: isSel ? "rgba(255,255,255,0.2)" : "#E2E8F0",
+                                                    color: isSel ? "#FFFFFF" : "#475569",
+                                                    padding: "1px 6px",
+                                                    borderRadius: "10px",
+                                                    fontSize: "11px",
+                                                    fontWeight: 700
+                                                }}>
+                                                    {f.count}
+                                                </span>
+                                            </button>
+                                        );
+                                    })}
                                 </div>
                             </div>
 
-                            {/* List of Application Tracker Cards */}
-                            <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-                                {displayList.map((app: any, idx: number) => {
-                                    const isSelected = app.statusTag === "Selected";
-                                    const isRejected = app.statusTag === "Rejected";
+                            {/* Applications & Interview Status Table */}
+                            {filteredTrackerApps.length === 0 ? (
+                                <div style={{ textAlign: "center", padding: "48px 20px", color: "#64748b", backgroundColor: "#F8FAFC", borderRadius: "16px", border: "1px dashed #CBD5E1" }}>
+                                    <div style={{ fontSize: "36px", marginBottom: "10px" }}>📑</div>
+                                    <div style={{ fontSize: "16px", fontWeight: 700, color: "#0F172A" }}>No applications found under "{appTrackerFilter === 'in_progress' ? 'In Progress' : 'Completed'}"</div>
+                                    <div style={{ fontSize: "13.5px", marginTop: "4px" }}>Select another filter or apply to campus drives to see your applications.</div>
+                                </div>
+                            ) : (
+                                <div style={{ backgroundColor: "#FFFFFF", borderRadius: "12px", border: "1px solid #E2E8F0", overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.02)" }}>
+                                    <div style={{ overflowX: "auto" }}>
+                                        <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: "12.5px" }}>
+                                            <thead>
+                                                <tr style={{ backgroundColor: "#F8FAFC", borderBottom: "1px solid #E2E8F0", color: "#475569", fontSize: "11.5px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                                                    <th style={{ padding: "11px 16px", fontWeight: 700 }}>#</th>
+                                                    <th style={{ padding: "11px 16px", fontWeight: 700 }}>Company</th>
+                                                    <th style={{ padding: "11px 16px", fontWeight: 700 }}>Job Role</th>
+                                                    <th style={{ padding: "11px 16px", fontWeight: 700 }}>Package CTC</th>
+                                                    <th style={{ padding: "11px 16px", fontWeight: 700 }}>Applied Date</th>
+                                                    <th style={{ padding: "11px 16px", fontWeight: 700 }}>Current Round / Schedule</th>
+                                                    <th style={{ padding: "11px 16px", fontWeight: 700 }}>Status</th>
+                                                    <th style={{ padding: "11px 16px", fontWeight: 700, textAlign: "right" }}>Action</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {filteredTrackerApps.map((app: any, idx: number) => {
+                                                    const isInProgress = app.statusCategory === "in_progress";
+                                                    const isSelected = app.isSelected;
+                                                    const isRejected = app.isRejected;
 
-                                    // Badge Styles
-                                    const badgeBg = isSelected ? "#dcfce7" : (isRejected ? "#fee2e2" : "#ffedd5");
-                                    const badgeColor = isSelected ? "#15803d" : (isRejected ? "#dc2626" : "#ea580c");
-                                    const badgeBorder = isSelected ? "#bbf7d0" : (isRejected ? "#fecaca" : "#fed7aa");
-                                    const badgeDot = isSelected ? "#16a34a" : (isRejected ? "#dc2626" : "#f97316");
-
-                                    // Stepper Line Progress Calculation
-                                    const totalRounds = app.rounds.length;
-                                    let passedCount = 0;
-                                    app.rounds.forEach((r: any) => { if (r.state === "passed") passedCount++; });
-                                    const progressPercent = totalRounds > 1 ? Math.min(100, Math.max(0, (passedCount / (totalRounds - 1)) * 100)) : 0;
-
-                                    return (
-                                        <div key={idx} style={{ backgroundColor: "#ffffff", borderRadius: "18px", border: "1.5px solid #e0e7ff", padding: "18px", boxShadow: "0 4px 14px rgba(0,0,0,0.03)", position: "relative", boxSizing: "border-box", overflow: "hidden" }}>
-                                            
-                                            {/* Card Top Row: Logo, Title, Role, Metadata, & Status Badge */}
-                                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "12px", marginBottom: "20px" }}>
-                                                <div style={{ display: "flex", alignItems: "flex-start", gap: "14px", flex: "1 1 220px", minWidth: "0" }}>
-                                                    <div style={{
-                                                        width: "48px",
-                                                        height: "48px",
-                                                        borderRadius: "12px",
-                                                        backgroundColor: "#f8fafc",
-                                                        border: "1px solid #e2e8f0",
-                                                        display: "flex",
-                                                        alignItems: "center",
-                                                        justifyContent: "center",
-                                                        fontSize: "20px",
-                                                        fontWeight: "800",
-                                                        color: "#2563eb",
-                                                        overflow: "hidden",
-                                                        flexShrink: 0
-                                                    }}>
-                                                        {app.company?.includes("Google") ? (
-                                                            <span style={{ color: "#4285F4" }}>G</span>
-                                                        ) : app.company?.includes("Microsoft") ? (
-                                                            <span style={{ color: "#00a4ef", fontSize: "11px", fontWeight: "900" }}>MSFT</span>
-                                                        ) : app.company?.includes("Zoho") ? (
-                                                            <span style={{ color: "#e11d48", fontSize: "11px", fontWeight: "900" }}>ZOHO</span>
-                                                        ) : app.company?.includes("TCS") ? (
-                                                            <span style={{ color: "#0284c7", fontSize: "11px", fontWeight: "900" }}>TCS</span>
-                                                        ) : app.company?.includes("Amazon") ? (
-                                                            <span style={{ color: "#ff9900", fontSize: "15px", fontWeight: "900" }}>a</span>
-                                                        ) : app.logo ? (
-                                                            <img src={app.logo} alt={app.company} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
-                                                        ) : (
-                                                            app.company?.charAt(0) || "C"
-                                                        )}
-                                                    </div>
-                                                    <div style={{ minWidth: "0", flex: 1 }}>
-                                                        <h3 style={{ margin: "0 0 3px 0", fontSize: "18px", fontWeight: "800", color: "#0f172a", wordBreak: "break-word" }}>
-                                                            {app.company}
-                                                        </h3>
-                                                        <div style={{ fontSize: "13px", color: "#7c3aed", fontWeight: "700", marginBottom: "4px" }}>
-                                                            {app.role || "Software Developer"}
-                                                        </div>
-                                                        <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 12px", fontSize: "12px", color: "#64748b", fontWeight: "600" }}>
-                                                            <span style={{ whiteSpace: "nowrap" }}>📍 {app.location || "Bangalore, India"}</span>
-                                                            <span style={{ whiteSpace: "nowrap" }}>💰 {formatCtc(app.ctc || app.package)}</span>
-                                                            <span style={{ whiteSpace: "nowrap" }}>📅 Applied on {app.appliedDate || "Mar 22, 2026"}</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                <span style={{
-                                                    backgroundColor: badgeBg,
-                                                    color: badgeColor,
-                                                    border: `1px solid ${badgeBorder}`,
-                                                    borderRadius: "20px",
-                                                    padding: "5px 14px",
-                                                    fontSize: "12px",
-                                                    fontWeight: "800",
-                                                    display: "inline-flex",
-                                                    alignItems: "center",
-                                                    gap: "6px",
-                                                    flexShrink: 0
-                                                }}>
-                                                    <span style={{ width: "7px", height: "7px", borderRadius: "50%", backgroundColor: badgeDot }}></span>
-                                                    {app.statusTag}
-                                                </span>
-                                            </div>
-
-                                            {/* Middle Row: 5 Rounds Stepper (Scrollable horizontally on small screens) */}
-                                            <div style={{ overflowX: "auto", margin: "0 -6px", padding: "6px 6px 16px 6px", WebkitOverflowScrolling: "touch" }}>
-                                                <div style={{ minWidth: "460px", position: "relative" }}>
-                                                    {/* Horizontal Connecting Line */}
-                                                    <div style={{
-                                                        position: "absolute",
-                                                        top: "18px",
-                                                        left: "35px",
-                                                        right: "35px",
-                                                        height: "3px",
-                                                        backgroundColor: "#e2e8f0",
-                                                        zIndex: 1
-                                                    }}>
-                                                        <div style={{ width: `${progressPercent}%`, height: "100%", backgroundColor: "#22c55e", transition: "width 0.3s ease" }}></div>
-                                                    </div>
-
-                                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", position: "relative", zIndex: 2 }}>
-                                                        {app.rounds.map((r: any, rIdx: number) => {
-                                                            const isPassed = r.state === "passed";
-                                                            const isActive = r.state === "active";
-                                                            const isFailed = r.state === "failed";
-
-                                                            let icon = "🕒";
-                                                            let circleBg = "#f1f5f9";
-                                                            let circleColor = "#94a3b8";
-                                                            let circleBorder = "2px solid #e2e8f0";
-
-                                                            if (isPassed) {
-                                                                icon = "✓";
-                                                                circleBg = "#22c55e";
-                                                                circleColor = "#ffffff";
-                                                                circleBorder = "none";
-                                                            } else if (isActive) {
-                                                                icon = "●";
-                                                                circleBg = "#f97316";
-                                                                circleColor = "#ffffff";
-                                                                circleBorder = "none";
-                                                            } else if (isFailed) {
-                                                                icon = "✕";
-                                                                circleBg = "#ef4444";
-                                                                circleColor = "#ffffff";
-                                                                circleBorder = "none";
-                                                            }
-
-                                                            return (
-                                                                <div key={rIdx} style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "18%" }}>
+                                                    return (
+                                                        <tr
+                                                            key={idx}
+                                                            onClick={() => setSelectedApplicationModal(app)}
+                                                            style={{
+                                                                borderBottom: "1px solid #F1F5F9",
+                                                                cursor: "pointer",
+                                                                transition: "background-color 0.15s ease",
+                                                                backgroundColor: isSelected ? "#F0FDF4" : "#FFFFFF"
+                                                            }}
+                                                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = isSelected ? "#DCFCE7" : "#F8FAFC"}
+                                                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = isSelected ? "#F0FDF4" : "#FFFFFF"}
+                                                        >
+                                                            <td style={{ padding: "11px 16px", color: "#94A3B8", fontWeight: 700 }}>
+                                                                {idx + 1}
+                                                            </td>
+                                                            <td style={{ padding: "11px 16px" }}>
+                                                                <div style={{ display: "flex", alignItems: "center", gap: "9px" }}>
                                                                     <div style={{
-                                                                        width: "36px",
-                                                                        height: "36px",
-                                                                        borderRadius: "50%",
-                                                                        backgroundColor: circleBg,
-                                                                        color: circleColor,
-                                                                        border: circleBorder,
+                                                                        width: "32px",
+                                                                        height: "32px",
+                                                                        borderRadius: "7px",
+                                                                        backgroundColor: "#EFF6FF",
+                                                                        border: "1px solid #DBEAFE",
                                                                         display: "flex",
                                                                         alignItems: "center",
                                                                         justifyContent: "center",
-                                                                        fontSize: isPassed || isFailed ? "16px" : (isActive ? "12px" : "14px"),
-                                                                        fontWeight: "800",
-                                                                        marginBottom: "6px",
-                                                                        boxShadow: isActive ? "0 0 0 4px rgba(249,115,22,0.2)" : "none"
+                                                                        fontSize: "14px",
+                                                                        fontWeight: 800,
+                                                                        color: "#0B3D91",
+                                                                        flexShrink: 0
                                                                     }}>
-                                                                        {icon}
+                                                                        {app.company?.charAt(0) || "C"}
                                                                     </div>
-                                                                    <div style={{ fontSize: "11px", color: "#64748b", fontWeight: "700", textAlign: "center" }}>
-                                                                        {r.stepName || `Round ${rIdx + 1}`}
-                                                                    </div>
-                                                                    <div style={{ fontSize: "12px", color: "#0f172a", fontWeight: "700", textAlign: "center", marginTop: "2px" }}>
-                                                                        {r.name}
+                                                                    <div>
+                                                                        <div style={{ fontWeight: 800, color: "#0F172A", fontSize: "13px" }}>
+                                                                            {app.company}
+                                                                        </div>
+                                                                        <div style={{ fontSize: "11px", color: "#64748B", marginTop: "1px", display: "flex", alignItems: "center", gap: "3px" }}>
+                                                                            📍 {app.location || "Bangalore, India"}
+                                                                        </div>
                                                                     </div>
                                                                 </div>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            {/* Bottom Row Sub-Bar */}
-                                            <div style={{ borderTop: "1px solid #f1f5f9", paddingTop: "16px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
-                                                <div style={{ flex: "1 1 200px", fontSize: "13px", color: isSelected ? "#15803d" : (isRejected ? "#64748b" : "#475569"), fontWeight: "700", lineHeight: "1.4" }}>
-                                                    {app.subMessage}
-                                                </div>
-
-                                                <button
-                                                    onClick={() => setSelectedApplicationModal(app)}
-                                                    style={{
-                                                        backgroundColor: "#2563eb",
-                                                        color: "#ffffff",
-                                                        border: "none",
-                                                        borderRadius: "10px",
-                                                        padding: "10px 22px",
-                                                        fontWeight: "700",
-                                                        fontSize: "13px",
-                                                        cursor: "pointer",
-                                                        display: "inline-flex",
-                                                        alignItems: "center",
-                                                        justifyContent: "center",
-                                                        gap: "8px",
-                                                        boxShadow: "0 2px 6px rgba(37,99,235,0.3)",
-                                                        flexShrink: 0
-                                                    }}
-                                                >
-                                                    <span>📋</span> View Details
-                                                </button>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
+                                                            </td>
+                                                            <td style={{ padding: "11px 16px", color: "#2563EB", fontWeight: 700 }}>
+                                                                {app.role || "Software Developer"}
+                                                            </td>
+                                                            <td style={{ padding: "11px 16px", color: "#16A34A", fontWeight: 900, fontFamily: "monospace", fontSize: "13.5px" }}>
+                                                                {formatCtc(app.ctc || app.package)}
+                                                            </td>
+                                                            <td style={{ padding: "11px 16px", color: "#475569", fontWeight: 600, fontSize: "12px", whiteSpace: "nowrap" }}>
+                                                                {app.appliedDate || "22 Mar 2026"}
+                                                            </td>
+                                                            <td style={{ padding: "11px 16px" }}>
+                                                                <div style={{ fontSize: "12.5px", fontWeight: 700, color: isInProgress ? "#1E40AF" : (isSelected ? "#15803D" : "#475569") }}>
+                                                                    {app.subMessage || (isInProgress ? "⚡ Technical Interview" : "Recruitment Concluded")}
+                                                                </div>
+                                                            </td>
+                                                            <td style={{ padding: "11px 16px" }}>
+                                                                {isInProgress ? (
+                                                                    <span style={{
+                                                                        backgroundColor: "#EFF6FF",
+                                                                        color: "#1D4ED8",
+                                                                        border: "1px solid #BFDBFE",
+                                                                        borderRadius: "12px",
+                                                                        padding: "3px 8px",
+                                                                        fontSize: "11px",
+                                                                        fontWeight: 700,
+                                                                        whiteSpace: "nowrap"
+                                                                    }}>
+                                                                        ● In Progress
+                                                                    </span>
+                                                                ) : isSelected ? (
+                                                                    <span style={{
+                                                                        backgroundColor: "#DCFCE7",
+                                                                        color: "#15803D",
+                                                                        border: "1px solid #86EFAC",
+                                                                        borderRadius: "12px",
+                                                                        padding: "3px 8px",
+                                                                        fontSize: "11px",
+                                                                        fontWeight: 700,
+                                                                        whiteSpace: "nowrap"
+                                                                    }}>
+                                                                        ✓ Selected
+                                                                    </span>
+                                                                ) : (
+                                                                    <span style={{
+                                                                        backgroundColor: "#FEE2E2",
+                                                                        color: "#B91C1C",
+                                                                        border: "1px solid #FCA5A5",
+                                                                        borderRadius: "12px",
+                                                                        padding: "3px 8px",
+                                                                        fontSize: "11px",
+                                                                        fontWeight: 700,
+                                                                        whiteSpace: "nowrap"
+                                                                    }}>
+                                                                        Completed
+                                                                    </span>
+                                                                )}
+                                                            </td>
+                                                            <td style={{ padding: "11px 16px", textAlign: "right" }}>
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        setSelectedApplicationModal(app);
+                                                                    }}
+                                                                    style={{
+                                                                        padding: "5px 12px",
+                                                                        backgroundColor: "#0B3D91",
+                                                                        color: "#FFFFFF",
+                                                                        border: "none",
+                                                                        borderRadius: "6px",
+                                                                        fontSize: "11.5px",
+                                                                        fontWeight: 700,
+                                                                        cursor: "pointer",
+                                                                        whiteSpace: "nowrap",
+                                                                        transition: "all 0.15s ease"
+                                                                    }}
+                                                                >
+                                                                    Track Status →
+                                                                </button>
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     );
                 })()}
@@ -3502,10 +3427,10 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                         <div style={{ backgroundColor: "#ffffff", borderRadius: "14px", padding: "24px", border: "1px solid #eaedf0", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
                             <div style={{ marginBottom: "20px" }}>
                                 <h2 style={{ fontSize: "18px", fontWeight: "800", color: "#0f172a", margin: "0 0 4px 0", display: "flex", alignItems: "center", gap: "8px" }}>
-                                    <span>🏆</span> Selection Results & Official PDF Offer Letter Download
+                                    <span>🏆</span> Final Selection Results & Placement Status
                                 </h2>
                                 <div style={{ fontSize: "12px", color: "#64748b" }}>
-                                    Download officially verified campus recruitment appointment letters.
+                                    Official recruitment selection confirmations verified by the TPO cell.
                                 </div>
                             </div>
 
@@ -3548,60 +3473,32 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                                                             display: "inline-flex",
                                                             alignItems: "center"
                                                         }}>
-                                                            {isDeclined ? "✕ Declined" : (off.accepted ? "Selected ✓" : "Offer Released")}
+                                                            {isDeclined ? "✕ Not Selected" : "Selected ✓"}
                                                         </span>
                                                     </td>
                                                     <td style={{ padding: "16px", color: "#64748b", fontWeight: "600" }}>
                                                         {off.date || "15 Sep 2026"}
                                                     </td>
                                                     <td style={{ padding: "16px" }}>
-                                                        {off.accepted ? (
-                                                            /* ON ACCEPT: SHOW ONLY VIEW OFFER AND DOWNLOAD PDF BUTTONS */
-                                                            <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                                                                <button
-                                                                    onClick={() => setSelectedOfferModal(off)}
-                                                                    style={{
-                                                                        backgroundColor: "#ffffff",
-                                                                        border: "1px solid #cbd5e1",
-                                                                        color: "#0f172a",
-                                                                        borderRadius: "8px",
-                                                                        padding: "7px 14px",
-                                                                        fontSize: "12px",
-                                                                        fontWeight: "700",
-                                                                        cursor: "pointer",
-                                                                        display: "inline-flex",
-                                                                        alignItems: "center",
-                                                                        gap: "4px",
-                                                                        whiteSpace: "nowrap"
-                                                                    }}
-                                                                >
-                                                                    View Offer
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => handleDownloadPDF(off)}
-                                                                    style={{
-                                                                        backgroundColor: "#16a34a",
-                                                                        border: "none",
-                                                                        color: "#ffffff",
-                                                                        borderRadius: "8px",
-                                                                        padding: "7px 14px",
-                                                                        fontSize: "12px",
-                                                                        fontWeight: "700",
-                                                                        cursor: "pointer",
-                                                                        display: "inline-flex",
-                                                                        alignItems: "center",
-                                                                        gap: "4px",
-                                                                        whiteSpace: "nowrap"
-                                                                    }}
-                                                                >
-                                                                    Download PDF
-                                                                </button>
-                                                            </div>
-                                                        ) : isDeclined ? (
-                                                            <span style={{ color: "#dc2626", fontSize: "12px", fontWeight: "700" }}>✕ Offer Declined</span>
-                                                        ) : (
-                                                            <span style={{ color: "#d97706", fontSize: "12px", fontWeight: "700" }}>Pending Offer Acceptance</span>
-                                                        )}
+                                                        <button
+                                                            onClick={() => setCurrentTab("applications")}
+                                                            style={{
+                                                                backgroundColor: "#ffffff",
+                                                                border: "1px solid #cbd5e1",
+                                                                color: "#0f172a",
+                                                                borderRadius: "8px",
+                                                                padding: "7px 14px",
+                                                                fontSize: "12px",
+                                                                fontWeight: "700",
+                                                                cursor: "pointer",
+                                                                display: "inline-flex",
+                                                                alignItems: "center",
+                                                                gap: "4px",
+                                                                whiteSpace: "nowrap"
+                                                            }}
+                                                        >
+                                                            View Details →
+                                                        </button>
                                                     </td>
                                                 </tr>
                                             );
@@ -3835,7 +3732,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                                             ) : (
                                                 <>
                                                     <button
-                                                        onClick={() => setShowOptInConfirmDrive(selectedDriveCriteria)}
+                                                        onClick={() => setOptInConfirmDrive(selectedDriveCriteria)}
                                                         style={{
                                                             backgroundColor: "#16a34a",
                                                             color: "#ffffff",
@@ -4186,85 +4083,24 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                                     <div>Graduation Year: <strong>{selectedApplicationModal.gradYear}</strong></div>
                                 </div>
 
-                                {/* RECRUITMENT ROUNDS & SCHEDULE */}
-                                <div style={{ fontSize: "11px", fontWeight: "800", color: "#94a3b8", letterSpacing: "0.5px", textTransform: "uppercase", marginBottom: "10px" }}>📋 RECRUITMENT ROUNDS & SCHEDULE</div>
-
-                                {/* Desktop View Table */}
-                                <div className="desktop-rounds-table" style={{ width: "100%", borderRadius: "10px", border: "1px solid #e2e8f0", backgroundColor: "#ffffff" }}>
-                                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px", textAlign: "left", tableLayout: "fixed" }}>
-                                        <thead>
-                                            <tr style={{ backgroundColor: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
-                                                <th style={{ padding: "10px 12px", color: "#64748b", fontWeight: "700", width: "12%" }}>Round</th>
-                                                <th style={{ padding: "10px 12px", color: "#64748b", fontWeight: "700", width: "36%" }}>Round Name</th>
-                                                <th style={{ padding: "10px 12px", color: "#64748b", fontWeight: "700", width: "15%" }}>Date</th>
-                                                <th style={{ padding: "10px 12px", color: "#64748b", fontWeight: "700", width: "21%" }}>Mode / Venue</th>
-                                                <th style={{ padding: "10px 12px", color: "#64748b", fontWeight: "700", width: "16%", textAlign: "center" }}>Status</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {selectedApplicationModal.rounds?.map((r: any, rIdx: number) => {
-                                                const isCleared = r.status?.includes("Cleared") || r.status?.includes("Passed");
-                                                const isFailed = r.status?.includes("Not Shortlisted") || r.status?.includes("Failed");
-                                                return (
-                                                    <tr key={rIdx} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                                                        <td style={{ padding: "10px 12px", fontWeight: "800", color: isCleared ? "#16a34a" : (isFailed ? "#dc2626" : "#0f172a") }}>{r.round}</td>
-                                                        <td style={{ padding: "10px 12px", fontWeight: "700", color: isCleared ? "#16a34a" : (isFailed ? "#dc2626" : "#334155") }}>{r.name}</td>
-                                                        <td style={{ padding: "10px 12px", color: "#64748b" }}>{r.date}</td>
-                                                        <td style={{ padding: "10px 12px", color: "#64748b" }}>{r.mode}</td>
-                                                        <td style={{ padding: "10px 12px", textAlign: "center" }}>
-                                                            <span style={{
-                                                                padding: "2px 8px",
-                                                                borderRadius: "10px",
-                                                                fontSize: "10px",
-                                                                fontWeight: "700",
-                                                                width: "100%",
-                                                                maxWidth: "100px",
-                                                                display: "inline-flex",
-                                                                alignItems: "center",
-                                                                justifyContent: "center",
-                                                                textAlign: "center",
-                                                                backgroundColor: isCleared ? "#dcfce7" : (isFailed ? "#fef2f2" : "#eff6ff"),
-                                                                color: isCleared ? "#15803d" : (isFailed ? "#dc2626" : "#2563eb"),
-                                                                border: `1px solid ${isCleared ? "#bbf7d0" : (isFailed ? "#fecaca" : "#bfdbfe")}`,
-                                                                boxSizing: "border-box"
-                                                            }}>
-                                                                {r.status || "Cleared ✓"}
-                                                            </span>
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })}
-                                        </tbody>
-                                    </table>
-                                </div>
-
-                                {/* Mobile View Stacked Round Cards */}
-                                <div className="mobile-rounds-cards">
-                                    {selectedApplicationModal.rounds?.map((r: any, rIdx: number) => {
-                                        const isCleared = r.status?.includes("Cleared") || r.status?.includes("Passed");
-                                        const isFailed = r.status?.includes("Not Shortlisted") || r.status?.includes("Failed");
-                                        return (
-                                            <div key={rIdx} style={{ backgroundColor: "#f8fafc", borderRadius: "12px", border: "1px solid #e2e8f0", padding: "14px", display: "flex", flexDirection: "column", gap: "6px" }}>
-                                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                                    <span style={{ fontWeight: "800", fontSize: "12px", color: isCleared ? "#16a34a" : (isFailed ? "#dc2626" : "#0f172a") }}>{r.round}</span>
-                                                    <span style={{
-                                                        padding: "2px 8px",
-                                                        borderRadius: "10px",
-                                                        fontSize: "10px",
-                                                        fontWeight: "700",
-                                                        backgroundColor: isCleared ? "#dcfce7" : (isFailed ? "#fef2f2" : "#eff6ff"),
-                                                        color: isCleared ? "#15803d" : (isFailed ? "#dc2626" : "#2563eb"),
-                                                        border: `1px solid ${isCleared ? "#bbf7d0" : (isFailed ? "#fecaca" : "#bfdbfe")}`
-                                                    }}>
-                                                        {isCleared ? "🟢 Cleared" : (isFailed ? "🔴 Not Shortlisted" : "🔵 Scheduled")}
-                                                    </span>
-                                                </div>
-                                                <div style={{ fontWeight: "700", fontSize: "13px", color: "#0f172a" }}>{r.name}</div>
-                                                <div style={{ fontSize: "11px", color: "#64748b" }}>🗓 Date: <strong>{r.date}</strong></div>
-                                                <div style={{ fontSize: "11px", color: "#64748b" }}>🏢 Venue / Mode: <strong>{r.mode}</strong></div>
-                                            </div>
-                                        );
-                                    })}
+                                {/* OFFICER STATUS & ROUND EVALUATION LOG */}
+                                <div style={{ fontSize: "11px", fontWeight: "800", color: "#94a3b8", letterSpacing: "0.5px", textTransform: "uppercase", marginBottom: "10px" }}>🏛️ PLACEMENT OFFICER EVALUATION & REAL-TIME STATUS</div>
+                                <div style={{ backgroundColor: "#F0FDF4", borderRadius: "12px", border: "1px solid #BBF7D0", padding: "16px", marginBottom: "20px" }}>
+                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                                        <div style={{ fontSize: "14px", fontWeight: 800, color: "#166534" }}>
+                                            Workflow Status: {selectedApplicationModal.statusDisplay || selectedApplicationModal.statusTag || "In Progress"}
+                                        </div>
+                                        <span style={{ fontSize: "11px", backgroundColor: "#DCFCE7", color: "#15803D", padding: "3px 10px", borderRadius: "20px", fontWeight: 700, border: "1px solid #86EFAC" }}>
+                                            Verified by TPO
+                                        </span>
+                                    </div>
+                                    <div style={{ fontSize: "13px", color: "#334155", lineHeight: 1.5 }}>
+                                        {selectedApplicationModal.subMessage || (selectedApplicationModal.isSelected ? "🎉 Selection Confirmed. Official placement appointment issued." : "Your application is currently active and being evaluated by the placement coordinator & company panel.")}
+                                    </div>
+                                    <div style={{ marginTop: "12px", paddingTop: "10px", borderTop: "1px dashed #86EFAC", display: "flex", justifyContent: "space-between", fontSize: "12px", color: "#64748B" }}>
+                                        <span>Applied Date: <strong style={{ color: "#0F172A" }}>{selectedApplicationModal.appliedDate || "Mar 22, 2026"}</strong></span>
+                                        <span>Package: <strong style={{ color: "#16A34A" }}>{formatCtc(selectedApplicationModal.ctc || selectedApplicationModal.package)}</strong></span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -4650,22 +4486,47 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                         >
                             ✕
                         </button>
-                        <h3 style={{ fontSize: "20px", fontWeight: "800", color: "#0f172a", margin: "0 0 12px 0" }}>
-                            Confirm Opt-In
-                        </h3>
-                        <p style={{ fontSize: "15px", color: "#475569", margin: "0 0 28px 0", lineHeight: "1.5" }}>
-                            Are you sure you want to Opt-In?
+                        <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "14px" }}>
+                            <div style={{ width: "36px", height: "36px", borderRadius: "10px", backgroundColor: "#DCFCE7", color: "#16A34A", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "18px", fontWeight: "900" }}>
+                                ✓
+                            </div>
+                            <div>
+                                <h3 style={{ fontSize: "18px", fontWeight: "800", color: "#0F172A", margin: 0 }}>
+                                    Confirm Drive Opt-In
+                                </h3>
+                                <div style={{ fontSize: "12px", color: "#64748B" }}>Placement Season 2025–2026</div>
+                            </div>
+                        </div>
+
+                        <p style={{ fontSize: "14px", color: "#334155", margin: "0 0 16px 0", lineHeight: "1.5" }}>
+                            Are you sure you want to opt-in for <strong>{optInConfirmDrive.company}</strong>?
                         </p>
-                        <div style={{ display: "flex", justifyContent: "flex-end", gap: "14px" }}>
+
+                        <div style={{ backgroundColor: "#F8FAFC", borderRadius: "10px", padding: "12px 14px", border: "1px solid #E2E8F0", marginBottom: "22px", fontSize: "12.5px" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
+                                <span style={{ color: "#64748B" }}>Role:</span>
+                                <strong style={{ color: "#2563EB" }}>{optInConfirmDrive.role || "Software Trainee"}</strong>
+                            </div>
+                            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
+                                <span style={{ color: "#64748B" }}>Package CTC:</span>
+                                <strong style={{ color: "#16A34A" }}>{formatCtc(optInConfirmDrive.ctc)}</strong>
+                            </div>
+                            <div style={{ display: "flex", justifyContent: "space-between" }}>
+                                <span style={{ color: "#64748B" }}>Deadline:</span>
+                                <strong style={{ color: "#DC2626" }}>⏰ {optInConfirmDrive.deadline || "30 May 2026"}</strong>
+                            </div>
+                        </div>
+
+                        <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px" }}>
                             <button
                                 onClick={() => setOptInConfirmDrive(null)}
                                 style={{
-                                    padding: "10px 22px",
-                                    backgroundColor: "#ffffff",
+                                    padding: "9px 18px",
+                                    backgroundColor: "#FFFFFF",
                                     color: "#475569",
-                                    border: "1.5px solid #cbd5e1",
-                                    borderRadius: "10px",
-                                    fontSize: "14px",
+                                    border: "1.5px solid #CBD5E1",
+                                    borderRadius: "8px",
+                                    fontSize: "13px",
                                     fontWeight: "700",
                                     cursor: "pointer",
                                 }}
@@ -4674,23 +4535,23 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                             </button>
                             <button
                                 onClick={() => {
-                                    handleApply(optInConfirmDrive.id || "", optInConfirmDrive.company, optInConfirmDrive.role);
+                                    handleApply(optInConfirmDrive.id || optInConfirmDrive._id || optInConfirmDrive.company, optInConfirmDrive.company, optInConfirmDrive.role);
                                     setOptInConfirmDrive(null);
                                     setSelectedDriveCriteria(null);
                                 }}
                                 style={{
-                                    padding: "10px 22px",
-                                    backgroundColor: "#16a34a",
-                                    color: "#ffffff",
+                                    padding: "9px 20px",
+                                    backgroundColor: "#16A34A",
+                                    color: "#FFFFFF",
                                     border: "none",
-                                    borderRadius: "10px",
-                                    fontSize: "14px",
+                                    borderRadius: "8px",
+                                    fontSize: "13px",
                                     fontWeight: "700",
                                     cursor: "pointer",
-                                    boxShadow: "0 2px 4px rgba(22, 163, 74, 0.25)",
+                                    boxShadow: "0 2px 6px rgba(22, 163, 74, 0.25)",
                                 }}
                             >
-                                Opt-In
+                                ✓ Confirm Opt-In
                             </button>
                         </div>
                     </div>

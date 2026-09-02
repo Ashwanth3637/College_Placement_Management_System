@@ -549,17 +549,17 @@ const OfficerDashboard: React.FC<DashboardProps> = ({ user, onLogout, initialTab
             />
 
             {/* Left Sidebar Shell */}
-            <aside className={`app-drawer-sidebar ${isMobileMenuOpen ? "open" : ""}`} style={{ width: "240px", backgroundColor: "#ffffff", borderRight: "1px solid #eaedf0", display: "flex", flexDirection: "column", justifyContent: "space-between", flexShrink: 0, height: "100vh", position: "sticky", top: 0, zIndex: 20 }}>
+            <aside className={`app-drawer-sidebar ${isMobileMenuOpen ? "open" : ""}`} style={{ width: "240px", backgroundColor: "#ffffff", borderRight: "1px solid #eaedf0", display: "flex", flexDirection: "column", justifyContent: "space-between", flexShrink: 0, height: "100vh", position: "sticky", top: 0, zIndex: 20, boxShadow: "2px 0 10px rgba(11,61,145,0.03)" }}>
                 <div>
                     {/* Brand */}
-                    <div style={{ padding: "20px 24px", borderBottom: "1px solid #f0f2f5", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                            <div style={{ width: "36px", height: "36px", backgroundColor: "#0f172a", borderRadius: "10px", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "800", fontSize: "16px" }}>
-                                CP
+                    <div style={{ padding: "20px 20px", borderBottom: "1px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "space-between", backgroundColor: "#FFFFFF" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                            <div style={{ width: "36px", height: "36px", backgroundColor: "#0B3D91", borderRadius: "8px", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "800", fontSize: "16px", boxShadow: "0 2px 8px rgba(11,61,145,0.25)" }}>
+                                🏛️
                             </div>
                             <div>
-                                <div style={{ fontWeight: "800", color: "#0f172a", fontSize: "15px", letterSpacing: "-0.3px" }}>Placement Portal</div>
-                                <div style={{ fontSize: "10px", color: "#94a3b8", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.5px" }}>Placement Space</div>
+                                <div style={{ fontWeight: "800", color: "#0B3D91", fontSize: "13.5px", letterSpacing: "-0.2px", lineHeight: "1.2" }}>CAMPUS PLACEMENT</div>
+                                <div style={{ fontSize: "10px", color: "#64748b", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.5px" }}>OFFICER CONSOLE</div>
                             </div>
                         </div>
                         {/* Close button for mobile drawer */}
@@ -573,21 +573,21 @@ const OfficerDashboard: React.FC<DashboardProps> = ({ user, onLogout, initialTab
                     </div>
 
                     {/* Navigation Menu */}
-                    <div style={{ padding: "16px 12px" }}>
-                        <div style={{ fontSize: "11px", fontWeight: "700", color: "#94a3b8", letterSpacing: "1px", padding: "0 12px 14px 12px", textTransform: "uppercase" }}>MAIN SPACE</div>
-                        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                    <div style={{ padding: "14px 10px" }}>
+                        <div style={{ fontSize: "11px", fontWeight: "700", color: "#94a3b8", letterSpacing: "0.06em", padding: "0 10px 10px 10px", textTransform: "uppercase" }}>EXECUTIVE MANAGEMENT</div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
                             {isOfficer ? (
                                 <>
                                     {[
-                                        { id: "stats", label: "Dashboard", svg: <path d="M4 5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5zm10 0a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1V5M4 15a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-4zm10 0a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1v-4z" /> },
-                                        { id: "verification", label: "Student Mgmt", svg: <path d="M22 10v6M2 10l10-5 10 5-10 5zM6 12v5c3 3 9 3 12 0v-5" /> },
-                                        { id: "companies", label: "Company Mgmt", svg: <path d="M3 21h18M3 7v14M21 7v14M6 10h4M6 14h4M6 18h4M14 10h4M14 14h4M14 18h4M9 3h6v4H9z" /> },
-                                        { id: "drives", label: "Drive Mgmt", svg: <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" /> },
-                                        { id: "eligibility", label: "Eligibility Mgmt", svg: <path d="M9 11l3 3L22 4M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" /> },
-                                        { id: "applications", label: "Applications", svg: <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8zM14 2v6h6M16 13H8M16 17H8" /> },
-                                        { id: "interviews", label: "Interviews", svg: <path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z" /> },
-                                        { id: "selections", label: "Selections", svg: <path d="M6 9H4.5a2.5 2.5 0 010-5H6M18 9h1.5a2.5 2.5 0 000-5H18M4 22h16M10 14.66V17M14 14.66V17M18 4H6v7a6 6 0 0012 0V4z" /> },
-                                        { id: "reports", label: "Reports & Analytics", svg: <path d="M18 20V10M12 20V4M6 20v-6" /> },
+                                        { id: "stats", label: "Executive Dashboard", svg: <path d="M4 5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5zm10 0a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1V5M4 15a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-4zm10 0a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1v-4z" /> },
+                                        { id: "verification", label: "Student Verification", svg: <path d="M22 10v6M2 10l10-5 10 5-10 5zM6 12v5c3 3 9 3 12 0v-5" /> },
+                                        { id: "companies", label: "Company CRM", svg: <path d="M3 21h18M3 7v14M21 7v14M6 10h4M6 14h4M6 18h4M14 10h4M14 14h4M14 18h4M9 3h6v4H9z" /> },
+                                        { id: "drives", label: "Drive Management", svg: <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" /> },
+                                        { id: "eligibility", label: "Eligibility Engine", svg: <path d="M9 11l3 3L22 4M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" /> },
+                                        { id: "applications", label: "Applications Triage", svg: <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8zM14 2v6h6M16 13H8M16 17H8" /> },
+                                        { id: "interviews", label: "Interview Board", svg: <path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z" /> },
+                                        { id: "selections", label: "Offers & Selections", svg: <path d="M6 9H4.5a2.5 2.5 0 010-5H6M18 9h1.5a2.5 2.5 0 000-5H18M4 22h16M10 14.66V17M14 14.66V17M18 4H6v7a6 6 0 0012 0V4z" /> },
+                                        { id: "reports", label: "Accreditation Reports", svg: <path d="M18 20V10M12 20V4M6 20v-6" /> },
                                         { id: "seasons", label: "Placement Seasons", svg: <path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /> },
                                         { id: "audit_logs", label: "System Audit Logs", svg: <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /> },
                                     ].map((item) => {
@@ -599,25 +599,26 @@ const OfficerDashboard: React.FC<DashboardProps> = ({ user, onLogout, initialTab
                                                 style={{
                                                     display: "flex",
                                                     alignItems: "center",
-                                                    gap: "14px",
-                                                    padding: "12px 18px",
-                                                    borderRadius: "16px",
-                                                    border: isActive ? "2px solid #0052cc" : "2px solid transparent",
-                                                    backgroundColor: isActive ? "#f4f6f8" : "transparent",
-                                                    color: isActive ? "#0f172a" : "#64748b",
-                                                    fontWeight: isActive ? "700" : "400",
-                                                    fontSize: "15px",
+                                                    gap: "10px",
+                                                    padding: "10px 14px",
+                                                    borderRadius: "8px",
+                                                    border: "none",
+                                                    backgroundColor: isActive ? "#E6EEFC" : "transparent",
+                                                    color: isActive ? "#0B3D91" : "#475569",
+                                                    fontWeight: isActive ? "700" : "500",
+                                                    fontSize: "13.5px",
                                                     fontFamily: "Inter, -apple-system, sans-serif",
                                                     cursor: "pointer",
                                                     textAlign: "left",
                                                     transition: "all 0.15s ease-in-out",
                                                     outline: "none",
+                                                    borderLeft: isActive ? "3.5px solid #1E5FCC" : "3.5px solid transparent",
                                                 }}
                                             >
-                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={isActive ? "#0f172a" : "#64748b"} strokeWidth={isActive ? "2.4" : "1.8"} strokeLinecap="round" strokeLinejoin="round">
+                                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={isActive ? "#0B3D91" : "#64748b"} strokeWidth={isActive ? "2.4" : "1.8"} strokeLinecap="round" strokeLinejoin="round">
                                                     {item.svg}
                                                 </svg>
-                                                <span style={{ fontWeight: isActive ? "700" : "400", color: isActive ? "#0f172a" : "#64748b" }}>{item.label}</span>
+                                                <span style={{ fontWeight: isActive ? "700" : "500", color: isActive ? "#0B3D91" : "#475569" }}>{item.label}</span>
                                             </button>
                                         );
                                     })}
@@ -640,25 +641,26 @@ const OfficerDashboard: React.FC<DashboardProps> = ({ user, onLogout, initialTab
                                                 style={{
                                                     display: "flex",
                                                     alignItems: "center",
-                                                    gap: "14px",
-                                                    padding: "12px 18px",
-                                                    borderRadius: "16px",
-                                                    border: isActive ? "2px solid #0052cc" : "2px solid transparent",
-                                                    backgroundColor: isActive ? "#f4f6f8" : "transparent",
-                                                    color: isActive ? "#0f172a" : "#64748b",
-                                                    fontWeight: isActive ? "700" : "400",
-                                                    fontSize: "15px",
+                                                    gap: "10px",
+                                                    padding: "10px 14px",
+                                                    borderRadius: "8px",
+                                                    border: "none",
+                                                    backgroundColor: isActive ? "#E6EEFC" : "transparent",
+                                                    color: isActive ? "#0B3D91" : "#475569",
+                                                    fontWeight: isActive ? "700" : "500",
+                                                    fontSize: "13.5px",
                                                     fontFamily: "Inter, -apple-system, sans-serif",
                                                     cursor: "pointer",
                                                     textAlign: "left",
                                                     transition: "all 0.15s ease-in-out",
                                                     outline: "none",
+                                                    borderLeft: isActive ? "3.5px solid #1E5FCC" : "3.5px solid transparent",
                                                 }}
                                             >
-                                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={isActive ? "#0f172a" : "#64748b"} strokeWidth={isActive ? "2.4" : "1.8"} strokeLinecap="round" strokeLinejoin="round">
+                                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={isActive ? "#0B3D91" : "#64748b"} strokeWidth={isActive ? "2.4" : "1.8"} strokeLinecap="round" strokeLinejoin="round">
                                                     {item.svg}
                                                 </svg>
-                                                <span style={{ fontWeight: isActive ? "700" : "400", color: isActive ? "#0f172a" : "#64748b" }}>{item.label}</span>
+                                                <span style={{ fontWeight: isActive ? "700" : "500", color: isActive ? "#0B3D91" : "#475569" }}>{item.label}</span>
                                             </button>
                                         );
                                     })}
@@ -669,60 +671,62 @@ const OfficerDashboard: React.FC<DashboardProps> = ({ user, onLogout, initialTab
                 </div>
 
                 {/* Sidebar User Footer */}
-                <div style={{ padding: "16px 16px 20px 16px", borderTop: "1px solid #f0f2f5" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "12px", backgroundColor: "#f8fafc", padding: "10px 12px", borderRadius: "10px" }}>
-                        <div style={{ width: "34px", height: "34px", borderRadius: "50%", backgroundColor: "#0f172a", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "700", fontSize: "14px" }}>
+                <div style={{ padding: "14px", borderTop: "1px solid #e2e8f0", backgroundColor: "#F8FAFC" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "10px", backgroundColor: "#FFFFFF", padding: "10px 12px", borderRadius: "10px", border: "1px solid #e2e8f0" }}>
+                        <div style={{ width: "34px", height: "34px", borderRadius: "50%", backgroundColor: "#0B3D91", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "700", fontSize: "14px" }}>
                             {(user.name || "U").charAt(0).toUpperCase()}
                         </div>
                         <div style={{ overflow: "hidden" }}>
                             <div style={{ fontWeight: "700", color: "#0f172a", fontSize: "13px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{user.name || "Placement Officer"}</div>
-                            <div style={{ fontSize: "11px", color: "#64748b" }}>{isOfficer ? "Placement Officer" : "Student"}</div>
+                            <div style={{ fontSize: "11px", color: "#0F766E", fontWeight: 600 }}>● {isOfficer ? "Placement Officer" : "Student"}</div>
                         </div>
                     </div>
                     <button
                         onClick={onLogout}
                         style={{
                             width: "100%",
-                            padding: "9px 14px",
-                            backgroundColor: "#fff",
-                            color: "#ef4444",
-                            border: "1px solid #fee2e2",
+                            padding: "8px 12px",
+                            backgroundColor: "#FEE2E2",
+                            color: "#B91C1C",
+                            border: "1px solid #FCA5A5",
                             borderRadius: "8px",
                             fontWeight: "700",
-                            fontSize: "13px",
+                            fontSize: "12.5px",
                             cursor: "pointer",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
-                            gap: "8px",
+                            gap: "6px",
+                            transition: "all 0.15s ease",
                         }}
                     >
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                            <polyline points="16 17 21 12 16 7" />
-                            <line x1="21" y1="12" x2="9" y2="12" />
-                        </svg>
-                        <span>Logout</span>
+                        <span>🚪</span>
+                        <span>Sign Out</span>
                     </button>
                 </div>
             </aside>
 
             {/* Right Main Panel */}
-            <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, height: "100vh", overflowY: "auto" }}>
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, height: "100vh", overflowY: "auto", backgroundColor: "#F8FAFC" }}>
                 {/* Header Navbar with Responsive Mobile Drawer Toggle */}
-                <header style={{ minHeight: "64px", backgroundColor: "#ffffff", borderBottom: "1px solid #eaedf0", padding: "12px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 10, flexWrap: "wrap", gap: "10px" }}>
+                <header style={{ minHeight: "64px", backgroundColor: "#ffffff", borderBottom: "1px solid #e2e8f0", borderLeft: "4px solid #0B3D91", padding: "12px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 10, flexWrap: "wrap", gap: "10px", boxShadow: "0 2px 8px rgba(11,61,145,0.04)" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                         <button
                             onClick={() => setIsMobileMenuOpen(true)}
                             className="mobile-hamburger-toggle"
-                            style={{ display: "none", alignItems: "center", justifyContent: "center", width: "36px", height: "36px", borderRadius: "8px", border: "1px solid #e2e8f0", backgroundColor: "#f8fafc", cursor: "pointer", fontSize: "18px", color: "#0f172a" }}
+                            style={{ display: "none", alignItems: "center", justifyContent: "center", width: "36px", height: "36px", borderRadius: "8px", border: "1px solid #e2e8f0", backgroundColor: "#f8fafc", cursor: "pointer", fontSize: "18px", color: "#0B3D91" }}
                             aria-label="Open Menu"
                         >
                             ☰
                         </button>
-                        <h1 style={{ margin: 0, fontSize: "18px", fontWeight: "800", color: "#0f172a" }}>
-                            {isOfficer ? "Placement Officer Dashboard" : "Student Placement Dashboard"}
-                        </h1>
+                        <div>
+                            <h1 style={{ margin: 0, fontSize: "19px", fontWeight: "800", color: "#0f172a", letterSpacing: "-0.3px" }}>
+                                {isOfficer ? "Placement & Corporate Relations Console" : "Student Placement Portal"}
+                            </h1>
+                            <div style={{ fontSize: "11.5px", color: "#64748B", fontWeight: 500, marginTop: "2px" }}>
+                                Enterprise Cell Administration • Season 2025–2026
+                            </div>
+                        </div>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
                         {/* 🔔 Notifications Bell Drawer */}
