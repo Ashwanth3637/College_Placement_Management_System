@@ -12,6 +12,7 @@ const reportRoutes = require("./routes/reportRoutes");
 const interviewRoutes = require("./routes/interviewRoutes");
 const applicationRoutes = require("./routes/applicationRoutes");
 const coordinatorRoutes = require("./routes/coordinatorRoutes");
+const adminRoutes = require("./routes/adminRoutes");
 
 const app = express();
 
@@ -30,6 +31,7 @@ app.use("/api/reports", reportRoutes);
 app.use("/api/interviews", interviewRoutes);
 app.use("/api/applications", applicationRoutes);
 app.use("/api/coordinator", coordinatorRoutes);
+app.use("/api/admin", adminRoutes);
 
 // System-wide data clear endpoint for testing
 const handleClearAllSystemData = async (req, res) => {

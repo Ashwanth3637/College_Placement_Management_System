@@ -335,6 +335,26 @@ function AppContent() {
         }
       />
       <Route
+        path="/officer/seasons"
+        element={
+          user ? (
+            <OfficerDashboard initialTab="seasons" user={user} onLogout={handleLogout} />
+          ) : (
+            renderLogin
+          )
+        }
+      />
+      <Route
+        path="/officer/audit-logs"
+        element={
+          user ? (
+            <OfficerDashboard initialTab="audit_logs" user={user} onLogout={handleLogout} />
+          ) : (
+            renderLogin
+          )
+        }
+      />
+      <Route
         path="/officer"
         element={
           user ? (

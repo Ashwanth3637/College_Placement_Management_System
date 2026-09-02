@@ -12,6 +12,8 @@ const Selection = require("./models/selectionModel");
 const Report = require("./models/reportModel");
 const Attendance = require("./models/attendanceModel");
 const Announcement = require("./models/announcementModel");
+const Season = require("./models/seasonModel");
+const AuditLog = require("./models/auditLogModel");
 
 const seedAllModules = async () => {
     try {
@@ -370,6 +372,80 @@ const seedAllModules = async () => {
             if (!existing) {
                 await Announcement.create(ann);
                 console.log(`  + Seeded Announcement: ${ann.title}`);
+            }
+        }
+
+        // 10. SEED SEASONS
+        console.log("Seeding Placement Seasons...");
+        const seasonsToSeed = [
+            {
+                name: "Placement Season 2025-2026",
+                code: "SEASON-2025-26",
+                status: "active",
+                startDate: new Date("2025-07-01"),
+                endDate: new Date("2026-06-30"),
+                description: "Primary placement drive cycle for graduating class of 2026.",
+                eligibleBatches: ["2022-2026", "2024-2026"],
+                rulesConfig: {
+                    maxOffersPerStudent: 2,
+                    dreamTierMinCtc: 12.0,
+                    allowMultipleOffers: true,
+                    requireCgpaVerification: true
+                }
+            },
+            {
+                name: "Placement Season 2026-2027",
+                code: "SEASON-2026-27",
+                status: "upcoming",
+                startDate: new Date("2026-07-01"),
+                endDate: new Date("2027-06-30"),
+                description: "Upcoming placement cycle for graduating class of 2027.",
+                eligibleBatches: ["2023-2027", "2025-2027"]
+            }
+        ];
+
+        for (const season of seasonsToSeed) {
+            const existing = await Season.findOne({ code: season.code });
+            if (!existing) {
+                await Season.create(season);
+                console.log(`  + Seeded Season: ${season.name}`);
+            }
+        }
+
+        // 11. SEED AUDIT LOGS
+        console.log("Seeding Audit Trail Logs...");
+        const auditLogsToSeed = [
+            {
+                actorName: "Placement Director",
+                actorRole: "admin",
+                action: "ACTIVATE_SEASON",
+                entityType: "SEASON",
+                details: "Activated Placement Season 2025-2026",
+                ipAddress: "10.0.12.4"
+            },
+            {
+                actorName: "Amazon Campus Recruiter",
+                actorRole: "recruiter",
+                action: "CREATE_DRIVE",
+                entityType: "DRIVE",
+                details: "Posted Software Development Engineer (SDE-1) drive",
+                ipAddress: "172.16.4.19"
+            },
+            {
+                actorName: "Prof. Rajesh Sharma",
+                actorRole: "coordinator",
+                action: "VERIFY_STUDENT",
+                entityType: "STUDENT",
+                details: "Verified academic records for Ashwanth S (1CS22CS014)",
+                ipAddress: "192.168.1.50"
+            }
+        ];
+
+        for (const logItem of auditLogsToSeed) {
+            const existing = await AuditLog.findOne({ action: logItem.action, details: logItem.details });
+            if (!existing) {
+                await AuditLog.create(logItem);
+                console.log(`  + Seeded Audit Log: ${logItem.action}`);
             }
         }
 

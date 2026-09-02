@@ -10,6 +10,8 @@ import ApplicationManagement from "./ApplicationManagement";
 import InterviewManagement from "./InterviewManagement";
 import SelectionsManagement from "./SelectionsManagement";
 import ReportsAnalyticsManagement from "./ReportsAnalyticsManagement";
+import SeasonManagement from "./SeasonManagement";
+import AuditLogsManagement from "./AuditLogsManagement";
 import ClearDataButton from "../../components/ClearDataButton";
 
 interface User {
@@ -586,6 +588,8 @@ const OfficerDashboard: React.FC<DashboardProps> = ({ user, onLogout, initialTab
                                         { id: "interviews", label: "Interviews", svg: <path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z" /> },
                                         { id: "selections", label: "Selections", svg: <path d="M6 9H4.5a2.5 2.5 0 010-5H6M18 9h1.5a2.5 2.5 0 000-5H18M4 22h16M10 14.66V17M14 14.66V17M18 4H6v7a6 6 0 0012 0V4z" /> },
                                         { id: "reports", label: "Reports & Analytics", svg: <path d="M18 20V10M12 20V4M6 20v-6" /> },
+                                        { id: "seasons", label: "Placement Seasons", svg: <path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /> },
+                                        { id: "audit_logs", label: "System Audit Logs", svg: <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /> },
                                     ].map((item) => {
                                         const isActive = (activeTab as string) === item.id;
                                         return (
@@ -2853,6 +2857,16 @@ const OfficerDashboard: React.FC<DashboardProps> = ({ user, onLogout, initialTab
                     {/* 7. Reports & Analytics Section */}
                     {activeTab === "reports" && (
                         <ReportsAnalyticsManagement />
+                    )}
+
+                    {/* 8. Placement Season Lifecycle Management */}
+                    {activeTab === "seasons" && (
+                        <SeasonManagement />
+                    )}
+
+                    {/* 9. Compliance Audit Trail & Security Logs */}
+                    {activeTab === "audit_logs" && (
+                        <AuditLogsManagement />
                     )}
                 </main>
 

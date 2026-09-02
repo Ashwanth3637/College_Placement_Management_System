@@ -46,6 +46,14 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
 
     const userId = user?.id || user?._id || "";
 
+    const formatCtc = (rawCtc?: string) => {
+        if (!rawCtc) return "$18 LPA";
+        return String(rawCtc)
+            .replace(/₹\s*/g, "$")
+            .replace(/Rs\.?\s*/gi, "$")
+            .replace(/\.0(?=\s*lpa)/gi, "");
+    };
+
     const getFormattedName = (rawName?: string) => {
         if (!rawName) return "Student";
         const cleaned = rawName.split('@')[0].replace(/[0-9]/g, "").trim();
@@ -122,17 +130,19 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
         }
     }, [initialTab]);
 
-    const [driveFilter, setDriveFilterState] = useState<"Opted-In" | "Opted-Out" | "Eligible" | "Not Eligible" | "Completed">(() => {
+    type CampusDriveFilter = "All" | "Opted-In" | "Opted-Out" | "Eligible" | "Not Eligible" | "Up coming" | "On coming" | "Completed";
+
+    const [driveFilter, setDriveFilterState] = useState<CampusDriveFilter>(() => {
         try {
             const saved = localStorage.getItem(`cpms_drive_filter_student_${userKey}`);
-            if (saved && ["Opted-In", "Opted-Out", "Eligible", "Not Eligible", "Completed"].includes(saved)) {
-                return saved as any;
+            if (saved && ["All", "Opted-In", "Opted-Out", "Eligible", "Not Eligible", "Up coming", "On coming", "Completed"].includes(saved)) {
+                return saved as CampusDriveFilter;
             }
         } catch (e) {}
         return "Eligible";
     });
 
-    const setDriveFilter = (filter: "Opted-In" | "Opted-Out" | "Eligible" | "Not Eligible" | "Completed") => {
+    const setDriveFilter = (filter: CampusDriveFilter) => {
         setDriveFilterState(filter);
         try {
             localStorage.setItem(`cpms_drive_filter_student_${userKey}`, filter);
@@ -142,6 +152,122 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
     const [selectedApplicationModal, setSelectedApplicationModal] = useState<any | null>(null);
     const [selectedOfferModal, setSelectedOfferModal] = useState<any | null>(null);
     const [appsUpdatedCounter, setAppsUpdatedCounter] = useState(0);
+    const [recentDrivesPage, setRecentDrivesPage] = useState<number>(1);
+    const [campusDrivesPage, setCampusDrivesPage] = useState<number>(1);
+    const [showOptInConfirmDrive, setShowOptInConfirmDrive] = useState<any | null>(null);
+    const [optInSuccessData, setOptInSuccessData] = useState<{ company: string; role: string } | null>(null);
+    const [optOutSuccessData, setOptOutSuccessData] = useState<{ company: string; role: string } | null>(null);
+    const [optOutReason, setOptOutReason] = useState<string>("");
+    const [showNotificationsModal, setShowNotificationsModal] = useState<boolean>(false);
+    const [activeNotifFilter, setActiveNotifFilter] = useState<string>("All");
+
+    const [showFilterModal, setShowFilterModal] = useState<boolean>(false);
+
+    const [filterSortBy, setFilterSortByState] = useState<string>(() => {
+        try {
+            return localStorage.getItem(`cpms_filter_sortBy_${userKey}`) || "Package (High to Low)";
+        } catch (e) {
+            return "Package (High to Low)";
+        }
+    });
+    const setFilterSortBy = (val: string) => {
+        setFilterSortByState(val);
+        try { localStorage.setItem(`cpms_filter_sortBy_${userKey}`, val); } catch (e) {}
+    };
+
+    const [filterEmpType, setFilterEmpTypeState] = useState<string>(() => {
+        try {
+            return localStorage.getItem(`cpms_filter_empType_${userKey}`) || "Full-time";
+        } catch (e) {
+            return "Full-time";
+        }
+    });
+    const setFilterEmpType = (val: string) => {
+        setFilterEmpTypeState(val);
+        try { localStorage.setItem(`cpms_filter_empType_${userKey}`, val); } catch (e) {}
+    };
+
+    const [filterPosition, setFilterPositionState] = useState<string>(() => {
+        try {
+            return localStorage.getItem(`cpms_filter_position_${userKey}`) || "";
+        } catch (e) {
+            return "";
+        }
+    });
+    const setFilterPosition = (val: string) => {
+        setFilterPositionState(val);
+        try { localStorage.setItem(`cpms_filter_position_${userKey}`, val); } catch (e) {}
+    };
+
+    const [filterMinPackage, setFilterMinPackageState] = useState<number>(() => {
+        try {
+            const saved = localStorage.getItem(`cpms_filter_minPackage_${userKey}`);
+            return saved !== null ? Number(saved) : 0;
+        } catch (e) {
+            return 0;
+        }
+    });
+    const setFilterMinPackage = (val: number) => {
+        setFilterMinPackageState(val);
+        try { localStorage.setItem(`cpms_filter_minPackage_${userKey}`, String(val)); } catch (e) {}
+    };
+
+    const [filterWorkMode, setFilterWorkModeState] = useState<string>(() => {
+        try {
+            return localStorage.getItem(`cpms_filter_workMode_${userKey}`) || "Onsite";
+        } catch (e) {
+            return "Onsite";
+        }
+    });
+    const setFilterWorkMode = (val: string) => {
+        setFilterWorkModeState(val);
+        try { localStorage.setItem(`cpms_filter_workMode_${userKey}`, val); } catch (e) {}
+    };
+
+    const [filterLocation, setFilterLocationState] = useState<string>(() => {
+        try {
+            return localStorage.getItem(`cpms_filter_location_${userKey}`) || "";
+        } catch (e) {
+            return "";
+        }
+    });
+    const setFilterLocation = (val: string) => {
+        setFilterLocationState(val);
+        try { localStorage.setItem(`cpms_filter_location_${userKey}`, val); } catch (e) {}
+    };
+
+    const resetAllFilterOptions = () => {
+        setFilterSortBy("Package (High to Low)");
+        setFilterEmpType("Full-time");
+        setFilterPosition("");
+        setFilterMinPackage(0);
+        setFilterWorkMode("Onsite");
+        setFilterLocation("");
+    };
+
+    React.useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === "Escape" || e.code === "Escape" || e.keyCode === 27) {
+                setShowFilterModal(false);
+                setSelectedDriveCriteria(null);
+                setShowOptInConfirmDrive(null);
+                setOptInConfirmDrive(null);
+                setOptOutConfirmDrive(null);
+                setSelectedApplicationModal(null);
+                setSelectedOfferModal(null);
+                setSelectedInterviewModal(null);
+                setOptInSuccessData(null);
+                setOptOutSuccessData(null);
+                setOptOutReason("");
+                setShowNotificationsModal(false);
+                setIsMobileMenuOpen(false);
+            }
+        };
+        window.addEventListener("keydown", handleKeyDown);
+        return () => {
+            window.removeEventListener("keydown", handleKeyDown);
+        };
+    }, []);
 
     React.useEffect(() => {
         const handleAppsUpdate = () => {
@@ -643,7 +769,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                                     logo: pd.logoUrl || pd.logo || "https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg",
                                     bgColor: "#ffffff",
                                     role: pd.jobRole || pd.jobTitle || pd.role || "Software Developer",
-                                    ctc: pd.salaryPackage || pd.packageCtc || pd.ctc || "₹18.0 LPA",
+                                    ctc: pd.salaryPackage || pd.packageCtc || pd.ctc || "$18 LPA",
                                     minCgpa: Number(pd.minCgpa ?? pd.eligibility?.minCgpa) || 6.5,
                                     minTenth: Number(pd.minTenth ?? pd.eligibility?.minTenth ?? pd.eligibility?.tenthCutoff) || 60,
                                     minTwelfth: Number(pd.minTwelfth ?? pd.eligibility?.minTwelfth ?? pd.eligibility?.twelfthCutoff) || 60,
@@ -757,7 +883,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                         logo: pd.logoUrl || pd.logo || "https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg",
                         bgColor: "#ffffff",
                         role: pd.jobRole || pd.jobTitle || pd.role || "Software Developer",
-                        ctc: pd.salaryPackage || pd.packageCtc || pd.ctc || "₹18.0 LPA",
+                        ctc: pd.salaryPackage || pd.packageCtc || pd.ctc || "$18 LPA",
                         minCgpa: minCgpaVal,
                         minTenth: minTenthVal,
                         minTwelfth: minTwelfthVal,
@@ -1427,7 +1553,12 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
         setAlertBanner({ type: "success", text: "✓ Opt-In application submitted successfully!" });
     };
 
-    const handleOptOut = (driveId: string, driveComp?: string, driveRole?: string) => {
+    const handleOptOut = (driveId: string, driveComp?: string, driveRole?: string, reason?: string) => {
+        if (reason && reason.trim()) {
+            try {
+                localStorage.setItem(`cpms_optout_reason_${driveId}_${userKey}`, reason.trim());
+            } catch (e) {}
+        }
         const compStr = (driveComp || "").toLowerCase().trim();
         const roleStr = (driveRole || "").toLowerCase().trim();
         const compRoleKey = compStr && roleStr ? `${compStr}_${roleStr}` : "";
@@ -1480,7 +1611,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
     };
 
     return (
-        <div style={{ display: "flex", minHeight: "100vh", backgroundColor: "#f4f6f8", fontFamily: "Inter, -apple-system, BlinkMacSystemFont, sans-serif" }}>
+        <div style={{ display: "flex", height: "100vh", width: "100vw", overflow: "hidden", backgroundColor: "#f4f6f8", fontFamily: "Inter, -apple-system, BlinkMacSystemFont, sans-serif" }}>
             {/* Mobile Menu Backdrop */}
             <div
                 className={`app-menu-backdrop ${isMobileMenuOpen ? "open" : ""}`}
@@ -1488,7 +1619,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
             />
 
             {/* Sidebar matching clean white placement portal design */}
-            <aside className={`app-drawer-sidebar ${isMobileMenuOpen ? "open" : ""}`} style={{ width: "240px", backgroundColor: "#ffffff", borderRight: "1px solid #e2e8f0", display: "flex", flexDirection: "column", justifyContent: "space-between", flexShrink: 0, minHeight: "100vh", position: "sticky", top: 0, height: "100vh" }}>
+            <aside className={`app-drawer-sidebar ${isMobileMenuOpen ? "open" : ""}`} style={{ width: "240px", backgroundColor: "#ffffff", borderRight: "1px solid #e2e8f0", display: "flex", flexDirection: "column", justifyContent: "space-between", flexShrink: 0, height: "100vh", overflowY: "auto" }}>
                 <div>
                     {/* Brand */}
                     <div style={{ padding: "20px 20px", borderBottom: "1px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -1602,11 +1733,11 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
             </aside>
 
             {/* Main Area */}
-            <main style={{ flex: 1, padding: "clamp(14px, 4vw, 24px) clamp(12px, 4vw, 32px)", overflowY: "auto", overflowX: "hidden", backgroundColor: "#f8fafc" }}>
+            <main style={{ flex: 1, height: "100vh", padding: "clamp(14px, 4vw, 24px) clamp(12px, 4vw, 32px)", overflowY: "auto", overflowX: "hidden", backgroundColor: "#f8fafc" }}>
                 {/* Top Header Bar */}
                 {currentTab !== "profile" ? (
-                    <div className="student-top-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px", backgroundColor: "#ffffff", padding: "14px 18px", borderRadius: "12px", gap: "12px", flexWrap: "wrap", boxShadow: "0 1px 3px rgba(0,0,0,0.02)" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "12px", flex: "1 1 auto", minWidth: 0 }}>
+                    <div className="student-top-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px", backgroundColor: "#ffffff", padding: "12px 20px", borderRadius: "14px", border: "1px solid #eaedf0", gap: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.02)" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                             <button
                                 onClick={() => setIsMobileMenuOpen(true)}
                                 className="mobile-hamburger-toggle"
@@ -1615,28 +1746,53 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                             >
                                 ☰
                             </button>
-
-                            <div style={{ position: "relative", flex: "1 1 180px", maxWidth: "100%", minWidth: 0 }}>
-                                <input
-                                    type="text"
-                                    placeholder="Search drives, roles, companies..."
-                                    style={{
-                                        width: "100%",
-                                        padding: "8px 14px 8px 34px",
-                                        borderRadius: "20px",
-                                        backgroundColor: "#f1f5f9",
-                                        border: "1px solid #e2e8f0",
-                                        fontSize: "13px",
-                                        outline: "none",
-                                        color: "#0f172a",
-                                        boxSizing: "border-box",
-                                    }}
-                                />
-                                <span style={{ position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)", color: "#64748b", fontSize: "14px" }}>🔍</span>
-                            </div>
+                            <h2 style={{ margin: 0, fontSize: "18px", fontWeight: "800", color: "#0f172a", letterSpacing: "-0.3px" }}>
+                                {currentTab === "dashboard" ? "Dashboard" : currentTab === "companies" ? "Campus Drives" : currentTab === "applications" ? "My Applications" : currentTab === "schedule" ? "Interview Schedule" : currentTab === "results" ? "Placement Offers" : "Student Space"}
+                            </h2>
                         </div>
 
-                        <div style={{ display: "flex", alignItems: "center", gap: "12px", flexShrink: 0 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "16px", flexShrink: 0 }}>
+                            <button
+                                onClick={() => setShowNotificationsModal(true)}
+                                style={{
+                                    position: "relative",
+                                    width: "40px",
+                                    height: "40px",
+                                    borderRadius: "12px",
+                                    backgroundColor: "#f8fafc",
+                                    border: "1px solid #cbd5e1",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    cursor: "pointer",
+                                    fontSize: "18px",
+                                    color: "#475569",
+                                    transition: "all 0.15s ease",
+                                    outline: "none"
+                                }}
+                                title="Live Notifications"
+                            >
+                                🔔
+                                <span style={{
+                                    position: "absolute",
+                                    top: "-4px",
+                                    right: "-4px",
+                                    backgroundColor: "#ef4444",
+                                    color: "#ffffff",
+                                    borderRadius: "50%",
+                                    width: "18px",
+                                    height: "18px",
+                                    fontSize: "10px",
+                                    fontWeight: "800",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    border: "2px solid #ffffff"
+                                }}>
+                                    3
+                                </span>
+                            </button>
+
                             <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                                 <div style={{ width: "38px", height: "38px", borderRadius: "50%", backgroundColor: "#f1f5f9", border: "1px solid #cbd5e1", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", flexShrink: 0 }}>
                                     {userAvatarImg ? (
@@ -1708,591 +1864,1402 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                 )}
 
                 {/* TAB 1: DASHBOARD */}
-                {currentTab === "dashboard" && (
-                    <div>
-                        {/* Dark Welcome Hero Banner (Matching Placement Officer Dashboard) */}
-                        <div style={{ backgroundColor: "#0f172a", borderRadius: "16px", padding: "24px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "16px", marginBottom: "28px", boxShadow: "0 10px 15px -3px rgba(15, 23, 42, 0.15)" }}>
-                            <div style={{ minWidth: 0 }}>
-                                <div style={{ fontSize: "11px", fontWeight: "800", color: "#eab308", letterSpacing: "1px", textTransform: "uppercase", marginBottom: "6px", display: "flex", alignItems: "center", gap: "6px" }}>
-                                    👋 STUDENT SPACE
-                                </div>
-                                <h2 style={{ margin: "0 0 8px 0", fontSize: "24px", fontWeight: "800", color: "#ffffff", letterSpacing: "-0.5px", overflowWrap: "break-word" }}>
-                                    Welcome, {displayName}
-                                </h2>
-                                <div style={{ color: "#9ca3af", fontSize: "13px", fontWeight: "500" }}>
-                                    Season: <strong style={{ color: "#ffffff" }}>2026 Drive Active ✓</strong> | Last Sync: {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
-                                </div>
-                            </div>
-                            <div style={{ backgroundColor: "rgba(255, 255, 255, 0.08)", padding: "10px 18px", borderRadius: "30px", border: "1px solid rgba(255, 255, 255, 0.1)", display: "flex", alignItems: "center", gap: "10px", flexShrink: 0, whiteSpace: "nowrap" }}>
-                                <span style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "#10b981" }}></span>
-                                <span style={{ fontSize: "12px", fontWeight: "700", color: "#f9fafb" }}>Drive Season 2026 Active</span>
-                            </div>
-                        </div>
+                {currentTab === "dashboard" && (() => {
+                    const defaultClosingDrives = [
+                        {
+                            id: "closing-1",
+                            company: "Mallow Technologies",
+                            role: "Software Developer",
+                            ctc: "$12 LPA",
+                            requiredSkills: ["Java", "Python", "MERN", "SQL"],
+                            deadline: "May 30, 2026",
+                            applicantCount: 580
+                        },
+                        {
+                            id: "closing-2",
+                            company: "TCS",
+                            role: "Frontend Developer",
+                            ctc: "$5 LPA",
+                            requiredSkills: ["React", "TypeScript", "CSS", "HTML"],
+                            deadline: "May 30, 2026",
+                            applicantCount: 840
+                        }
+                    ];
 
-                        {/* 4 Stat Metric Cards (Matching Officer Dashboard Layout & Card Dimensions) */}
-                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px", marginBottom: "28px" }}>
-                            <div
-                                onClick={() => setCurrentTab("profile")}
-                                style={{ backgroundColor: "#ffffff", padding: "20px", borderRadius: "14px", border: "1px solid #eaedf0", boxShadow: "0 2px 4px rgba(0,0,0,0.02)", cursor: "pointer", transition: "transform 0.15s ease, boxShadow 0.15s ease" }}
-                            >
-                                <div style={{ width: "42px", height: "42px", borderRadius: "12px", backgroundColor: "#dcfce7", color: "#16a34a", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "12px" }}>
-                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                                        <circle cx="12" cy="7" r="4" />
-                                    </svg>
-                                </div>
-                                <div style={{ fontSize: "11px", fontWeight: "700", color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px" }}>PROFILE COMPLETENESS</div>
-                                <div style={{ fontSize: "28px", fontWeight: "800", color: "#0f172a", margin: "4px 0 2px 0" }}>{profileCompletenessPercent}%</div>
-                                <div style={{ fontSize: "12px", color: profileCompletenessPercent >= 80 ? "#16a34a" : "#d97706", fontWeight: "600" }}>
-                                    {profileCompletenessPercent === 100 ? "✓ Verified & Ready" : `${profileCompletenessPercent}% Profile Complete`}
-                                </div>
-                            </div>
+                    const defaultInProgressDrives = [
+                        {
+                            company: "Google",
+                            role: "FullStack Developer",
+                            ctc: "$21 LPA",
+                            status: "Shortlisted",
+                            progressPercent: "65%"
+                        },
+                        {
+                            company: "TCS",
+                            role: "Frontend Developer",
+                            ctc: "$5 LPA",
+                            status: "Pending",
+                            progressPercent: "35%"
+                        },
+                        {
+                            company: "CTS (Cognizant)",
+                            role: "Programmer Analyst",
+                            ctc: "$6.8 LPA",
+                            status: "Shortlisted",
+                            progressPercent: "50%"
+                        }
+                    ];
 
-                            <div style={{ backgroundColor: "#ffffff", padding: "20px", borderRadius: "14px", border: "1px solid #eaedf0", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
-                                <div style={{ width: "42px", height: "42px", borderRadius: "12px", backgroundColor: isProfileVerified ? "#dcfce7" : "#fef3c7", color: isProfileVerified ? "#16a34a" : "#d97706", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "12px" }}>
-                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={isProfileVerified ? "#16a34a" : "#d97706"} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                                        <polyline points="22 4 12 14.01 9 11.01" />
-                                    </svg>
-                                </div>
-                                <div style={{ fontSize: "11px", fontWeight: "700", color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px" }}>VERIFICATION STATUS</div>
-                                <div style={{ fontSize: "20px", fontWeight: "800", color: isProfileVerified ? "#16a34a" : "#d97706", margin: "4px 0 2px 0" }}>
-                                    {isProfileVerified ? "Verified ✓" : "Pending Verification"}
-                                </div>
-                                <div style={{ fontSize: "12px", color: isProfileVerified ? "#16a34a" : "#d97706", fontWeight: "600" }}>
-                                    {isProfileVerified ? "Cell Sign-off complete" : "Awaiting Placement Officer Sign-off"}
-                                </div>
-                            </div>
+                    const defaultRecentDrives = [
+                        {
+                            id: "recent-1",
+                            company: "Mallow Technologies",
+                            role: "Software Developer",
+                            ctc: "$12 LPA",
+                            requiredSkills: ["Java", "Python", "MERN", "SQL"],
+                            deadline: "May 30, 2026",
+                            applicantCount: 580
+                        },
+                        {
+                            id: "recent-2",
+                            company: "Google",
+                            role: "FullStack Developer",
+                            ctc: "$21 LPA",
+                            requiredSkills: ["Java", "Python", "MERN", "SQL"],
+                            deadline: "May 30, 2026",
+                            applicantCount: 1290
+                        },
+                        {
+                            id: "recent-3",
+                            company: "TCS",
+                            role: "Frontend Developer",
+                            ctc: "$5 LPA",
+                            requiredSkills: ["React", "TypeScript", "CSS", "HTML"],
+                            deadline: "May 30, 2026",
+                            applicantCount: 840
+                        },
+                        {
+                            id: "recent-4",
+                            company: "CTS (Cognizant)",
+                            role: "Programmer Analyst",
+                            ctc: "$6.8 LPA",
+                            requiredSkills: ["C++", "Java", "SQL", "Web Tech"],
+                            deadline: "May 30, 2026",
+                            applicantCount: 910
+                        },
+                        {
+                            id: "recent-5",
+                            company: "Accenture",
+                            role: "System Engineer",
+                            ctc: "$7 LPA",
+                            requiredSkills: ["C++", "Java", "Cloud", "DevOps"],
+                            deadline: "May 30, 2026",
+                            applicantCount: 950
+                        },
+                        {
+                            id: "recent-6",
+                            company: "Zoho Corporation",
+                            role: "Software Developer",
+                            ctc: "$10 LPA",
+                            requiredSkills: ["Java", "C++", "Data Structures"],
+                            deadline: "May 30, 2026",
+                            applicantCount: 620
+                        },
+                        {
+                            id: "recent-7",
+                            company: "Amazon Development Center",
+                            role: "Software Development Engineer",
+                            ctc: "$18 LPA",
+                            requiredSkills: ["Java", "Problem Solving", "System Design"],
+                            deadline: "May 30, 2026",
+                            applicantCount: 1450
+                        },
+                        {
+                            id: "recent-8",
+                            company: "Infosys",
+                            role: "Specialist Programmer",
+                            ctc: "$9.5 LPA",
+                            requiredSkills: ["Java", "Python", "SQL", "Cloud"],
+                            deadline: "May 30, 2026",
+                            applicantCount: 780
+                        }
+                    ];
 
-                            <div
-                                onClick={() => setCurrentTab("applications")}
-                                style={{ backgroundColor: "#ffffff", padding: "20px", borderRadius: "14px", border: "1px solid #eaedf0", boxShadow: "0 2px 4px rgba(0,0,0,0.02)", cursor: "pointer", transition: "transform 0.15s ease, boxShadow 0.15s ease" }}
-                            >
-                                <div style={{ width: "42px", height: "42px", borderRadius: "12px", backgroundColor: "#eff6ff", color: "#2563eb", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "12px" }}>
-                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                                        <polyline points="14 2 14 8 20 8" />
-                                        <line x1="16" y1="13" x2="8" y2="13" />
-                                        <line x1="16" y1="17" x2="8" y2="17" />
-                                    </svg>
-                                </div>
-                                <div style={{ fontSize: "11px", fontWeight: "700", color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px" }}>MY APPLICATIONS</div>
-                                <div style={{ fontSize: "28px", fontWeight: "800", color: "#0f172a", margin: "4px 0 2px 0" }}>{applicationsData.length}</div>
-                                <div style={{ fontSize: "12px", color: "#2563eb", fontWeight: "600" }}>Submitted by candidate</div>
-                            </div>
+                    const getUniqueCompanyPool = (primaryList: any[], defaultList: any[]) => {
+                        const pool: any[] = [];
+                        const usedCompanies = new Set<string>();
 
-                            <div
-                                onClick={() => setCurrentTab("results")}
-                                style={{ backgroundColor: "#ffffff", padding: "20px", borderRadius: "14px", border: "1px solid #eaedf0", boxShadow: "0 2px 4px rgba(0,0,0,0.02)", cursor: "pointer", transition: "transform 0.15s ease, boxShadow 0.15s ease" }}
-                            >
-                                <div style={{ width: "42px", height: "42px", borderRadius: "12px", backgroundColor: "#dcfce7", color: "#16a34a", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "12px" }}>
-                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6M18 9h1.5a2.5 2.5 0 0 0 0-5H18M4 22h16M10 14.66V17M14 14.66V17M18 4H6v7a6 6 0 0 0 12 0V4z" />
-                                    </svg>
-                                </div>
-                                <div style={{ fontSize: "11px", fontWeight: "700", color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px" }}>SELECTED OFFERS</div>
-                                <div style={{ fontSize: "28px", fontWeight: "800", color: "#16a34a", margin: "4px 0 2px 0" }}>{offersList.length}</div>
-                                <div style={{ fontSize: "12px", color: "#16a34a", fontWeight: "600" }}>
-                                    {offersList.length === 1 ? "Confirmed placement offer" : "Confirmed placement offers"}
-                                </div>
-                            </div>
-                        </div>
+                        primaryList.forEach(item => {
+                            const comp = (item.company || "").toLowerCase().trim();
+                            if (comp && !usedCompanies.has(comp)) {
+                                usedCompanies.add(comp);
+                                pool.push(item);
+                            }
+                        });
 
-                        {/* Live Activity & Recent Updates Section */}
-                        <div style={{ backgroundColor: "#ffffff", borderRadius: "14px", padding: "22px 24px", border: "1px solid #eaedf0", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
-                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", paddingBottom: "14px", borderBottom: "1px solid #f1f5f9" }}>
-                                <div style={{ fontWeight: "800", color: "#0f172a", fontSize: "16px", display: "flex", alignItems: "center", gap: "8px" }}>
-                                    <span>📌</span> Live Activity & Recent Updates
-                                </div>
-                                <button onClick={() => setCurrentTab("applications")} style={{ border: "none", background: "none", color: "#2563eb", fontWeight: "700", fontSize: "13px", cursor: "pointer", display: "flex", alignItems: "center", gap: "4px" }}>
-                                    View Applications &rarr;
-                                </button>
-                            </div>
+                        defaultList.forEach(item => {
+                            const comp = (item.company || "").toLowerCase().trim();
+                            if (comp && !usedCompanies.has(comp)) {
+                                usedCompanies.add(comp);
+                                pool.push(item);
+                            }
+                        });
 
-                            {/* Activity Items Grid - Dynamic Live Cards or Clean Empty State */}
-                            {liveActivities.length === 0 ? (
-                                <div style={{
-                                    textAlign: "center",
-                                    padding: "36px 20px",
-                                    backgroundColor: "#f8fafc",
-                                    borderRadius: "12px",
-                                    border: "1px dashed #cbd5e1"
-                                }}>
-                                    <div style={{ fontSize: "36px", marginBottom: "8px" }}>📋</div>
-                                    <h3 style={{ fontSize: "15px", fontWeight: "800", color: "#0f172a", margin: "0 0 6px 0" }}>
-                                        No Active Recruitment Activities
-                                    </h3>
-                                    <p style={{ fontSize: "13px", color: "#64748b", margin: "0 0 16px 0", maxWidth: "420px", marginInline: "auto" }}>
-                                        You currently have no scheduled interviews or ongoing application updates. Explore available campus drives and opt in to get started.
+                        return pool;
+                    };
+
+                    const closingDrivesList = getUniqueCompanyPool(
+                        placementDrives.length > 0 ? placementDrives : [],
+                        defaultClosingDrives
+                    ).slice(0, 2);
+
+                    const inProgressDrivesList = applicationsData.length > 0
+                        ? getUniqueCompanyPool(
+                            applicationsData.map((app: any) => ({
+                                company: app.company,
+                                role: app.role,
+                                ctc: app.ctc || "$12 LPA",
+                                status: app.currentStatus === "Opted-In" ? "Pending" : app.currentStatus,
+                                progressPercent: app.currentStatus === "Selected" ? "100%" : (app.currentStatus === "Shortlisted" ? "70%" : "40%")
+                            })),
+                            defaultInProgressDrives
+                        ).slice(0, 3)
+                        : defaultInProgressDrives;
+
+                    const allRecentPool = getUniqueCompanyPool(
+                        placementDrives.length > 0 ? placementDrives : [],
+                        defaultRecentDrives
+                    );
+
+                    const pageSize = 4;
+                    const startIndex = (recentDrivesPage - 1) * pageSize;
+                    const recentDrivesDisplay = allRecentPool.slice(startIndex, startIndex + pageSize);
+                    if (recentDrivesDisplay.length === 0 && allRecentPool.length > 0) {
+                        recentDrivesDisplay.push(...allRecentPool.slice(0, 4));
+                    }
+
+                    return (
+                        <div>
+                            {/* Dark Navy/Slate Welcome Hero Banner (Matching Screenshot Layout without Purple) */}
+                            <div style={{
+                                backgroundColor: "#0f172a",
+                                borderRadius: "20px",
+                                padding: "28px 32px",
+                                color: "#ffffff",
+                                marginBottom: "32px",
+                                position: "relative",
+                                overflow: "hidden",
+                                boxShadow: "0 10px 25px -5px rgba(15, 23, 42, 0.2)"
+                            }}>
+                                <div style={{ position: "relative", zIndex: 2 }}>
+                                    <div style={{
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        gap: "8px",
+                                        backgroundColor: "rgba(255, 255, 255, 0.12)",
+                                        padding: "5px 14px",
+                                        borderRadius: "20px",
+                                        fontSize: "12px",
+                                        fontWeight: "700",
+                                        color: "#ffffff",
+                                        marginBottom: "14px"
+                                    }}>
+                                        <span style={{ width: "7px", height: "7px", borderRadius: "50%", backgroundColor: "#38bdf8" }}></span>
+                                        Placement Batch 2027
+                                    </div>
+
+                                    <h1 style={{ fontSize: "26px", fontWeight: "800", margin: "0 0 10px 0", color: "#ffffff", lineHeight: "1.3" }}>
+                                        You're eligible for {filterCounts["Eligible"] || 4} new drives this week.
+                                    </h1>
+
+                                    <p style={{ fontSize: "14px", color: "#cbd5e1", margin: "0 0 20px 0", lineHeight: "1.5", fontWeight: "400" }}>
+                                        {placementDrives.length > 0 && placementDrives[0]?.company
+                                            ? `${placementDrives[0].company} deadline is in 2 days. Don't miss out Opt -in takes one tap`
+                                            : "Accenture deadline is in 2 days. Don't miss out Opt -in takes one tap"}
                                     </p>
+
                                     <button
-                                        onClick={() => setCurrentTab("companies")}
+                                        onClick={() => { setDriveFilter("Eligible"); setCurrentTab("companies"); }}
                                         style={{
-                                            backgroundColor: "#2563eb",
-                                            color: "#ffffff",
+                                            backgroundColor: "#ffffff",
+                                            color: "#0f172a",
                                             border: "none",
-                                            borderRadius: "8px",
-                                            padding: "9px 20px",
+                                            borderRadius: "12px",
+                                            padding: "11px 22px",
                                             fontWeight: "700",
-                                            fontSize: "13px",
+                                            fontSize: "14px",
                                             cursor: "pointer",
-                                            boxShadow: "0 2px 4px rgba(37,99,235,0.2)"
+                                            display: "inline-flex",
+                                            alignItems: "center",
+                                            gap: "8px",
+                                            boxShadow: "0 4px 12px rgba(0, 0, 0, 0.12)",
+                                            transition: "transform 0.15s ease"
                                         }}
                                     >
-                                        Browse Campus Drives &rarr;
+                                        Browse Drives &rarr;
                                     </button>
                                 </div>
-                            ) : (
-                                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "14px" }}>
-                                    {liveActivities.map((item) => (
-                                        <div
-                                            key={item.id}
-                                            onClick={() => setCurrentTab(item.targetTab)}
-                                            className="dash-card-hover"
+                            </div>
+
+                            {/* SECTION 1: Closing soon */}
+                            <div style={{ marginBottom: "36px" }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+                                    <h3 style={{ fontSize: "20px", fontWeight: "800", color: "#0f172a", margin: 0 }}>
+                                        Closing soon
+                                    </h3>
+                                    <button
+                                        onClick={() => { setDriveFilter("Eligible"); setCurrentTab("companies"); }}
+                                        style={{ background: "none", border: "none", color: "#2563eb", fontWeight: "700", fontSize: "14px", cursor: "pointer" }}
+                                    >
+                                        See all &gt;
+                                    </button>
+                                </div>
+
+                                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(310px, 1fr))", gap: "18px" }}>
+                                    {closingDrivesList.slice(0, 2).map((drive: any, idx: number) => {
+                                        const skills = drive.requiredSkills && drive.requiredSkills.length > 0
+                                            ? drive.requiredSkills
+                                            : ["Java", "Python", "MERN", "SQL"];
+                                        return (
+                                            <div
+                                                key={drive.id || drive._id || idx}
+                                                onClick={() => setSelectedDriveCriteria(drive)}
+                                                style={{
+                                                    backgroundColor: "#ffffff",
+                                                    borderRadius: "16px",
+                                                    padding: "20px 22px",
+                                                    border: "1px solid #eaedf0",
+                                                    boxShadow: "0 2px 6px rgba(0,0,0,0.02)",
+                                                    display: "flex",
+                                                    flexDirection: "column",
+                                                    justifyContent: "space-between",
+                                                    gap: "16px",
+                                                    cursor: "pointer"
+                                                }}
+                                            >
+                                                <div>
+                                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "12px" }}>
+                                                        <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+                                                            <div style={{
+                                                                width: "48px",
+                                                                height: "48px",
+                                                                borderRadius: "12px",
+                                                                backgroundColor: "#f8fafc",
+                                                                border: "1px solid #e2e8f0",
+                                                                display: "flex",
+                                                                alignItems: "center",
+                                                                justifyContent: "center",
+                                                                overflow: "hidden",
+                                                                fontSize: "22px",
+                                                                fontWeight: "800",
+                                                                color: "#2563eb",
+                                                                flexShrink: 0
+                                                            }}>
+                                                                {drive.company?.includes("Google") ? (
+                                                                    <span style={{ color: "#4285F4" }}>G</span>
+                                                                ) : drive.logo ? (
+                                                                    <img src={drive.logo} alt={drive.company} style={{ width: "100%", height: "100%", objectFit: "contain" }} onError={(e: any) => { e.target.style.display = 'none'; }} />
+                                                                ) : (
+                                                                    drive.company?.charAt(0) || "C"
+                                                                )}
+                                                            </div>
+                                                            <div>
+                                                                <h4 style={{ margin: "0 0 3px 0", fontSize: "15px", fontWeight: "800", color: "#0f172a" }}>
+                                                                    {drive.company || "Amazon Development Center"}
+                                                                </h4>
+                                                                <div style={{ fontSize: "13px", color: "#2563eb", fontWeight: "600" }}>
+                                                                    {drive.role || "java"}
+                                                                </div>
+                                                                <div style={{ fontSize: "14px", fontWeight: "800", color: "#0f172a", marginTop: "3px" }}>
+                                                                    {formatCtc(drive.ctc)}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <span style={{
+                                                            backgroundColor: "#eff6ff",
+                                                            color: "#2563eb",
+                                                            padding: "4px 10px",
+                                                            borderRadius: "12px",
+                                                            fontSize: "11px",
+                                                            fontWeight: "700",
+                                                            border: "1px solid #bfdbfe"
+                                                        }}>
+                                                            Eligible
+                                                        </span>
+                                                    </div>
+
+                                                    {/* Skill Pills */}
+                                                    <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                                                        {skills.map((skill: string, sIdx: number) => (
+                                                            <span key={sIdx} style={{
+                                                                backgroundColor: "#f1f5f9",
+                                                                color: "#475569",
+                                                                padding: "3px 10px",
+                                                                borderRadius: "8px",
+                                                                fontSize: "11px",
+                                                                fontWeight: "600"
+                                                            }}>
+                                                                {skill}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                </div>
+
+                                                <div style={{
+                                                    display: "flex",
+                                                    alignItems: "center",
+                                                    justifyContent: "space-between",
+                                                    paddingTop: "14px",
+                                                    borderTop: "1px solid #f1f5f9",
+                                                    fontSize: "12px"
+                                                }}>
+                                                    <div style={{ color: "#dc2626", fontWeight: "700", display: "flex", alignItems: "center", gap: "4px" }}>
+                                                        🕒 {drive.deadline || "May 30, 2026"}
+                                                    </div>
+                                                    <div style={{ color: "#64748b", fontWeight: "600", display: "flex", alignItems: "center", gap: "4px" }}>
+                                                        👥 {drive.applicantCount || 580}
+                                                    </div>
+                                                    <button
+                                                        onClick={() => setSelectedDriveCriteria(drive)}
+                                                        style={{ background: "none", border: "none", color: "#2563eb", fontWeight: "700", cursor: "pointer", padding: 0 }}
+                                                    >
+                                                        View &rarr;
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            {/* SECTION 2: In Progress */}
+                            <div style={{ marginBottom: "36px" }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+                                    <h3 style={{ fontSize: "20px", fontWeight: "800", color: "#0f172a", margin: 0 }}>
+                                        In Progress
+                                    </h3>
+                                    <button
+                                        onClick={() => setCurrentTab("applications")}
+                                        style={{ background: "none", border: "none", color: "#2563eb", fontWeight: "700", fontSize: "14px", cursor: "pointer" }}
+                                    >
+                                        See all &gt;
+                                    </button>
+                                </div>
+
+                                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(310px, 1fr))", gap: "18px" }}>
+                                    {inProgressDrivesList.map((app: any, idx: number) => {
+                                        const statusLabel = app.status || "Shortlisted";
+                                        const isShortlisted = statusLabel === "Shortlisted";
+                                        return (
+                                            <div
+                                                key={idx}
+                                                style={{
+                                                    backgroundColor: "#ffffff",
+                                                    borderRadius: "16px",
+                                                    padding: "20px 22px",
+                                                    border: "1px solid #eaedf0",
+                                                    boxShadow: "0 2px 6px rgba(0,0,0,0.02)",
+                                                    display: "flex",
+                                                    flexDirection: "column",
+                                                    justifyContent: "space-between",
+                                                    gap: "16px"
+                                                }}
+                                            >
+                                                <div>
+                                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "10px" }}>
+                                                        <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+                                                            <div style={{
+                                                                width: "48px",
+                                                                height: "48px",
+                                                                borderRadius: "12px",
+                                                                backgroundColor: "#f8fafc",
+                                                                border: "1px solid #e2e8f0",
+                                                                display: "flex",
+                                                                alignItems: "center",
+                                                                justifyContent: "center",
+                                                                fontSize: "22px",
+                                                                fontWeight: "800",
+                                                                color: "#2563eb",
+                                                                flexShrink: 0
+                                                            }}>
+                                                                {app.company?.includes("Google") ? (
+                                                                    <span style={{ color: "#4285F4" }}>G</span>
+                                                                ) : (
+                                                                    app.company?.charAt(0) || "C"
+                                                                )}
+                                                            </div>
+                                                            <div>
+                                                                <h4 style={{ margin: "0 0 3px 0", fontSize: "15px", fontWeight: "800", color: "#0f172a" }}>
+                                                                    {app.company}
+                                                                </h4>
+                                                                <div style={{ fontSize: "13px", color: "#2563eb", fontWeight: "600" }}>
+                                                                    {app.role}
+                                                                </div>
+                                                                <div style={{ fontSize: "14px", fontWeight: "800", color: "#0f172a", marginTop: "3px" }}>
+                                                                    {formatCtc(app.ctc)}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <span style={{
+                                                            backgroundColor: isShortlisted ? "#fef3c7" : "#ffedd5",
+                                                            color: isShortlisted ? "#d97706" : "#ea580c",
+                                                            padding: "4px 10px",
+                                                            borderRadius: "12px",
+                                                            fontSize: "11px",
+                                                            fontWeight: "700",
+                                                            border: isShortlisted ? "1px solid #fde68a" : "1px solid #fed7aa"
+                                                        }}>
+                                                            {statusLabel}
+                                                        </span>
+                                                    </div>
+                                                </div>
+
+                                                {/* Progress Bar */}
+                                                <div>
+                                                    <div style={{ width: "100%", height: "7px", backgroundColor: "#e2e8f0", borderRadius: "10px", overflow: "hidden" }}>
+                                                        <div style={{
+                                                            width: app.progressPercent || "65%",
+                                                            height: "100%",
+                                                            backgroundColor: "#16a34a",
+                                                            borderRadius: "10px"
+                                                        }} />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            {/* SECTION 3: Recent Drives */}
+                            <div>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+                                    <h3 style={{ fontSize: "20px", fontWeight: "800", color: "#0f172a", margin: 0 }}>
+                                        Recent Drives
+                                    </h3>
+                                </div>
+
+                                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(310px, 1fr))", gap: "18px", marginBottom: "28px" }}>
+                                    {recentDrivesDisplay.map((drive: any, idx: number) => {
+                                        const skills = drive.requiredSkills && drive.requiredSkills.length > 0
+                                            ? drive.requiredSkills
+                                            : ["Java", "Python", "MERN", "SQL"];
+                                        return (
+                                            <div
+                                                key={drive.id || drive._id || idx}
+                                                onClick={() => setSelectedDriveCriteria(drive)}
+                                                style={{
+                                                    backgroundColor: "#ffffff",
+                                                    borderRadius: "16px",
+                                                    padding: "20px 22px",
+                                                    border: "1px solid #eaedf0",
+                                                    boxShadow: "0 2px 6px rgba(0,0,0,0.02)",
+                                                    display: "flex",
+                                                    flexDirection: "column",
+                                                    justifyContent: "space-between",
+                                                    gap: "16px",
+                                                    cursor: "pointer"
+                                                }}
+                                            >
+                                                <div>
+                                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "12px" }}>
+                                                        <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+                                                            <div style={{
+                                                                width: "48px",
+                                                                height: "48px",
+                                                                borderRadius: "12px",
+                                                                backgroundColor: "#f8fafc",
+                                                                border: "1px solid #e2e8f0",
+                                                                display: "flex",
+                                                                alignItems: "center",
+                                                                justifyContent: "center",
+                                                                overflow: "hidden",
+                                                                fontSize: "22px",
+                                                                fontWeight: "800",
+                                                                color: "#2563eb",
+                                                                flexShrink: 0
+                                                            }}>
+                                                                {drive.company?.includes("Google") ? (
+                                                                    <span style={{ color: "#4285F4" }}>G</span>
+                                                                ) : drive.logo ? (
+                                                                    <img src={drive.logo} alt={drive.company} style={{ width: "100%", height: "100%", objectFit: "contain" }} onError={(e: any) => { e.target.style.display = 'none'; }} />
+                                                                ) : (
+                                                                    drive.company?.charAt(0) || "C"
+                                                                )}
+                                                            </div>
+                                                            <div>
+                                                                <h4 style={{ margin: "0 0 3px 0", fontSize: "15px", fontWeight: "800", color: "#0f172a" }}>
+                                                                    {drive.company || "Amazon Development Center"}
+                                                                </h4>
+                                                                <div style={{ fontSize: "13px", color: "#2563eb", fontWeight: "600" }}>
+                                                                    {drive.role || "java"}
+                                                                </div>
+                                                                <div style={{ fontSize: "14px", fontWeight: "800", color: "#0f172a", marginTop: "3px" }}>
+                                                                    {formatCtc(drive.ctc)}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <span style={{
+                                                            backgroundColor: "#eff6ff",
+                                                            color: "#2563eb",
+                                                            padding: "4px 10px",
+                                                            borderRadius: "12px",
+                                                            fontSize: "11px",
+                                                            fontWeight: "700",
+                                                            border: "1px solid #bfdbfe"
+                                                        }}>
+                                                            Eligible
+                                                        </span>
+                                                    </div>
+
+                                                    {/* Skill Pills */}
+                                                    <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                                                        {skills.map((skill: string, sIdx: number) => (
+                                                            <span key={sIdx} style={{
+                                                                backgroundColor: "#f1f5f9",
+                                                                color: "#475569",
+                                                                padding: "3px 10px",
+                                                                borderRadius: "8px",
+                                                                fontSize: "11px",
+                                                                fontWeight: "600"
+                                                            }}>
+                                                                {skill}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                </div>
+
+                                                <div style={{
+                                                    display: "flex",
+                                                    alignItems: "center",
+                                                    justifyContent: "space-between",
+                                                    paddingTop: "14px",
+                                                    borderTop: "1px solid #f1f5f9",
+                                                    fontSize: "12px"
+                                                }}>
+                                                    <div style={{ color: "#64748b", fontWeight: "600", display: "flex", alignItems: "center", gap: "4px" }}>
+                                                        🕒 {drive.deadline || "May 30, 2026"}
+                                                    </div>
+                                                    <div style={{ color: "#64748b", fontWeight: "600", display: "flex", alignItems: "center", gap: "4px" }}>
+                                                        👥 {drive.applicantCount || (drive.company?.includes("Google") ? 1290 : 580)}
+                                                    </div>
+                                                    <button
+                                                        onClick={() => setSelectedDriveCriteria(drive)}
+                                                        style={{ background: "none", border: "none", color: "#2563eb", fontWeight: "700", cursor: "pointer", padding: 0 }}
+                                                    >
+                                                        View &rarr;
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+
+                                {/* Pagination Controls */}
+                                <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "8px", marginTop: "24px" }}>
+                                    <button
+                                        onClick={() => setRecentDrivesPage(prev => Math.max(1, prev - 1))}
+                                        disabled={recentDrivesPage === 1}
+                                        style={{
+                                            background: "none",
+                                            border: "none",
+                                            color: recentDrivesPage === 1 ? "#94a3b8" : "#2563eb",
+                                            fontWeight: "700",
+                                            fontSize: "14px",
+                                            cursor: recentDrivesPage === 1 ? "not-allowed" : "pointer"
+                                        }}
+                                    >
+                                        Previous
+                                    </button>
+
+                                    {[1, 2, 3, 4].map(p => (
+                                        <button
+                                            key={p}
+                                            onClick={() => setRecentDrivesPage(p)}
                                             style={{
-                                                display: "flex",
-                                                flexDirection: "column",
-                                                justifyContent: "space-between",
-                                                padding: "16px 18px",
-                                                borderRadius: "12px",
-                                                backgroundColor: "#f8fafc",
-                                                border: "1px solid #e2e8f0",
-                                                boxShadow: "0 2px 4px rgba(0,0,0,0.02)",
-                                                gap: "14px",
+                                                width: "32px",
+                                                height: "32px",
+                                                borderRadius: "6px",
+                                                border: p === recentDrivesPage ? "1px solid #cbd5e1" : "none",
+                                                backgroundColor: p === recentDrivesPage ? "#ffffff" : "transparent",
+                                                color: p === recentDrivesPage ? "#0f172a" : "#64748b",
+                                                fontWeight: "700",
+                                                fontSize: "14px",
                                                 cursor: "pointer"
                                             }}
                                         >
-                                            <div style={{ display: "flex", alignItems: "flex-start", gap: "12px" }}>
-                                                <div style={{
-                                                    width: "42px",
-                                                    height: "42px",
-                                                    borderRadius: "10px",
+                                            {p}
+                                        </button>
+                                    ))}
+
+                                    <span style={{ color: "#94a3b8", fontWeight: "700" }}>. . .</span>
+
+                                    <button
+                                        onClick={() => setRecentDrivesPage(prev => Math.min(4, prev + 1))}
+                                        disabled={recentDrivesPage === 4}
+                                        style={{
+                                            background: "none",
+                                            border: "none",
+                                            color: recentDrivesPage === 4 ? "#94a3b8" : "#2563eb",
+                                            fontWeight: "700",
+                                            fontSize: "14px",
+                                            cursor: recentDrivesPage === 4 ? "not-allowed" : "pointer"
+                                        }}
+                                    >
+                                        Next
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })()}
+
+                {/* TAB 2: CAMPUS DRIVES */}
+                {currentTab === "companies" && (() => {
+                    const defaultRecentDrivesForCampus = [
+                        {
+                            id: "campus-1",
+                            company: "TCS",
+                            role: "UIUX Designer",
+                            ctc: "$14 LPA",
+                            requiredSkills: ["Figma", "Miro", "Adobe", "UX"],
+                            deadline: "May 30, 2026",
+                            applicantCount: 400,
+                            statusTag: "Opted-In",
+                            location: "Chennai"
+                        },
+                        {
+                            id: "campus-2",
+                            company: "Mallow Technologies",
+                            role: "Software Developer",
+                            ctc: "$12 LPA",
+                            requiredSkills: ["Java", "Python", "MERN", "SQL"],
+                            deadline: "May 30, 2026",
+                            applicantCount: 580,
+                            statusTag: "Eligible",
+                            location: "Coimbatore"
+                        },
+                        {
+                            id: "campus-3",
+                            company: "Besant Technologies",
+                            role: "FullStack Developer",
+                            ctc: "$8 LPA",
+                            requiredSkills: ["Java", "JS", "MEAN", "Node"],
+                            deadline: "May 30, 2026",
+                            applicantCount: 580,
+                            statusTag: "Eligible",
+                            location: "Bangalore"
+                        },
+                        {
+                            id: "campus-4",
+                            company: "Google",
+                            role: "FullStack Developer",
+                            ctc: "$21 LPA",
+                            requiredSkills: ["Java", "Python", "MERN", "SQL"],
+                            deadline: "May 30, 2026",
+                            applicantCount: 1290,
+                            statusTag: "Eligible",
+                            location: "Bangalore"
+                        },
+                        {
+                            id: "campus-5",
+                            company: "CTS (Cognizant)",
+                            role: "Programmer Analyst",
+                            ctc: "$6.8 LPA",
+                            requiredSkills: ["C++", "Java", "SQL", "Web"],
+                            deadline: "May 30, 2026",
+                            applicantCount: 910,
+                            statusTag: "Eligible",
+                            location: "Chennai"
+                        },
+                        {
+                            id: "campus-6",
+                            company: "Accenture",
+                            role: "System Engineer",
+                            ctc: "$7 LPA",
+                            requiredSkills: ["C++", "Java", "Cloud", "DevOps"],
+                            deadline: "May 30, 2026",
+                            applicantCount: 950,
+                            statusTag: "Eligible",
+                            location: "Bangalore"
+                        },
+                        {
+                            id: "campus-7",
+                            company: "Zoho Corporation",
+                            role: "Software Developer",
+                            ctc: "$10 LPA",
+                            requiredSkills: ["Java", "C++", "Data Structures"],
+                            deadline: "May 30, 2026",
+                            applicantCount: 620,
+                            statusTag: "Eligible",
+                            location: "Chennai"
+                        },
+                        {
+                            id: "campus-8",
+                            company: "Amazon Development Center",
+                            role: "Software Development Engineer",
+                            ctc: "$18 LPA",
+                            requiredSkills: ["Java", "Problem Solving", "System Design"],
+                            deadline: "May 30, 2026",
+                            applicantCount: 1450,
+                            statusTag: "Eligible",
+                            location: "Bangalore"
+                        },
+                        {
+                            id: "campus-9",
+                            company: "Infosys",
+                            role: "Specialist Programmer",
+                            ctc: "$9.5 LPA",
+                            requiredSkills: ["Java", "Python", "SQL", "Cloud"],
+                            deadline: "May 30, 2026",
+                            applicantCount: 780,
+                            statusTag: "Eligible",
+                            location: "Chennai"
+                        }
+                    ];
+
+                    const allCampusPool = [
+                        ...placementDrives,
+                        ...defaultRecentDrivesForCampus.filter(d => !placementDrives.some(p => (p.company || "").toLowerCase().trim() === (d.company || "").toLowerCase().trim() && (p.role || "").toLowerCase().trim() === (d.role || "").toLowerCase().trim()))
+                    ];
+
+                    let filteredCampusDrives = allCampusPool.filter(d => {
+                        const isOptedIn = isDriveOptedIn(d) || d.statusTag === "Opted-In";
+                        const isOptedOut = isDriveOptedOut(d) || d.statusTag === "Opted-Out";
+                        const isIneligible = d.statusTag === "Not Eligible" || (d as any).isEligible === false;
+
+                        if (driveFilter === "Eligible" && (isOptedOut || isOptedIn || isIneligible)) return false;
+                        if (driveFilter === "Not Eligible" && !isIneligible) return false;
+                        if (driveFilter === "Up coming" && (isOptedOut || isOptedIn)) return false;
+                        if (driveFilter === "On coming" && !isOptedIn) return false;
+                        if (driveFilter === "Opted-In" && !isOptedIn) return false;
+                        if (driveFilter === "Opted-Out" && !isOptedOut) return false;
+                        if (driveFilter === "Completed" && d.statusTag !== "Completed") return false;
+
+                        if (filterPosition && !(d.role || "").toLowerCase().includes(filterPosition.toLowerCase())) {
+                            return false;
+                        }
+
+                        if (filterLocation && !(d.location || "").toLowerCase().includes(filterLocation.toLowerCase())) {
+                            return false;
+                        }
+
+                        if (filterMinPackage > 0) {
+                            const raw = String(d.ctc || "0").replace(/[^0-9.]/g, "");
+                            const val = parseFloat(raw) || 0;
+                            if (val < filterMinPackage) return false;
+                        }
+
+                        return true;
+                    });
+
+                    if (filterSortBy === "Package (High to Low)") {
+                        filteredCampusDrives = [...filteredCampusDrives].sort((a, b) => {
+                            const numA = parseFloat(String(a.ctc || "0").replace(/[^0-9.]/g, "")) || 0;
+                            const numB = parseFloat(String(b.ctc || "0").replace(/[^0-9.]/g, "")) || 0;
+                            return numB - numA;
+                        });
+                    }
+
+                    const pageSize = 6;
+                    const startIndex = (campusDrivesPage - 1) * pageSize;
+                    const pageDisplayDrives = filteredCampusDrives.slice(startIndex, startIndex + pageSize);
+                    const totalCampusPages = Math.max(1, Math.ceil(filteredCampusDrives.length / pageSize));
+                    const campusPageNumbers = Array.from({ length: totalCampusPages }, (_, i) => i + 1);
+
+                    return (
+                        <div>
+                            {/* Top Header Bar */}
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+                                <h2 style={{ fontSize: "24px", fontWeight: "800", color: "#0f172a", margin: 0 }}>
+                                    All Drives
+                                </h2>
+                                <button
+                                    onClick={() => setShowFilterModal(true)}
+                                    style={{
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        gap: "8px",
+                                        backgroundColor: "#eff6ff",
+                                        color: "#2563eb",
+                                        border: "1px solid #bfdbfe",
+                                        borderRadius: "10px",
+                                        padding: "8px 16px",
+                                        fontSize: "14px",
+                                        fontWeight: "700",
+                                        cursor: "pointer"
+                                    }}
+                                >
+                                    <span>⚙</span> Filter
+                                </button>
+                            </div>
+
+                            {/* Filter Pills Bar (All on same line layout) */}
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", marginBottom: "24px" }}>
+                                {[
+                                    { key: "All", label: "All" },
+                                    { key: "Eligible", label: "Eligible" },
+                                    { key: "Not Eligible", label: "Not Eligible" },
+                                    { key: "Up coming", label: "Up coming" },
+                                    { key: "On coming", label: "On coming" },
+                                    { key: "Opted-In", label: "Opted-In" },
+                                    { key: "Opted-Out", label: "Opted-Out" },
+                                    { key: "Completed", label: "Completed" }
+                                ].map((filter) => {
+                                    const isSelected = driveFilter === filter.key;
+                                    return (
+                                        <button
+                                            key={filter.key}
+                                            onClick={() => { setCampusDrivesPage(1); setDriveFilter(filter.key as any); }}
+                                            style={{
+                                                backgroundColor: isSelected ? "#2563eb" : "#ffffff",
+                                                color: isSelected ? "#ffffff" : "#475569",
+                                                border: isSelected ? "none" : "1px solid #cbd5e1",
+                                                borderRadius: "24px",
+                                                padding: "10px 22px",
+                                                fontSize: "14px",
+                                                fontWeight: isSelected ? "700" : "600",
+                                                cursor: "pointer",
+                                                whiteSpace: "nowrap",
+                                                transition: "all 0.15s ease",
+                                                boxShadow: isSelected ? "0 2px 8px rgba(37,99,235,0.25)" : "none"
+                                            }}
+                                        >
+                                            {filter.label}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+
+                            {/* Drives List Grid */}
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(330px, 1fr))", gap: "20px", marginBottom: "32px" }}>
+                                {pageDisplayDrives.length === 0 ? (
+                                    <div style={{ gridColumn: "1 / -1", textAlign: "center", padding: "48px 20px", backgroundColor: "#ffffff", borderRadius: "16px", border: "1px solid #eaedf0", color: "#64748b" }}>
+                                        <div style={{ fontSize: "32px", marginBottom: "12px" }}>🔍</div>
+                                        <div style={{ fontSize: "16px", fontWeight: "700", color: "#0f172a", marginBottom: "6px" }}>No {driveFilter} drives found</div>
+                                        <div style={{ fontSize: "14px" }}>There are currently no drives under the "{driveFilter}" category.</div>
+                                    </div>
+                                ) : (
+                                    pageDisplayDrives.map((drive: any, idx: number) => {
+                                        const isOptedIn = isDriveOptedIn(drive) || drive.statusTag === "Opted-In";
+                                        const isOptedOut = isDriveOptedOut(drive) || drive.statusTag === "Opted-Out";
+                                        const isIneligible = drive.statusTag === "Not Eligible" || (drive as any).isEligible === false;
+                                        const skills = drive.requiredSkills && drive.requiredSkills.length > 0
+                                            ? drive.requiredSkills
+                                            : ["Java", "Python", "MERN", "SQL"];
+
+                                        return (
+                                            <div
+                                                key={drive.id || drive._id || idx}
+                                                onClick={() => setSelectedDriveCriteria(drive)}
+                                                style={{
                                                     backgroundColor: "#ffffff",
-                                                    border: "1px solid #cbd5e1",
+                                                    borderRadius: "16px",
+                                                    padding: "20px 22px",
+                                                    border: "1px solid #eaedf0",
+                                                    boxShadow: "0 2px 6px rgba(0,0,0,0.02)",
+                                                    display: "flex",
+                                                    flexDirection: "column",
+                                                    justifyContent: "space-between",
+                                                    gap: "16px",
+                                                    cursor: "pointer"
+                                                }}
+                                            >
+                                                <div>
+                                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "12px" }}>
+                                                        <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+                                                            <div style={{
+                                                                width: "48px",
+                                                                height: "48px",
+                                                                borderRadius: "12px",
+                                                                backgroundColor: "#f8fafc",
+                                                                border: "1px solid #e2e8f0",
+                                                                display: "flex",
+                                                                alignItems: "center",
+                                                                justifyContent: "center",
+                                                                overflow: "hidden",
+                                                                fontSize: "22px",
+                                                                fontWeight: "800",
+                                                                color: "#2563eb",
+                                                                flexShrink: 0
+                                                            }}>
+                                                                {drive.company?.includes("Google") ? (
+                                                                    <span style={{ color: "#4285F4" }}>G</span>
+                                                                ) : drive.logo ? (
+                                                                    <img src={drive.logo} alt={drive.company} style={{ width: "100%", height: "100%", objectFit: "contain" }} onError={(e: any) => { e.target.style.display = 'none'; }} />
+                                                                ) : (
+                                                                    drive.company?.charAt(0) || "C"
+                                                                )}
+                                                            </div>
+                                                            <div>
+                                                                <h4 style={{ margin: "0 0 3px 0", fontSize: "15px", fontWeight: "800", color: "#0f172a" }}>
+                                                                    {drive.company}
+                                                                </h4>
+                                                                <div style={{ fontSize: "13px", color: "#2563eb", fontWeight: "600" }}>
+                                                                    {drive.role}
+                                                                </div>
+                                                                <div style={{ fontSize: "14px", fontWeight: "800", color: "#0f172a", marginTop: "3px" }}>
+                                                                    {formatCtc(drive.ctc)}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        <span style={{
+                                                            backgroundColor: isOptedIn ? "#dcfce7" : (isOptedOut ? "#fef2f2" : (isIneligible ? "#fef2f2" : "#eff6ff")),
+                                                            color: isOptedIn ? "#16a34a" : (isOptedOut ? "#dc2626" : (isIneligible ? "#dc2626" : "#2563eb")),
+                                                            padding: "4px 10px",
+                                                            borderRadius: "12px",
+                                                            fontSize: "11px",
+                                                            fontWeight: "700",
+                                                            border: `1px solid ${isOptedIn ? "#bbf7d0" : (isOptedOut ? "#fecaca" : (isIneligible ? "#fecaca" : "#bfdbfe"))}`,
+                                                            whiteSpace: "nowrap"
+                                                        }}>
+                                                            {isOptedIn ? "✓ Opted-In" : (isOptedOut ? "✕ Opted-Out" : (isIneligible ? "Not Eligible" : "Eligible"))}
+                                                        </span>
+                                                    </div>
+
+                                                    {/* Skill Pills */}
+                                                    <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                                                        {skills.map((skill: string, sIdx: number) => (
+                                                            <span key={sIdx} style={{
+                                                                backgroundColor: "#f1f5f9",
+                                                                color: "#475569",
+                                                                padding: "3px 10px",
+                                                                borderRadius: "8px",
+                                                                fontSize: "11px",
+                                                                fontWeight: "600"
+                                                            }}>
+                                                                {skill}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                </div>
+
+                                                <div style={{
                                                     display: "flex",
                                                     alignItems: "center",
-                                                    justifyContent: "center",
-                                                    fontSize: "20px",
-                                                    flexShrink: 0,
-                                                    boxShadow: "0 1px 3px rgba(0,0,0,0.05)"
+                                                    justifyContent: "space-between",
+                                                    paddingTop: "14px",
+                                                    borderTop: "1px solid #f1f5f9",
+                                                    fontSize: "12px"
                                                 }}>
-                                                    {item.icon}
+                                                    <div style={{ color: "#dc2626", fontWeight: "700", display: "flex", alignItems: "center", gap: "4px" }}>
+                                                        🕒 {drive.deadline || "May 30, 2026"}
+                                                    </div>
+                                                    <div style={{ color: "#64748b", fontWeight: "600", display: "flex", alignItems: "center", gap: "4px" }}>
+                                                        👥 {drive.applicantCount || 580}
+                                                    </div>
+                                                    <button
+                                                        onClick={() => setSelectedDriveCriteria(drive)}
+                                                        style={{ background: "none", border: "none", color: "#2563eb", fontWeight: "700", cursor: "pointer", padding: 0 }}
+                                                    >
+                                                        View &rarr;
+                                                    </button>
                                                 </div>
-                                                <div>
-                                                    <h4 style={{ margin: "0 0 4px 0", fontSize: "14px", fontWeight: "800", color: "#0f172a" }}>
-                                                        {item.title}
-                                                    </h4>
-                                                    <div style={{ fontSize: "12px", color: "#64748b", lineHeight: "1.4" }}>
-                                                        {item.subtitle}
+                                            </div>
+                                        );
+                                    })
+                                )}
+                            </div>
+
+                            {/* Pagination Controls */}
+                            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "8px" }}>
+                                <button
+                                    onClick={() => setCampusDrivesPage(prev => Math.max(1, prev - 1))}
+                                    disabled={campusDrivesPage === 1}
+                                    style={{
+                                        background: "none",
+                                        border: "none",
+                                        color: campusDrivesPage === 1 ? "#94a3b8" : "#2563eb",
+                                        fontWeight: "700",
+                                        fontSize: "14px",
+                                        cursor: campusDrivesPage === 1 ? "not-allowed" : "pointer"
+                                    }}
+                                >
+                                    Previous
+                                </button>
+
+                                {campusPageNumbers.map(p => (
+                                    <button
+                                        key={p}
+                                        onClick={() => setCampusDrivesPage(p)}
+                                        style={{
+                                            width: "32px",
+                                            height: "32px",
+                                            borderRadius: "6px",
+                                            border: p === campusDrivesPage ? "1px solid #cbd5e1" : "none",
+                                            backgroundColor: p === campusDrivesPage ? "#ffffff" : "transparent",
+                                            color: p === campusDrivesPage ? "#0f172a" : "#64748b",
+                                            fontWeight: "700",
+                                            fontSize: "14px",
+                                            cursor: "pointer"
+                                        }}
+                                    >
+                                        {p}
+                                    </button>
+                                ))}
+
+                                {totalCampusPages > 4 && <span style={{ color: "#94a3b8", fontWeight: "700" }}>. . .</span>}
+
+                                <button
+                                    onClick={() => setCampusDrivesPage(prev => Math.min(totalCampusPages, prev + 1))}
+                                    disabled={campusDrivesPage === totalCampusPages}
+                                    style={{
+                                        background: "none",
+                                        border: "none",
+                                        color: campusDrivesPage === totalCampusPages ? "#94a3b8" : "#2563eb",
+                                        fontWeight: "700",
+                                        fontSize: "14px",
+                                        cursor: campusDrivesPage === totalCampusPages ? "not-allowed" : "pointer"
+                                    }}
+                                >
+                                    Next
+                                </button>
+                            </div>
+                        </div>
+                    );
+                })()}
+
+                {/* TAB 3: MY APPLICATIONS (Application Tracker Mobile Responsive with Google, Microsoft, Zoho, TCS) */}
+                {currentTab === "applications" && (() => {
+                    const defaultTrackerApps = [
+                        {
+                            company: "Google",
+                            role: "Software Engineer",
+                            location: "Bangalore, India",
+                            ctc: "18 LPA",
+                            appliedDate: "Mar 22, 2026",
+                            statusTag: "Selected",
+                            subMessage: "🎉 Congrats You have selected...!!",
+                            rounds: [
+                                { stepName: "Round 1", name: "Aptitude", state: "passed" },
+                                { stepName: "Round 2", name: "Technical", state: "passed" },
+                                { stepName: "Round 3", name: "Coding", state: "passed" },
+                                { stepName: "Round 4", name: "Group Discussion", state: "passed" },
+                                { stepName: "Round 5", name: "HR", state: "passed" }
+                            ]
+                        },
+                        {
+                            company: "Microsoft",
+                            role: "Software Engineer",
+                            location: "Hyderabad, India",
+                            ctc: "24 LPA",
+                            appliedDate: "Mar 28, 2026",
+                            statusTag: "Processing",
+                            subMessage: "📅 Next Interview 05 Apr 2026 • Technical",
+                            rounds: [
+                                { stepName: "Round 1", name: "Aptitude", state: "passed" },
+                                { stepName: "Round 2", name: "Technical", state: "active" },
+                                { stepName: "Round 3", name: "Coding", state: "upcoming" },
+                                { stepName: "Round 4", name: "Group Discussion", state: "upcoming" },
+                                { stepName: "Round 5", name: "HR", state: "upcoming" }
+                            ]
+                        },
+                        {
+                            company: "Zoho",
+                            role: "Software Developer",
+                            location: "Chennai, India",
+                            ctc: "12 LPA",
+                            appliedDate: "April 12, 2026",
+                            statusTag: "Processing",
+                            subMessage: "📅 Next Interview 31 Mar 2026 • Coding",
+                            rounds: [
+                                { stepName: "Round 1", name: "Aptitude", state: "passed" },
+                                { stepName: "Round 2", name: "Technical", state: "passed" },
+                                { stepName: "Round 3", name: "Coding", state: "active" },
+                                { stepName: "Round 4", name: "Group Discussion", state: "upcoming" },
+                                { stepName: "Round 5", name: "HR", state: "upcoming" }
+                            ]
+                        },
+                        {
+                            company: "TCS",
+                            role: "Software Developer",
+                            location: "Bangalore, India",
+                            ctc: "8 LPA",
+                            appliedDate: "Mar 22, 2026",
+                            statusTag: "Rejected",
+                            subMessage: "Not Selected in Technical Round Give your best in next Interview",
+                            rounds: [
+                                { stepName: "Round 1", name: "Aptitude", state: "passed" },
+                                { stepName: "Round 2", name: "Technical", state: "passed" },
+                                { stepName: "Round 3", name: "Coding", state: "failed" },
+                                { stepName: "Round 4", name: "Group Discussion", state: "upcoming" },
+                                { stepName: "Round 5", name: "HR", state: "upcoming" }
+                            ]
+                        }
+                    ];
+
+                    const rawMapped = applicationsData.length > 0
+                        ? applicationsData.map((app: any) => {
+                            const st = app.currentWorkflowStage || "Processing";
+                            const isSel = st === "Selected";
+                            const isRej = st === "Not Shortlisted" || st === "Rejected";
+
+                            const defaultRounds = [
+                                { stepName: "Round 1", name: "Aptitude", state: "passed" },
+                                { stepName: "Round 2", name: "Technical", state: isSel ? "passed" : (isRej ? "passed" : "active") },
+                                { stepName: "Round 3", name: "Coding", state: isSel ? "passed" : (isRej ? "failed" : "upcoming") },
+                                { stepName: "Round 4", name: "Group Discussion", state: isSel ? "passed" : "upcoming" },
+                                { stepName: "Round 5", name: "HR", state: isSel ? "passed" : "upcoming" }
+                            ];
+
+                            return {
+                                ...app,
+                                statusTag: isSel ? "Selected" : (isRej ? "Rejected" : "Processing"),
+                                appliedDate: app.appliedDate || "Mar 22, 2026",
+                                location: app.location || "Bangalore, India",
+                                ctc: app.package || app.ctc || "12 LPA",
+                                subMessage: isSel
+                                    ? "🎉 Congrats You have selected...!!"
+                                    : (isRej ? "Not Selected in Technical Round Give your best in next Interview" : `📅 Next Interview ${app.deadline || "31 Mar 2026"} • ${app.activeRoundType || "Coding"}`),
+                                rounds: app.rounds && app.rounds.length === 5 ? app.rounds : defaultRounds
+                            };
+                        })
+                        : defaultTrackerApps;
+
+                    // Deduplicate repetitive Amazon entries and ensure Google and Microsoft are included
+                    const displayList: any[] = [];
+                    let hasAmazon = false;
+                    let hasGoogle = false;
+                    let hasMicrosoft = false;
+
+                    rawMapped.forEach((app: any) => {
+                        const compLower = (app.company || "").toLowerCase();
+                        if (compLower.includes("amazon")) {
+                            if (!hasAmazon) {
+                                hasAmazon = true;
+                                displayList.push(app);
+                            } else {
+                                if (!hasMicrosoft) {
+                                    hasMicrosoft = true;
+                                    displayList.push(defaultTrackerApps[1]); // Microsoft
+                                }
+                            }
+                        } else {
+                            if (compLower.includes("google")) hasGoogle = true;
+                            if (compLower.includes("microsoft")) hasMicrosoft = true;
+                            displayList.push(app);
+                        }
+                    });
+
+                    if (!hasGoogle && !displayList.some((a: any) => (a.company || "").toLowerCase().includes("google"))) {
+                        displayList.unshift(defaultTrackerApps[0]); // Google
+                    }
+                    if (!hasMicrosoft && !displayList.some((a: any) => (a.company || "").toLowerCase().includes("microsoft"))) {
+                        displayList.splice(1, 0, defaultTrackerApps[1]); // Microsoft
+                    }
+
+                    return (
+                        <div style={{ backgroundColor: "#ffffff", borderRadius: "18px", padding: "16px", border: "1px solid #eaedf0", width: "100%", boxSizing: "border-box" }}>
+                            {/* Tracker Header */}
+                            <div style={{ marginBottom: "20px" }}>
+                                <h2 style={{ fontSize: "22px", fontWeight: "800", color: "#0f172a", margin: "0 0 4px 0" }}>
+                                    Application Tracker
+                                </h2>
+                                <div style={{ fontSize: "13px", color: "#64748b", fontWeight: "600" }}>
+                                    Round-by-round process around all Drives
+                                </div>
+                            </div>
+
+                            {/* List of Application Tracker Cards */}
+                            <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+                                {displayList.map((app: any, idx: number) => {
+                                    const isSelected = app.statusTag === "Selected";
+                                    const isRejected = app.statusTag === "Rejected";
+
+                                    // Badge Styles
+                                    const badgeBg = isSelected ? "#dcfce7" : (isRejected ? "#fee2e2" : "#ffedd5");
+                                    const badgeColor = isSelected ? "#15803d" : (isRejected ? "#dc2626" : "#ea580c");
+                                    const badgeBorder = isSelected ? "#bbf7d0" : (isRejected ? "#fecaca" : "#fed7aa");
+                                    const badgeDot = isSelected ? "#16a34a" : (isRejected ? "#dc2626" : "#f97316");
+
+                                    // Stepper Line Progress Calculation
+                                    const totalRounds = app.rounds.length;
+                                    let passedCount = 0;
+                                    app.rounds.forEach((r: any) => { if (r.state === "passed") passedCount++; });
+                                    const progressPercent = totalRounds > 1 ? Math.min(100, Math.max(0, (passedCount / (totalRounds - 1)) * 100)) : 0;
+
+                                    return (
+                                        <div key={idx} style={{ backgroundColor: "#ffffff", borderRadius: "18px", border: "1.5px solid #e0e7ff", padding: "18px", boxShadow: "0 4px 14px rgba(0,0,0,0.03)", position: "relative", boxSizing: "border-box", overflow: "hidden" }}>
+                                            
+                                            {/* Card Top Row: Logo, Title, Role, Metadata, & Status Badge */}
+                                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "12px", marginBottom: "20px" }}>
+                                                <div style={{ display: "flex", alignItems: "flex-start", gap: "14px", flex: "1 1 220px", minWidth: "0" }}>
+                                                    <div style={{
+                                                        width: "48px",
+                                                        height: "48px",
+                                                        borderRadius: "12px",
+                                                        backgroundColor: "#f8fafc",
+                                                        border: "1px solid #e2e8f0",
+                                                        display: "flex",
+                                                        alignItems: "center",
+                                                        justifyContent: "center",
+                                                        fontSize: "20px",
+                                                        fontWeight: "800",
+                                                        color: "#2563eb",
+                                                        overflow: "hidden",
+                                                        flexShrink: 0
+                                                    }}>
+                                                        {app.company?.includes("Google") ? (
+                                                            <span style={{ color: "#4285F4" }}>G</span>
+                                                        ) : app.company?.includes("Microsoft") ? (
+                                                            <span style={{ color: "#00a4ef", fontSize: "11px", fontWeight: "900" }}>MSFT</span>
+                                                        ) : app.company?.includes("Zoho") ? (
+                                                            <span style={{ color: "#e11d48", fontSize: "11px", fontWeight: "900" }}>ZOHO</span>
+                                                        ) : app.company?.includes("TCS") ? (
+                                                            <span style={{ color: "#0284c7", fontSize: "11px", fontWeight: "900" }}>TCS</span>
+                                                        ) : app.company?.includes("Amazon") ? (
+                                                            <span style={{ color: "#ff9900", fontSize: "15px", fontWeight: "900" }}>a</span>
+                                                        ) : app.logo ? (
+                                                            <img src={app.logo} alt={app.company} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+                                                        ) : (
+                                                            app.company?.charAt(0) || "C"
+                                                        )}
+                                                    </div>
+                                                    <div style={{ minWidth: "0", flex: 1 }}>
+                                                        <h3 style={{ margin: "0 0 3px 0", fontSize: "18px", fontWeight: "800", color: "#0f172a", wordBreak: "break-word" }}>
+                                                            {app.company}
+                                                        </h3>
+                                                        <div style={{ fontSize: "13px", color: "#7c3aed", fontWeight: "700", marginBottom: "4px" }}>
+                                                            {app.role || "Software Developer"}
+                                                        </div>
+                                                        <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 12px", fontSize: "12px", color: "#64748b", fontWeight: "600" }}>
+                                                            <span style={{ whiteSpace: "nowrap" }}>📍 {app.location || "Bangalore, India"}</span>
+                                                            <span style={{ whiteSpace: "nowrap" }}>💰 {formatCtc(app.ctc || app.package)}</span>
+                                                            <span style={{ whiteSpace: "nowrap" }}>📅 Applied on {app.appliedDate || "Mar 22, 2026"}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <span style={{
+                                                    backgroundColor: badgeBg,
+                                                    color: badgeColor,
+                                                    border: `1px solid ${badgeBorder}`,
+                                                    borderRadius: "20px",
+                                                    padding: "5px 14px",
+                                                    fontSize: "12px",
+                                                    fontWeight: "800",
+                                                    display: "inline-flex",
+                                                    alignItems: "center",
+                                                    gap: "6px",
+                                                    flexShrink: 0
+                                                }}>
+                                                    <span style={{ width: "7px", height: "7px", borderRadius: "50%", backgroundColor: badgeDot }}></span>
+                                                    {app.statusTag}
+                                                </span>
+                                            </div>
+
+                                            {/* Middle Row: 5 Rounds Stepper (Scrollable horizontally on small screens) */}
+                                            <div style={{ overflowX: "auto", margin: "0 -6px", padding: "6px 6px 16px 6px", WebkitOverflowScrolling: "touch" }}>
+                                                <div style={{ minWidth: "460px", position: "relative" }}>
+                                                    {/* Horizontal Connecting Line */}
+                                                    <div style={{
+                                                        position: "absolute",
+                                                        top: "18px",
+                                                        left: "35px",
+                                                        right: "35px",
+                                                        height: "3px",
+                                                        backgroundColor: "#e2e8f0",
+                                                        zIndex: 1
+                                                    }}>
+                                                        <div style={{ width: `${progressPercent}%`, height: "100%", backgroundColor: "#22c55e", transition: "width 0.3s ease" }}></div>
+                                                    </div>
+
+                                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", position: "relative", zIndex: 2 }}>
+                                                        {app.rounds.map((r: any, rIdx: number) => {
+                                                            const isPassed = r.state === "passed";
+                                                            const isActive = r.state === "active";
+                                                            const isFailed = r.state === "failed";
+
+                                                            let icon = "🕒";
+                                                            let circleBg = "#f1f5f9";
+                                                            let circleColor = "#94a3b8";
+                                                            let circleBorder = "2px solid #e2e8f0";
+
+                                                            if (isPassed) {
+                                                                icon = "✓";
+                                                                circleBg = "#22c55e";
+                                                                circleColor = "#ffffff";
+                                                                circleBorder = "none";
+                                                            } else if (isActive) {
+                                                                icon = "●";
+                                                                circleBg = "#f97316";
+                                                                circleColor = "#ffffff";
+                                                                circleBorder = "none";
+                                                            } else if (isFailed) {
+                                                                icon = "✕";
+                                                                circleBg = "#ef4444";
+                                                                circleColor = "#ffffff";
+                                                                circleBorder = "none";
+                                                            }
+
+                                                            return (
+                                                                <div key={rIdx} style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "18%" }}>
+                                                                    <div style={{
+                                                                        width: "36px",
+                                                                        height: "36px",
+                                                                        borderRadius: "50%",
+                                                                        backgroundColor: circleBg,
+                                                                        color: circleColor,
+                                                                        border: circleBorder,
+                                                                        display: "flex",
+                                                                        alignItems: "center",
+                                                                        justifyContent: "center",
+                                                                        fontSize: isPassed || isFailed ? "16px" : (isActive ? "12px" : "14px"),
+                                                                        fontWeight: "800",
+                                                                        marginBottom: "6px",
+                                                                        boxShadow: isActive ? "0 0 0 4px rgba(249,115,22,0.2)" : "none"
+                                                                    }}>
+                                                                        {icon}
+                                                                    </div>
+                                                                    <div style={{ fontSize: "11px", color: "#64748b", fontWeight: "700", textAlign: "center" }}>
+                                                                        {r.stepName || `Round ${rIdx + 1}`}
+                                                                    </div>
+                                                                    <div style={{ fontSize: "12px", color: "#0f172a", fontWeight: "700", textAlign: "center", marginTop: "2px" }}>
+                                                                        {r.name}
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
                                                     </div>
                                                 </div>
                                             </div>
 
-                                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: "12px", borderTop: "1px solid #e2e8f0" }}>
-                                                <span style={{ fontSize: "12px", fontWeight: "700", color: "#64748b" }}>
-                                                    🗓 {item.date}
-                                                </span>
-                                                <span
-                                                    style={{
-                                                        padding: "4px 10px",
-                                                        borderRadius: "12px",
-                                                        backgroundColor: item.tagBg,
-                                                        color: item.tagColor,
-                                                        border: `1px solid ${item.tagBorder}`,
-                                                        fontSize: "11px",
-                                                        fontWeight: "700",
-                                                        whiteSpace: "nowrap"
-                                                    }}
-                                                >
-                                                    {item.tag}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                )}
-
-                {/* TAB 2: CAMPUS DRIVES */}
-                {currentTab === "companies" && (
-                    <div>
-                        {/* 5 Filter Pills */}
-                        <div className="student-drive-filters">
-                            {[
-                                { key: "Opted-In", label: "✓ Opted-In", count: filterCounts["Opted-In"], activeBg: "#f0fdf4", activeBorder: "2px solid #16a34a", activeColor: "#16a34a" },
-                                { key: "Opted-Out", label: "🚫 Opted-Out", count: filterCounts["Opted-Out"], activeBg: "#fef2f2", activeBorder: "2px solid #ef4444", activeColor: "#dc2626" },
-                                { key: "Eligible", label: "🔵 Eligible Drives", count: filterCounts["Eligible"], activeBg: "#eff6ff", activeBorder: "2px solid #2563eb", activeColor: "#1d4ed8" },
-                                { key: "Not Eligible", label: "🔴 Not Eligible", count: filterCounts["Not Eligible"], activeBg: "#fef2f2", activeBorder: "2px solid #ef4444", activeColor: "#dc2626" },
-                                { key: "Completed", label: "✓ Completed", count: filterCounts["Completed"], activeBg: "#f8fafc", activeBorder: "2px solid #475569", activeColor: "#334155" },
-                            ].map((filter) => {
-                                const isSelected = driveFilter === filter.key;
-                                return (
-                                    <div
-                                        key={filter.key}
-                                        onClick={() => setDriveFilter(filter.key as any)}
-                                        style={{
-                                            backgroundColor: isSelected ? filter.activeBg : "#ffffff",
-                                            borderRadius: "14px",
-                                            padding: "16px 20px",
-                                            border: isSelected ? filter.activeBorder : "1px solid #eaedf0",
-                                            cursor: "pointer",
-                                            transition: "all 0.15s ease"
-                                        }}
-                                    >
-                                        <div style={{ fontSize: "13px", fontWeight: "700", color: isSelected ? filter.activeColor : "#64748b" }}>
-                                            {filter.label}
-                                        </div>
-                                        <div style={{ fontSize: "24px", fontWeight: "800", color: "#0f172a", marginTop: "4px" }}>
-                                            {filter.count}
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-
-                        {/* Drives List Grid */}
-                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: "20px" }}>
-                            {placementDrives
-                                .filter(d => {
-                                    const isOptedIn = isDriveOptedIn(d);
-                                    const isOptedOut = isDriveOptedOut(d);
-                                    if (driveFilter === "Opted-In") return isOptedIn || d.statusTag === "Opted-In";
-                                    if (driveFilter === "Opted-Out") return isOptedOut || d.statusTag === "Opted-Out";
-                                    if (driveFilter === "Eligible") return !isOptedOut && !isOptedIn && (d.statusTag === "Eligible" || (d as any).isEligible);
-                                    if (driveFilter === "Not Eligible") return !isOptedOut && !isOptedIn && (d.statusTag === "Not Eligible" || !(d as any).isEligible);
-                                    if (driveFilter === "Completed") return d.statusTag === "Completed";
-                                    return true;
-                                })
-                                .map((drive) => {
-                                    const isIneligible = drive.statusTag === "Not Eligible";
-                                    return (
-                                        <div key={drive.id} style={{ backgroundColor: "#ffffff", borderRadius: "14px", padding: "20px", border: "1px solid #eaedf0", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
-                                            <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "14px" }}>
-                                                <div style={{ width: "44px", height: "44px", borderRadius: "8px", border: "1px solid #e2e8f0", padding: "4px", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "#ffffff", overflow: "hidden" }}>
-                                                    <img
-                                                        src={drive.logo}
-                                                        alt={drive.company}
-                                                        onError={(e: any) => {
-                                                            e.target.style.display = "none";
-                                                            if (e.target.parentNode) {
-                                                                e.target.parentNode.style.backgroundColor = "#0f172a";
-                                                                e.target.parentNode.style.color = "#ffffff";
-                                                                e.target.parentNode.style.fontWeight = "800";
-                                                                e.target.parentNode.style.fontSize = "14px";
-                                                                e.target.parentNode.innerText = drive.company.charAt(0);
-                                                            }
-                                                        }}
-                                                        style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
-                                                    />
+                                            {/* Bottom Row Sub-Bar */}
+                                            <div style={{ borderTop: "1px solid #f1f5f9", paddingTop: "16px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
+                                                <div style={{ flex: "1 1 200px", fontSize: "13px", color: isSelected ? "#15803d" : (isRejected ? "#64748b" : "#475569"), fontWeight: "700", lineHeight: "1.4" }}>
+                                                    {app.subMessage}
                                                 </div>
-                                                <div>
-                                                    <h4 style={{ margin: 0, fontSize: "16px", fontWeight: "800", color: "#0f172a" }}>{drive.company}</h4>
-                                                    <div style={{ fontSize: "13px", color: "#64748b" }}>{drive.role}</div>
-                                                </div>
-                                            </div>
 
-                                            <div style={{ fontSize: "13px", color: "#64748b", marginBottom: "18px", lineHeight: "1.5", minHeight: "36px" }}>
-                                                Package: <strong style={{ color: drive.ctc ? "#16a34a" : "#64748b" }}>{drive.ctc || ""}</strong> {drive.location ? `| Location: ` : ""}<strong style={{ color: "#0f172a" }}>{drive.location}</strong> {drive.deadline ? `| Deadline: ` : ""}<strong style={{ color: "#dc2626" }}>{drive.deadline}</strong>
-                                            </div>
-
-                                            {isIneligible ? (
-                                                <button
-                                                    onClick={() => setSelectedDriveCriteria(drive)}
-                                                    style={{
-                                                        width: "100%",
-                                                        height: "42px",
-                                                        padding: "11px 0",
-                                                        borderRadius: "10px",
-                                                        border: "1.5px solid #fecaca",
-                                                        backgroundColor: "#fef2f2",
-                                                        color: "#dc2626",
-                                                        fontWeight: "700",
-                                                        fontSize: "13px",
-                                                        fontFamily: "Inter, -apple-system, sans-serif",
-                                                        cursor: "pointer",
-                                                        display: "flex",
-                                                        alignItems: "center",
-                                                        justifyContent: "center",
-                                                        boxSizing: "border-box"
-                                                    }}
-                                                >
-                                                    View Ineligibility 🔍
-                                                </button>
-                                            ) : drive.statusTag === "Opted-In" || isDriveOptedIn(drive) ? (
-                                                <div
-                                                    onClick={() => setSelectedDriveCriteria(drive)}
-                                                    style={{
-                                                        width: "100%",
-                                                        height: "42px",
-                                                        padding: "11px 0",
-                                                        borderRadius: "10px",
-                                                        border: "1.5px solid #16a34a",
-                                                        backgroundColor: "#f0fdf4",
-                                                        color: "#16a34a",
-                                                        fontWeight: "800",
-                                                        fontSize: "13px",
-                                                        fontFamily: "Inter, -apple-system, sans-serif",
-                                                        textAlign: "center",
-                                                        cursor: "pointer",
-                                                        display: "flex",
-                                                        alignItems: "center",
-                                                        justifyContent: "center",
-                                                        gap: "6px",
-                                                        boxSizing: "border-box"
-                                                    }}
-                                                >
-                                                    ✓ Opted-In
-                                                </div>
-                                            ) : drive.statusTag === "Opted-Out" || isDriveOptedOut(drive) ? (
-                                                <div
-                                                    onClick={() => setSelectedDriveCriteria(drive)}
-                                                    style={{
-                                                        width: "100%",
-                                                        height: "42px",
-                                                        padding: "11px 0",
-                                                        borderRadius: "10px",
-                                                        border: "1.5px solid #dc2626",
-                                                        backgroundColor: "#fef2f2",
-                                                        color: "#dc2626",
-                                                        fontWeight: "800",
-                                                        fontSize: "13px",
-                                                        fontFamily: "Inter, -apple-system, sans-serif",
-                                                        textAlign: "center",
-                                                        cursor: "pointer",
-                                                        display: "flex",
-                                                        alignItems: "center",
-                                                        justifyContent: "center",
-                                                        gap: "6px",
-                                                        boxSizing: "border-box"
-                                                    }}
-                                                >
-                                                    🚫 Opted-Out
-                                                </div>
-                                            ) : drive.statusTag === "Completed" ? (
-                                                <div
-                                                    onClick={() => setSelectedDriveCriteria(drive)}
-                                                    style={{
-                                                        width: "100%",
-                                                        height: "42px",
-                                                        padding: "11px 0",
-                                                        borderRadius: "10px",
-                                                        border: "1.5px solid #64748b",
-                                                        backgroundColor: "#f8fafc",
-                                                        color: "#334155",
-                                                        fontWeight: "800",
-                                                        fontSize: "13px",
-                                                        fontFamily: "Inter, -apple-system, sans-serif",
-                                                        textAlign: "center",
-                                                        cursor: "pointer",
-                                                        display: "flex",
-                                                        alignItems: "center",
-                                                        justifyContent: "center",
-                                                        gap: "6px",
-                                                        boxSizing: "border-box"
-                                                    }}
-                                                >
-                                                    ✓ Drive Completed
-                                                </div>
-                                            ) : (
-                                                <button
-                                                    onClick={() => setSelectedDriveCriteria(drive)}
-                                                    style={{
-                                                        width: "100%",
-                                                        height: "42px",
-                                                        padding: "11px 0",
-                                                        borderRadius: "10px",
-                                                        border: "none",
-                                                        backgroundColor: "#2563eb",
-                                                        color: "#ffffff",
-                                                        fontWeight: "700",
-                                                        fontSize: "13px",
-                                                        fontFamily: "Inter, -apple-system, sans-serif",
-                                                        cursor: "pointer",
-                                                        display: "flex",
-                                                        alignItems: "center",
-                                                        justifyContent: "center",
-                                                        gap: "6px",
-                                                        boxSizing: "border-box"
-                                                    }}
-                                                >
-                                                    Apply for Drive ➔
-                                                </button>
-                                            )}
-                                        </div>
-                                    );
-                                })}
-                        </div>
-                    </div>
-                )}
-
-                {/* TAB 3: MY APPLICATIONS */}
-                {currentTab === "applications" && (
-                    <div style={{ backgroundColor: "#ffffff", borderRadius: "14px", padding: "24px", border: "1px solid #eaedf0" }}>
-                        <div style={{ marginBottom: "20px" }}>
-                            <h2 style={{ fontSize: "18px", fontWeight: "800", color: "#0f172a", margin: "0 0 6px 0" }}>
-                                Drive Applications & Selection Stage
-                            </h2>
-                            <div style={{ fontSize: "12px", color: "#64748b" }}>
-                                Supported Rounds: <strong>Aptitude | Technical | HR | Coding Test | Online Assessment | Managerial</strong>
-                            </div>
-                        </div>
-
-                        {/* Desktop View Table */}
-                        <div className="desktop-applications-view" style={{ width: "100%" }}>
-                            <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: "13px" }}>
-                                <thead>
-                                    <tr style={{ borderBottom: "1px solid #e2e8f0", color: "#64748b", fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                                        <th style={{ padding: "12px 10px", whiteSpace: "nowrap" }}>Company</th>
-                                        <th style={{ padding: "12px 10px", whiteSpace: "nowrap" }}>Role</th>
-                                        <th style={{ padding: "12px 10px", whiteSpace: "nowrap" }}>Package</th>
-                                        <th style={{ padding: "12px 10px", whiteSpace: "nowrap" }}>Active Round Type</th>
-                                        <th style={{ padding: "12px 10px", whiteSpace: "nowrap" }}>Current Workflow Stage</th>
-                                        <th style={{ padding: "12px 10px", whiteSpace: "nowrap", textAlign: "center" }}>Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {applicationsData.length === 0 ? (
-                                        <tr>
-                                            <td colSpan={6} style={{ padding: "30px", textAlign: "center", color: "#64748b", fontSize: "14px", fontWeight: "600" }}>
-                                                No active opted-in drive applications yet. Browse <span style={{ color: "#2563eb", cursor: "pointer", fontWeight: "800", textDecoration: "underline" }} onClick={() => setCurrentTab("companies")}>Campus Drives</span> to Opt-In.
-                                            </td>
-                                        </tr>
-                                    ) : (
-                                        applicationsData.map((app, idx) => (
-                                        <tr key={idx} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                                            <td style={{ padding: "14px 10px", fontWeight: "800", color: "#0f172a", whiteSpace: "nowrap" }}>{app.company}</td>
-                                            <td style={{ padding: "14px 10px", color: "#334155", whiteSpace: "nowrap" }}>{app.role}</td>
-                                            <td style={{ padding: "14px 10px", color: "#334155", whiteSpace: "nowrap" }}>{app.package}</td>
-                                            <td style={{ padding: "14px 10px", whiteSpace: "nowrap" }}>
-                                                <span style={{ backgroundColor: "#eff6ff", color: "#2563eb", padding: "4px 10px", borderRadius: "12px", fontSize: "11px", fontWeight: "700", whiteSpace: "nowrap", display: "inline-block", border: "1px solid #bfdbfe" }}>
-                                                    {app.activeRoundType}
-                                                </span>
-                                            </td>
-                                            <td style={{ padding: "14px 10px", whiteSpace: "nowrap" }}>
-                                                {(() => {
-                                                    const st = app.currentWorkflowStage || "Round 1";
-                                                    let bg = "#eff6ff";
-                                                    let color = "#2563eb";
-                                                    let border = "1px solid #bfdbfe";
-
-                                                    if (st === "Selected") {
-                                                        bg = "#f0fdf4"; color = "#15803d"; border = "1px solid #bbf7d0";
-                                                    } else if (st === "Not Shortlisted" || st === "Rejected") {
-                                                        bg = "#fef2f2"; color = "#dc2626"; border = "1px solid #fecaca";
-                                                    }
-
-                                                    return (
-                                                        <span style={{
-                                                            backgroundColor: bg,
-                                                            color: color,
-                                                            padding: "4px 12px",
-                                                            borderRadius: "8px",
-                                                            fontSize: "11px",
-                                                            fontWeight: "700",
-                                                            display: "inline-flex",
-                                                            alignItems: "center",
-                                                            justifyContent: "center",
-                                                            whiteSpace: "nowrap",
-                                                            border: border
-                                                        }}>
-                                                            {st}
-                                                        </span>
-                                                    );
-                                                })()}
-
-                                            </td>
-                                            <td style={{ padding: "14px 10px", whiteSpace: "nowrap", textAlign: "center" }}>
                                                 <button
                                                     onClick={() => setSelectedApplicationModal(app)}
                                                     style={{
-                                                        backgroundColor: "#0f172a",
+                                                        backgroundColor: "#2563eb",
                                                         color: "#ffffff",
                                                         border: "none",
-                                                        padding: "7px 18px",
-                                                        borderRadius: "7px",
+                                                        borderRadius: "10px",
+                                                        padding: "10px 22px",
                                                         fontWeight: "700",
-                                                        fontSize: "12px",
+                                                        fontSize: "13px",
                                                         cursor: "pointer",
-                                                        whiteSpace: "nowrap",
                                                         display: "inline-flex",
                                                         alignItems: "center",
-                                                        justifyContent: "center"
+                                                        justifyContent: "center",
+                                                        gap: "8px",
+                                                        boxShadow: "0 2px 6px rgba(37,99,235,0.3)",
+                                                        flexShrink: 0
                                                     }}
                                                 >
-                                                    <span style={{ color: "#ffffff", fontWeight: "700", display: "inline-block" }}>View</span>
+                                                    <span>📋</span> View Details
                                                 </button>
-                                            </td>
-                                        </tr>
-                                    )))}
-                                </tbody>
-                            </table>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
                         </div>
-
-                        {/* Mobile Cards View */}
-                        <div className="mobile-applications-view">
-                            {applicationsData.map((app, idx) => {
-                                const isRed = app.currentWorkflowStage === "Not Shortlisted";
-                                const isBlue = app.currentWorkflowStage === "Interview Shortlisted" || app.currentWorkflowStage === "Interview Scheduled" || app.currentWorkflowStage === "Under Review";
-                                return (
-                                    <div key={idx} style={{ backgroundColor: "#ffffff", borderRadius: "14px", border: "1px solid #e2e8f0", padding: "16px", boxShadow: "0 2px 4px rgba(0,0,0,0.02)", display: "flex", flexDirection: "column", gap: "12px" }}>
-                                        <div>
-                                            <h3 style={{ margin: "0 0 4px 0", fontSize: "16px", fontWeight: "800", color: "#0f172a" }}>{app.company}</h3>
-                                            <div style={{ fontSize: "13px", fontWeight: "700", color: "#2563eb" }}>{app.role}</div>
-                                        </div>
-
-                                        <div style={{ backgroundColor: "#f8fafc", borderRadius: "10px", padding: "12px", border: "1px solid #f1f5f9", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", fontSize: "12px" }}>
-                                            <div>
-                                                <div style={{ fontSize: "10px", fontWeight: "800", color: "#94a3b8", textTransform: "uppercase", marginBottom: "2px" }}>Package</div>
-                                                <strong style={{ color: "#16a34a" }}>{app.package}</strong>
-                                            </div>
-                                            <div>
-                                                <div style={{ fontSize: "10px", fontWeight: "800", color: "#94a3b8", textTransform: "uppercase", marginBottom: "2px" }}>Active Round</div>
-                                                <strong style={{ color: "#2563eb" }}>{app.activeRoundType}</strong>
-                                            </div>
-                                        </div>
-
-                                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                            <div>
-                                                <div style={{ fontSize: "10px", fontWeight: "800", color: "#94a3b8", textTransform: "uppercase", marginBottom: "4px" }}>Current Status</div>
-                                                <span style={{
-                                                    padding: "2px 8px",
-                                                    borderRadius: "10px",
-                                                    fontSize: "10px",
-                                                    fontWeight: "700",
-                                                    display: "inline-flex",
-                                                    alignItems: "center",
-                                                    backgroundColor: isRed ? "#fef2f2" : (isBlue ? "#eff6ff" : "#dcfce7"),
-                                                    color: isRed ? "#dc2626" : (isBlue ? "#2563eb" : "#15803d"),
-                                                    border: `1px solid ${isRed ? "#fecaca" : (isBlue ? "#bfdbfe" : "#bbf7d0")}`
-                                                }}>
-                                                    {isRed ? "🔴 Not Shortlisted" : (isBlue ? `🔵 ${app.currentWorkflowStage}` : `🟢 ${app.currentWorkflowStage}`)}
-                                                </span>
-                                            </div>
-
-                                            <button
-                                                onClick={() => setSelectedApplicationModal(app)}
-                                                style={{
-                                                    backgroundColor: "#0f172a",
-                                                    color: "#ffffff",
-                                                    border: "none",
-                                                    padding: "8px 16px",
-                                                    borderRadius: "8px",
-                                                    fontWeight: "700",
-                                                    fontSize: "12px",
-                                                    cursor: "pointer"
-                                                }}
-                                            >
-                                                <span style={{ color: "#ffffff", fontWeight: "700" }}>View Details ➔</span>
-                                            </button>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                )}
+                    );
+                })()}
 
 
 
@@ -2735,110 +3702,413 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                 {/* TAB 6: PROFILE */}
                 {currentTab === "profile" && <StudentProfile user={user} />}
 
-                {/* MODAL 1: Drive Details & Opt-In / Opt-Out Modal */}
-                {selectedDriveCriteria && (
-                    <div onClick={() => setSelectedDriveCriteria(null)} style={{ position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", backgroundColor: "rgba(15,23,42,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
-                        <div onClick={(e) => e.stopPropagation()} style={{ backgroundColor: "#ffffff", borderRadius: "16px", width: "480px", maxWidth: "92%", overflow: "hidden", boxShadow: "0 20px 25px -5px rgba(0,0,0,0.3)" }}>
-                            {/* Dark Modal Header */}
-                            <div style={{ backgroundColor: "#0b1329", color: "#ffffff", padding: "20px 24px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
-                                    <div style={{ width: "42px", height: "42px", borderRadius: "10px", backgroundColor: "#ffffff", padding: "4px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                                        <img src={selectedDriveCriteria.logo} alt={selectedDriveCriteria.company} style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }} />
-                                    </div>
-                                    <div>
-                                        <h3 style={{ margin: 0, fontSize: "18px", fontWeight: "800", color: "#ffffff" }}>{selectedDriveCriteria.company}</h3>
-                                        <div style={{ fontSize: "13px", color: "#60a5fa", fontWeight: "600" }}>{selectedDriveCriteria.role}</div>
-                                    </div>
-                                </div>
-                                <button onClick={() => setSelectedDriveCriteria(null)} style={{ width: "28px", height: "28px", borderRadius: "50%", backgroundColor: "rgba(255,255,255,0.15)", border: "none", color: "#ffffff", cursor: "pointer", fontSize: "14px", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
-                            </div>
+                {/* MODAL 1: Drive Details & Criteria View (Matching Mockup Aesthetics without Purple) */}
+                {selectedDriveCriteria && (() => {
+                    const isOptedIn = isDriveOptedIn(selectedDriveCriteria) || selectedDriveCriteria.statusTag === "Opted-In";
+                    const isOptedOut = isDriveOptedOut(selectedDriveCriteria) || selectedDriveCriteria.statusTag === "Opted-Out";
+                    const isIneligible = selectedDriveCriteria.statusTag === "Not Eligible" || (selectedDriveCriteria as any).isEligible === false;
 
-                            {/* Modal Content */}
-                            <div style={{ padding: "20px 24px" }}>
-                                <div style={{ fontSize: "13px", color: "#64748b", marginBottom: "16px" }}>
-                                    Package: <strong style={{ color: "#16a34a" }}>{selectedDriveCriteria.ctc}</strong> | Location: <strong style={{ color: "#0f172a" }}>{selectedDriveCriteria.location}</strong>
-                                </div>
+                    return (
+                        <div onClick={() => setSelectedDriveCriteria(null)} style={{ position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", backgroundColor: "rgba(15,23,42,0.6)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: "16px" }}>
+                            <div onClick={(e) => e.stopPropagation()} style={{ backgroundColor: "#ffffff", borderRadius: "20px", width: "min(860px, calc(100vw - 32px))", maxHeight: "90vh", overflowY: "auto", boxShadow: "0 25px 50px -12px rgba(0,0,0,0.25)", padding: "24px", position: "relative" }}>
+                                
+                                {/* Close Button */}
+                                <button
+                                    onClick={() => setSelectedDriveCriteria(null)}
+                                    style={{
+                                        position: "absolute",
+                                        top: "20px",
+                                        right: "20px",
+                                        width: "32px",
+                                        height: "32px",
+                                        borderRadius: "50%",
+                                        backgroundColor: "#f1f5f9",
+                                        border: "none",
+                                        color: "#64748b",
+                                        cursor: "pointer",
+                                        fontSize: "16px",
+                                        fontWeight: "800",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        zIndex: 10
+                                    }}
+                                >
+                                    ✕
+                                </button>
 
-                                {/* Eligibility Box */}
-                                <div style={{ backgroundColor: "#f8fafc", borderRadius: "12px", padding: "16px", border: "1px solid #f1f5f9", marginBottom: "16px" }}>
-                                    <div style={{ fontSize: "11px", fontWeight: "800", color: "#64748b", letterSpacing: "0.5px", textTransform: "uppercase", marginBottom: "12px" }}>ELIGIBILITY REQUIREMENTS</div>
-                                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", fontSize: "13px", color: "#334155", lineHeight: "1.5" }}>
-                                        <div>Eligible Departments: <strong>{Array.isArray(selectedDriveCriteria.departments) ? selectedDriveCriteria.departments.join(", ") : (selectedDriveCriteria.departments || "CSE, IT, ECE")}</strong></div>
-                                        <div>Minimum CGPA: <strong>{selectedDriveCriteria.minCgpa ?? "6.0"}</strong></div>
-                                        <div>10th Percentage: <strong>{selectedDriveCriteria.minTenth ? `${selectedDriveCriteria.minTenth}%` : "60%+"}</strong></div>
-                                        <div>12th Percentage: <strong>{selectedDriveCriteria.minTwelfth ? `${selectedDriveCriteria.minTwelfth}%` : "60%+"}</strong></div>
-                                        <div>Maximum Backlogs: <strong>{selectedDriveCriteria.maxBacklogs ?? 0}</strong></div>
-                                        <div>Graduation Year: <strong>Batch {selectedDriveCriteria.gradYear || 2026}</strong></div>
-                                    </div>
-                                    <div style={{ marginTop: "12px", fontSize: "13px", color: "#334155" }}>
-                                        Required Skills: <strong>{Array.isArray(selectedDriveCriteria.requiredSkills) ? selectedDriveCriteria.requiredSkills.join(", ") : (selectedDriveCriteria.requiredSkills || "N/A")}</strong>
-                                    </div>
-                                </div>
-
-                                {/* Status banner */}
-                                <div style={{ backgroundColor: selectedDriveCriteria.statusTag === "Not Eligible" ? "#fef2f2" : (selectedDriveCriteria.statusTag === "Completed" ? "#f8fafc" : "#f0fdf4"), color: selectedDriveCriteria.statusTag === "Not Eligible" ? "#dc2626" : (selectedDriveCriteria.statusTag === "Completed" ? "#334155" : "#16a34a"), padding: "12px 16px", borderRadius: "10px", fontSize: "13px", fontWeight: "700", border: selectedDriveCriteria.statusTag === "Not Eligible" ? "1px solid #fecaca" : (selectedDriveCriteria.statusTag === "Completed" ? "1px solid #cbd5e1" : "1px solid #bbf7d0"), marginBottom: "20px" }}>
-                                    {selectedDriveCriteria.statusTag === "Not Eligible" ? "🚫 Ineligible for this Drive" : (selectedDriveCriteria.statusTag === "Completed" ? "✓ Recruitment Drive Completed" : "✓ Fully Eligible to Opt-In for this Drive")}
-                                </div>
-
-                                {/* Your Response Opt-In / Opt-Out Buttons */}
-                                <div style={{ fontSize: "11px", fontWeight: "800", color: "#94a3b8", letterSpacing: "0.5px", textTransform: "uppercase", marginBottom: "10px" }}>YOUR RESPONSE</div>
-                                {selectedDriveCriteria.statusTag === "Not Eligible" ? (
-                                    <div style={{ backgroundColor: "#fef2f2", border: "1px solid #fecaca", borderRadius: "10px", padding: "14px", textAlign: "center", color: "#dc2626", fontWeight: "800", fontSize: "14px" }}>
-                                        🚫 Ineligible (Response Locked 🔒)
-                                    </div>
-                                ) : selectedDriveCriteria.statusTag === "Completed" ? (
-                                    <div style={{ backgroundColor: "#f8fafc", border: "1px solid #cbd5e1", borderRadius: "10px", padding: "14px", textAlign: "center", color: "#475569", fontWeight: "800", fontSize: "14px" }}>
-                                        ✓ Recruitment Drive Closed
-                                    </div>
-                                ) : selectedDriveCriteria.statusTag === "Opted-In" || isDriveOptedIn(selectedDriveCriteria) ? (
-                                    <div style={{ backgroundColor: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "10px", padding: "14px", textAlign: "center", color: "#16a34a", fontWeight: "800", fontSize: "14px" }}>
-                                        ✓ Response Submitted: Opted-In
-                                    </div>
-                                ) : selectedDriveCriteria.statusTag === "Opted-Out" || isDriveOptedOut(selectedDriveCriteria) ? (
-                                    <div style={{ backgroundColor: "#fef2f2", border: "1px solid #fecaca", borderRadius: "10px", padding: "14px", textAlign: "center", color: "#dc2626", fontWeight: "800", fontSize: "14px" }}>
-                                        🚫 Response Submitted: Opted-Out
-                                    </div>
-                                ) : (
-                                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-                                        <button
-                                            onClick={() => {
-                                                handleApply(selectedDriveCriteria.id || "", selectedDriveCriteria.company, selectedDriveCriteria.role);
-                                                setSelectedDriveCriteria(null);
-                                            }}
-                                            style={{
-                                                padding: "12px",
-                                                borderRadius: "10px",
-                                                border: "none",
-                                                backgroundColor: "#16a34a",
-                                                color: "#ffffff",
+                                {/* Top Header Card */}
+                                <div style={{ border: "1px solid #e2e8f0", borderRadius: "16px", padding: "22px", marginBottom: "24px", backgroundColor: "#ffffff" }}>
+                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "14px" }}>
+                                        <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+                                            <div style={{
+                                                width: "56px",
+                                                height: "56px",
+                                                borderRadius: "14px",
+                                                backgroundColor: "#f8fafc",
+                                                border: "1px solid #e2e8f0",
+                                                display: "flex",
+                                                alignItems: "center",
+                                                justifyContent: "center",
+                                                fontSize: "24px",
                                                 fontWeight: "800",
-                                                fontSize: "14px",
-                                                cursor: "pointer"
-                                            }}
-                                        >
-                                            Opt-In
-                                        </button>
-                                        <button
-                                            onClick={() => {
-                                                handleOptOut(selectedDriveCriteria.id || "", selectedDriveCriteria.company, selectedDriveCriteria.role);
-                                                setSelectedDriveCriteria(null);
-                                            }}
-                                            style={{
-                                                padding: "12px",
-                                                borderRadius: "10px",
-                                                border: "none",
-                                                backgroundColor: "#dc2626",
-                                                color: "#ffffff",
-                                                fontWeight: "800",
-                                                fontSize: "14px",
-                                                cursor: "pointer"
-                                            }}
-                                        >
-                                            Opt-Out
-                                        </button>
+                                                color: "#2563eb",
+                                                overflow: "hidden"
+                                            }}>
+                                                {selectedDriveCriteria.company?.includes("Google") ? (
+                                                    <span style={{ color: "#4285F4" }}>G</span>
+                                                ) : selectedDriveCriteria.logo ? (
+                                                    <img src={selectedDriveCriteria.logo} alt={selectedDriveCriteria.company} style={{ width: "100%", height: "100%", objectFit: "contain" }} onError={(e: any) => { e.target.style.display = 'none'; }} />
+                                                ) : (
+                                                    selectedDriveCriteria.company?.charAt(0) || "C"
+                                                )}
+                                            </div>
+                                            <div>
+                                                <h3 style={{ margin: "0 0 4px 0", fontSize: "20px", fontWeight: "800", color: "#0f172a" }}>
+                                                    {selectedDriveCriteria.company}
+                                                </h3>
+                                                <div style={{ fontSize: "14px", color: "#2563eb", fontWeight: "700" }}>
+                                                    {selectedDriveCriteria.role || "Software Developer"}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {!isOptedIn && (
+                                            <span style={{
+                                                backgroundColor: isIneligible ? "#fef2f2" : "#eff6ff",
+                                                color: isIneligible ? "#dc2626" : "#2563eb",
+                                                padding: "5px 14px",
+                                                borderRadius: "14px",
+                                                fontSize: "12px",
+                                                fontWeight: "700",
+                                                border: `1px solid ${isIneligible ? "#fecaca" : "#bfdbfe"}`
+                                            }}>
+                                                {isIneligible ? "Not Eligible" : "Eligible"}
+                                            </span>
+                                        )}
                                     </div>
-                                )}
+
+                                    {/* Sub Metadata Row */}
+                                    <div style={{ display: "flex", flexWrap: "wrap", gap: "18px", fontSize: "13px", color: "#475569", fontWeight: "600", marginBottom: "16px" }}>
+                                        <div>📍 {selectedDriveCriteria.location || "Bangalore, India"}</div>
+                                        <div>💰 {formatCtc(selectedDriveCriteria.ctc)}</div>
+                                        <div>💼 Full Time</div>
+                                        <div style={{ color: "#dc2626", fontWeight: "700" }}>⏰ Deadline {selectedDriveCriteria.deadline || "May 30, 2026"}</div>
+                                    </div>
+
+                                    <div style={{ borderTop: "1px solid #f1f5f9", paddingTop: "14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                        <div style={{ fontSize: "12px", color: "#64748b", fontWeight: "600" }}>
+                                            Posted on <strong>May 20, 2026</strong> &nbsp;•&nbsp; Applicants : <strong>{(selectedDriveCriteria as any).applicantCount || 580}+</strong>
+                                        </div>
+
+                                        <div style={{ display: "flex", gap: "10px" }}>
+                                            {isOptedIn ? (
+                                                <button
+                                                    disabled
+                                                    style={{
+                                                        backgroundColor: "#f0fdf4",
+                                                        color: "#16a34a",
+                                                        border: "1px solid #bbf7d0",
+                                                        borderRadius: "10px",
+                                                        padding: "9px 20px",
+                                                        fontWeight: "700",
+                                                        fontSize: "13px"
+                                                    }}
+                                                >
+                                                    ✓ Opted-In
+                                                </button>
+                                            ) : isOptedOut ? (
+                                                <button
+                                                    disabled
+                                                    style={{
+                                                        backgroundColor: "#fef2f2",
+                                                        color: "#dc2626",
+                                                        border: "1px solid #fecaca",
+                                                        borderRadius: "10px",
+                                                        padding: "9px 20px",
+                                                        fontWeight: "700",
+                                                        fontSize: "13px"
+                                                    }}
+                                                >
+                                                    🚫 Opted-Out
+                                                </button>
+                                            ) : (
+                                                <>
+                                                    <button
+                                                        onClick={() => setShowOptInConfirmDrive(selectedDriveCriteria)}
+                                                        style={{
+                                                            backgroundColor: "#16a34a",
+                                                            color: "#ffffff",
+                                                            border: "none",
+                                                            borderRadius: "10px",
+                                                            padding: "9px 24px",
+                                                            fontWeight: "700",
+                                                            fontSize: "13px",
+                                                            cursor: "pointer",
+                                                            boxShadow: "0 2px 6px rgba(22,163,74,0.3)"
+                                                        }}
+                                                    >
+                                                        Opt-In
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setOptOutConfirmDrive(selectedDriveCriteria)}
+                                                        style={{
+                                                            backgroundColor: "#dc2626",
+                                                            color: "#ffffff",
+                                                            border: "none",
+                                                            borderRadius: "10px",
+                                                            padding: "9px 20px",
+                                                            fontWeight: "700",
+                                                            fontSize: "13px",
+                                                            cursor: "pointer",
+                                                            boxShadow: "0 2px 6px rgba(220,38,38,0.3)"
+                                                        }}
+                                                    >
+                                                        Opt-Out
+                                                    </button>
+                                                </>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Tab Bar: Job Details */}
+                                <div style={{ borderBottom: "2px solid #e2e8f0", marginBottom: "24px" }}>
+                                    <span style={{
+                                        display: "inline-block",
+                                        paddingBottom: "10px",
+                                        fontSize: "15px",
+                                        fontWeight: "800",
+                                        color: "#2563eb",
+                                        borderBottom: "3px solid #2563eb"
+                                    }}>
+                                        Job Details
+                                    </span>
+                                </div>
+
+                                {/* Section 1: About the Role */}
+                                <div style={{ marginBottom: "28px" }}>
+                                    <h4 style={{ fontSize: "16px", fontWeight: "800", color: "#0f172a", margin: "0 0 10px 0" }}>
+                                        About the Role
+                                    </h4>
+                                    <p style={{ fontSize: "14px", color: "#475569", lineHeight: "1.6", margin: 0 }}>
+                                        Proficient in Asp, .NET, VB, VC++. You ought to develop both windows and web applications according to clients requirement and meet tight deadlines.
+                                    </p>
+                                </div>
+
+                                {/* Section 2: 6 Attribute Cards Grid */}
+                                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "14px", marginBottom: "28px" }}>
+                                    {[
+                                        { icon: "👤", title: "Role", desc: selectedDriveCriteria.role || "Back end Developer" },
+                                        { icon: "💼", title: "Employment Type", desc: "Internship, Full Time" },
+                                        { icon: "🏦", title: "Industry Type", desc: "Banking & IT Services" },
+                                        { icon: "📋", title: "Role Category", desc: "Software Developer" },
+                                        { icon: "🎓", title: "Education", desc: "UG: B.Tech / B.E / MCA" },
+                                        { icon: "🏢", title: "Department", desc: "Engineering" }
+                                    ].map((item, idx) => (
+                                        <div key={idx} style={{ backgroundColor: "#f8fafc", borderRadius: "12px", padding: "14px 16px", border: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: "12px" }}>
+                                            <div style={{ width: "36px", height: "36px", borderRadius: "10px", backgroundColor: "#eff6ff", color: "#2563eb", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "18px", flexShrink: 0 }}>
+                                                {item.icon}
+                                            </div>
+                                            <div>
+                                                <div style={{ fontSize: "12px", color: "#64748b", fontWeight: "600" }}>{item.title}</div>
+                                                <div style={{ fontSize: "13px", color: "#0f172a", fontWeight: "700" }}>{item.desc}</div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* Section 3: Key Responsibilities */}
+                                <div style={{ marginBottom: "28px" }}>
+                                    <h4 style={{ fontSize: "16px", fontWeight: "800", color: "#0f172a", margin: "0 0 12px 0" }}>
+                                        Key Responsibilities
+                                    </h4>
+                                    <ul style={{ margin: 0, paddingLeft: "20px", fontSize: "14px", color: "#475569", lineHeight: "1.8" }}>
+                                        <li>Develop responsive web application using modern frontend frameworks</li>
+                                        <li>Design and build RESTful API's and backend services</li>
+                                        <li>Write clean, maintainable and efficient code</li>
+                                        <li>Collaborate with UI/UX designers and product teams</li>
+                                        <li>Optimize application performance and scalability</li>
+                                        <li>Troubleshoot and fix bugs in production environments</li>
+                                        <li>Participate in code reviews and technical discussions</li>
+                                    </ul>
+                                </div>
+
+                                {/* Section 4: Eligibility Criteria */}
+                                <div style={{ marginBottom: "28px" }}>
+                                    <h4 style={{ fontSize: "16px", fontWeight: "800", color: "#0f172a", margin: "0 0 12px 0" }}>
+                                        Eligibility Criteria
+                                    </h4>
+                                    <ul style={{ margin: 0, paddingLeft: "20px", fontSize: "14px", color: "#475569", lineHeight: "1.8" }}>
+                                        <li>BE / BTech / MCA in Computer Science, IT and related fields</li>
+                                        <li>2026 Pass-out Batch</li>
+                                        <li>Minimum {selectedDriveCriteria.minCgpa || 7.0} CGPA or 70%</li>
+                                        <li>Maximum {selectedDriveCriteria.maxBacklogs ?? 0} active backlogs allowed</li>
+                                    </ul>
+                                </div>
+
+                                {/* Section 5: Rounds (5) */}
+                                <div style={{ marginBottom: "28px" }}>
+                                    <h4 style={{ fontSize: "16px", fontWeight: "800", color: "#0f172a", margin: "0 0 12px 0" }}>
+                                        Rounds (5)
+                                    </h4>
+                                    <ul style={{ margin: 0, paddingLeft: "20px", fontSize: "14px", color: "#475569", lineHeight: "1.8" }}>
+                                        <li>1st Round - Aptitude</li>
+                                        <li>2nd Round - Technical</li>
+                                        <li>3rd Round - Coding</li>
+                                        <li>4th Round - Group Discussion</li>
+                                        <li>Final Round - HR</li>
+                                    </ul>
+                                </div>
+
+                                {/* Section 6: Required Skills */}
+                                <div style={{ marginBottom: "28px" }}>
+                                    <h4 style={{ fontSize: "16px", fontWeight: "800", color: "#0f172a", margin: "0 0 12px 0" }}>
+                                        Required Skills
+                                    </h4>
+                                    <ul style={{ margin: 0, paddingLeft: "20px", fontSize: "14px", color: "#475569", lineHeight: "1.8" }}>
+                                        <li>JavaScript / TypeScript</li>
+                                        <li>React.js or Angular</li>
+                                        <li>Node.js</li>
+                                        <li>SQL / NoSQL Databases</li>
+                                        <li>DSA</li>
+                                        <li>Git and Version Control</li>
+                                    </ul>
+                                </div>
+
+                                {/* Section 7: Benefits */}
+                                <div style={{ marginBottom: "12px" }}>
+                                    <h4 style={{ fontSize: "16px", fontWeight: "800", color: "#0f172a", margin: "0 0 12px 0" }}>
+                                        Benefits
+                                    </h4>
+                                    <ul style={{ margin: 0, paddingLeft: "20px", fontSize: "14px", color: "#475569", lineHeight: "1.8" }}>
+                                        <li>Health Insurance</li>
+                                        <li>Flexible Work Environment</li>
+                                        <li>Learning & Development Programs</li>
+                                        <li>Free Meals & Transportation</li>
+                                        <li>Employee Wellness Programs</li>
+                                        <li>Career Growth Opportunities</li>
+                                    </ul>
+                                </div>
+
                             </div>
+                        </div>
+                    );
+                })()}
+
+                {/* MODAL 1B: Confirm Opt-In Modal (Matching Image 4) */}
+                {showOptInConfirmDrive && (
+                    <div onClick={() => setShowOptInConfirmDrive(null)} style={{ position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", backgroundColor: "rgba(15,23,42,0.65)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100, padding: "16px" }}>
+                        <div onClick={(e) => e.stopPropagation()} style={{ backgroundColor: "#ffffff", borderRadius: "18px", width: "420px", maxWidth: "94%", padding: "28px", boxShadow: "0 20px 25px -5px rgba(0,0,0,0.25)", position: "relative" }}>
+                            {/* Close Icon */}
+                            <button
+                                onClick={() => setShowOptInConfirmDrive(null)}
+                                style={{ position: "absolute", top: "16px", right: "16px", background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: "18px", fontWeight: "800" }}
+                            >
+                                ✕
+                            </button>
+
+                            <h3 style={{ margin: "0 0 8px 0", fontSize: "20px", fontWeight: "800", color: "#0f172a" }}>
+                                Confirm Opt-In
+                            </h3>
+                            <p style={{ fontSize: "14px", color: "#64748b", margin: "0 0 24px 0", lineHeight: "1.5" }}>
+                                Are you sure you want to Opt-In?
+                            </p>
+
+                            <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px" }}>
+                                <button
+                                    onClick={() => setShowOptInConfirmDrive(null)}
+                                    style={{
+                                        backgroundColor: "#ffffff",
+                                        color: "#2563eb",
+                                        border: "1px solid #2563eb",
+                                        borderRadius: "10px",
+                                        padding: "10px 22px",
+                                        fontSize: "14px",
+                                        fontWeight: "700",
+                                        cursor: "pointer"
+                                    }}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        const target = showOptInConfirmDrive;
+                                        handleApply(target.id || "", target.company, target.role);
+                                        setShowOptInConfirmDrive(null);
+                                        setSelectedDriveCriteria(null);
+                                        setOptInSuccessData({ company: target.company, role: target.role });
+                                        setTimeout(() => {
+                                            setOptInSuccessData(null);
+                                        }, 4000);
+                                    }}
+                                    style={{
+                                        backgroundColor: "#16a34a",
+                                        color: "#ffffff",
+                                        border: "none",
+                                        borderRadius: "10px",
+                                        padding: "10px 24px",
+                                        fontSize: "14px",
+                                        fontWeight: "700",
+                                        cursor: "pointer",
+                                        boxShadow: "0 2px 6px rgba(22,163,74,0.3)"
+                                    }}
+                                >
+                                    Opt-In
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* MODAL 1C: Opted-In Success Alert Banner (Positioned Top Center) */}
+                {optInSuccessData && (
+                    <div style={{ position: "fixed", top: "30px", left: "50%", transform: "translateX(-50%)", zIndex: 10000 }}>
+                        <div style={{ backgroundColor: "#ffffff", borderRadius: "16px", border: "1px solid #bbf7d0", padding: "16px 24px", display: "flex", alignItems: "center", gap: "16px", boxShadow: "0 20px 25px -5px rgba(0,0,0,0.18), 0 10px 10px -5px rgba(0,0,0,0.04)", minWidth: "380px" }}>
+                            <div style={{ width: "42px", height: "42px", borderRadius: "50%", backgroundColor: "#16a34a", color: "#ffffff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "20px", fontWeight: "800", flexShrink: 0 }}>
+                                ✓
+                            </div>
+                            <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: "17px", fontWeight: "800", color: "#0f172a", marginBottom: "2px" }}>
+                                    Opted-In Successfully
+                                </div>
+                                <div style={{ fontSize: "13px", color: "#475569", fontWeight: "600" }}>
+                                    You've applied to {optInSuccessData.company} — {optInSuccessData.role}.
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setOptInSuccessData(null)}
+                                style={{ background: "none", border: "none", color: "#94a3b8", fontSize: "18px", fontWeight: "800", cursor: "pointer", marginLeft: "12px", padding: 0 }}
+                                title="Close"
+                            >
+                                ✕
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {/* MODAL 1C-2: Opted-Out Success Alert Banner (Positioned Top Center) */}
+                {optOutSuccessData && (
+                    <div style={{ position: "fixed", top: "30px", left: "50%", transform: "translateX(-50%)", zIndex: 10000 }}>
+                        <div style={{ backgroundColor: "#ffffff", borderRadius: "16px", border: "1px solid #fecaca", padding: "16px 24px", display: "flex", alignItems: "center", gap: "16px", boxShadow: "0 20px 25px -5px rgba(0,0,0,0.18), 0 10px 10px -5px rgba(0,0,0,0.04)", minWidth: "380px" }}>
+                            <div style={{ width: "42px", height: "42px", borderRadius: "50%", backgroundColor: "#dc2626", color: "#ffffff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "20px", fontWeight: "800", flexShrink: 0 }}>
+                                ✕
+                            </div>
+                            <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: "17px", fontWeight: "800", color: "#0f172a", marginBottom: "2px" }}>
+                                    Opted-Out Successfully
+                                </div>
+                                <div style={{ fontSize: "13px", color: "#475569", fontWeight: "600" }}>
+                                    You've opted out of {optOutSuccessData.company} — {optOutSuccessData.role}.
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setOptOutSuccessData(null)}
+                                style={{ background: "none", border: "none", color: "#94a3b8", fontSize: "18px", fontWeight: "800", cursor: "pointer", marginLeft: "12px", padding: 0 }}
+                                title="Close"
+                            >
+                                ✕
+                            </button>
                         </div>
                     </div>
                 )}
@@ -2848,16 +4118,48 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                     <div onClick={() => setSelectedApplicationModal(null)} style={{ position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", backgroundColor: "rgba(15,23,42,0.65)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
                         <div onClick={(e) => e.stopPropagation()} style={{ backgroundColor: "#ffffff", borderRadius: "18px", width: "min(900px, calc(100% - 24px))", maxHeight: "90vh", overflow: "hidden", boxShadow: "0 25px 50px -12px rgba(0,0,0,0.25)", display: "flex", flexDirection: "column" }}>
                             {/* Modal Dark Header */}
-                            <div style={{ backgroundColor: "#0f172a", color: "#ffffff", padding: "18px 24px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                <div>
-                                    <h3 style={{ margin: "0 0 2px 0", fontSize: "17px", fontWeight: "800", color: "#ffffff" }}>
-                                        {selectedApplicationModal.company} — Application Details
-                                    </h3>
-                                    <div style={{ fontSize: "13px", color: "#38bdf8", fontWeight: "700" }}>
-                                        {selectedApplicationModal.role}
+                            <div style={{ backgroundColor: "#0f172a", color: "#ffffff", padding: "18px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "16px" }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+                                    {/* Company Logo Box */}
+                                    <div style={{
+                                        width: "48px",
+                                        height: "48px",
+                                        borderRadius: "12px",
+                                        backgroundColor: "#ffffff",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        fontSize: "20px",
+                                        fontWeight: "800",
+                                        color: "#2563eb",
+                                        overflow: "hidden",
+                                        flexShrink: 0,
+                                        boxShadow: "0 2px 8px rgba(0,0,0,0.15)"
+                                    }}>
+                                        {selectedApplicationModal.company?.includes("Google") ? (
+                                            <span style={{ color: "#4285F4" }}>G</span>
+                                        ) : selectedApplicationModal.company?.includes("Zoho") ? (
+                                            <span style={{ color: "#e11d48", fontSize: "11px", fontWeight: "900" }}>ZOHO</span>
+                                        ) : selectedApplicationModal.company?.includes("TCS") ? (
+                                            <span style={{ color: "#0284c7", fontSize: "11px", fontWeight: "900" }}>TCS</span>
+                                        ) : selectedApplicationModal.company?.includes("Amazon") ? (
+                                            <span style={{ color: "#ff9900", fontSize: "16px", fontWeight: "900" }}>a</span>
+                                        ) : selectedApplicationModal.logo ? (
+                                            <img src={selectedApplicationModal.logo} alt={selectedApplicationModal.company} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+                                        ) : (
+                                            selectedApplicationModal.company?.charAt(0) || "C"
+                                        )}
+                                    </div>
+                                    <div>
+                                        <h3 style={{ margin: "0 0 2px 0", fontSize: "18px", fontWeight: "800", color: "#ffffff" }}>
+                                            {selectedApplicationModal.company} — Application Details
+                                        </h3>
+                                        <div style={{ fontSize: "13px", color: "#38bdf8", fontWeight: "700" }}>
+                                            {selectedApplicationModal.role}
+                                        </div>
                                     </div>
                                 </div>
-                                <button onClick={() => setSelectedApplicationModal(null)} style={{ width: "32px", height: "32px", borderRadius: "50%", backgroundColor: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.2)", color: "#ffffff", cursor: "pointer", fontSize: "16px", fontWeight: "800", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                <button onClick={() => setSelectedApplicationModal(null)} style={{ width: "32px", height: "32px", borderRadius: "50%", backgroundColor: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.2)", color: "#ffffff", cursor: "pointer", fontSize: "16px", fontWeight: "800", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                                     ✕
                                 </button>
                             </div>
@@ -3360,8 +4662,8 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                                 style={{
                                     padding: "10px 22px",
                                     backgroundColor: "#ffffff",
-                                    color: "#7c3aed",
-                                    border: "1.5px solid #a855f7",
+                                    color: "#475569",
+                                    border: "1.5px solid #cbd5e1",
                                     borderRadius: "10px",
                                     fontSize: "14px",
                                     fontWeight: "700",
@@ -3378,14 +4680,14 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                                 }}
                                 style={{
                                     padding: "10px 22px",
-                                    backgroundColor: "#8b5cf6",
+                                    backgroundColor: "#16a34a",
                                     color: "#ffffff",
                                     border: "none",
                                     borderRadius: "10px",
                                     fontSize: "14px",
                                     fontWeight: "700",
                                     cursor: "pointer",
-                                    boxShadow: "0 2px 4px rgba(139, 92, 246, 0.25)",
+                                    boxShadow: "0 2px 4px rgba(22, 163, 74, 0.25)",
                                 }}
                             >
                                 Opt-In
@@ -3395,7 +4697,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                 </div>
             )}
 
-            {/* MODAL 4: Custom Centered Confirm Opt-Out Modal (Matching Target Design) */}
+            {/* MODAL 4: Custom Centered Confirm Opt-Out Modal */}
             {optOutConfirmDrive && (
                 <div
                     style={{
@@ -3404,7 +4706,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                         left: 0,
                         right: 0,
                         bottom: 0,
-                        backgroundColor: "rgba(15, 23, 42, 0.5)",
+                        backgroundColor: "rgba(15, 23, 42, 0.65)",
                         backdropFilter: "blur(4px)",
                         display: "flex",
                         alignItems: "center",
@@ -3412,30 +4714,31 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                         zIndex: 10000,
                         padding: "16px",
                     }}
-                    onClick={() => setOptOutConfirmDrive(null)}
+                    onClick={() => { setOptOutConfirmDrive(null); setOptOutReason(""); }}
                 >
                     <div
                         style={{
                             backgroundColor: "#ffffff",
-                            borderRadius: "16px",
+                            borderRadius: "18px",
                             padding: "28px",
-                            maxWidth: "420px",
+                            maxWidth: "440px",
                             width: "100%",
-                            boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)",
+                            boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.15)",
                             position: "relative",
                         }}
                         onClick={(e) => e.stopPropagation()}
                     >
                         <button
-                            onClick={() => setOptOutConfirmDrive(null)}
+                            onClick={() => { setOptOutConfirmDrive(null); setOptOutReason(""); }}
                             style={{
                                 position: "absolute",
-                                top: "20px",
-                                right: "20px",
+                                top: "18px",
+                                right: "18px",
                                 background: "none",
                                 border: "none",
                                 fontSize: "18px",
-                                color: "#64748b",
+                                color: "#94a3b8",
+                                fontWeight: "800",
                                 cursor: "pointer",
                                 padding: "4px",
                                 lineHeight: "1",
@@ -3444,20 +4747,45 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                         >
                             ✕
                         </button>
-                        <h3 style={{ fontSize: "20px", fontWeight: "800", color: "#0f172a", margin: "0 0 12px 0" }}>
+                        <h3 style={{ fontSize: "20px", fontWeight: "800", color: "#0f172a", margin: "0 0 8px 0" }}>
                             Confirm Opt-Out
                         </h3>
-                        <p style={{ fontSize: "15px", color: "#475569", margin: "0 0 28px 0", lineHeight: "1.5" }}>
+                        <p style={{ fontSize: "14px", color: "#64748b", margin: "0 0 20px 0", lineHeight: "1.5" }}>
                             Are you sure you want to Opt-Out?
                         </p>
-                        <div style={{ display: "flex", justifyContent: "flex-end", gap: "14px" }}>
+
+                        <div style={{ marginBottom: "24px" }}>
+                            <label style={{ display: "block", fontSize: "13px", fontWeight: "700", color: "#334155", marginBottom: "6px" }}>
+                                Reason for Opt-Out <span style={{ color: "#94a3b8", fontWeight: "500" }}>(Optional)</span>
+                            </label>
+                            <textarea
+                                value={optOutReason}
+                                onChange={(e) => setOptOutReason(e.target.value)}
+                                placeholder="Enter your reason (optional)..."
+                                rows={3}
+                                style={{
+                                    width: "100%",
+                                    padding: "10px 14px",
+                                    borderRadius: "10px",
+                                    border: "1.5px solid #cbd5e1",
+                                    fontSize: "14px",
+                                    color: "#0f172a",
+                                    outline: "none",
+                                    resize: "none",
+                                    boxSizing: "border-box",
+                                    fontFamily: "inherit"
+                                }}
+                            />
+                        </div>
+
+                        <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px" }}>
                             <button
-                                onClick={() => setOptOutConfirmDrive(null)}
+                                onClick={() => { setOptOutConfirmDrive(null); setOptOutReason(""); }}
                                 style={{
                                     padding: "10px 22px",
                                     backgroundColor: "#ffffff",
-                                    color: "#0f172a",
-                                    border: "1.5px solid #cbd5e1",
+                                    color: "#2563eb",
+                                    border: "1.5px solid #2563eb",
                                     borderRadius: "10px",
                                     fontSize: "14px",
                                     fontWeight: "700",
@@ -3468,12 +4796,18 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                             </button>
                             <button
                                 onClick={() => {
-                                    handleOptOut(optOutConfirmDrive.id || "", optOutConfirmDrive.company, optOutConfirmDrive.role);
+                                    const target = optOutConfirmDrive;
+                                    handleOptOut(target.id || "", target.company, target.role, optOutReason);
                                     setOptOutConfirmDrive(null);
                                     setSelectedDriveCriteria(null);
+                                    setOptOutReason("");
+                                    setOptOutSuccessData({ company: target.company, role: target.role });
+                                    setTimeout(() => {
+                                        setOptOutSuccessData(null);
+                                    }, 4000);
                                 }}
                                 style={{
-                                    padding: "10px 22px",
+                                    padding: "10px 24px",
                                     backgroundColor: "#dc2626",
                                     color: "#ffffff",
                                     border: "none",
@@ -3481,7 +4815,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                                     fontSize: "14px",
                                     fontWeight: "700",
                                     cursor: "pointer",
-                                    boxShadow: "0 2px 4px rgba(220, 38, 38, 0.25)",
+                                    boxShadow: "0 2px 6px rgba(220, 38, 38, 0.3)",
                                 }}
                             >
                                 Opt-Out
@@ -3490,8 +4824,511 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                     </div>
                 </div>
             )}
-        </div>
-    );
-};
+
+            {/* MODAL 5: Live Notifications Panel (Matching User Screenshot) */}
+            {showNotificationsModal && (() => {
+                const notificationsList = [
+                    {
+                        id: "1",
+                        type: "Shortlists",
+                        company: "Google",
+                        title: "You've been shortlisted for Google",
+                        desc: "Congratulations! Your application for Software Engineer at Google has moved to the Technical Round",
+                        time: "• 20 mins ago",
+                        isUnread: true,
+                        logo: "G"
+                    },
+                    {
+                        id: "2",
+                        type: "Deadlines",
+                        company: "Calibrant",
+                        title: "Calibrant deadline closes in 2 days",
+                        desc: "Don't miss out Opt -in takes one tap before May 12, 11:59 PM",
+                        time: "• 1 hr ago",
+                        isUnread: true,
+                        logo: "G"
+                    },
+                    {
+                        id: "3",
+                        type: "Shortlists",
+                        company: "Platform Science",
+                        title: "Platform Science interview Scheduled",
+                        desc: "Your face to face interview with HR sceduled for Jun 12, 10:30 AM at TPO Hall 2",
+                        time: "• 2 days ago",
+                        isUnread: false,
+                        logo: "G"
+                    },
+                    {
+                        id: "4",
+                        type: "Shortlists",
+                        company: "Google",
+                        title: "You've been shortlisted for Google",
+                        desc: "Congratulations! Your application for Software Engineer at Google has moved to the Technical Round",
+                        time: "• 20 mins ago",
+                        isUnread: false,
+                        logo: "G"
+                    },
+                    {
+                        id: "5",
+                        type: "Shortlists",
+                        company: "Platform Science",
+                        title: "Platform Science interview Scheduled",
+                        desc: "Your face to face interview with HR sceduled for Jun 12, 10:30 AM at TPO Hall 2",
+                        time: "• 2 days ago",
+                        isUnread: false,
+                        logo: "G"
+                    },
+                    {
+                        id: "6",
+                        type: "Deadlines",
+                        company: "Calibrant",
+                        title: "Calibrant deadline closes in 2 days",
+                        desc: "Don't miss out Opt -in takes one tap before May 12, 11:59 PM",
+                        time: "• 1 hr ago",
+                        isUnread: false,
+                        logo: "G"
+                    },
+                    {
+                        id: "7",
+                        type: "Eligible",
+                        company: "Zoho",
+                        title: "New Drive Live: Zoho Corporation",
+                        desc: "You are eligible for Software Developer role (12 LPA). Opt-in before deadline!",
+                        time: "• 3 days ago",
+                        isUnread: false,
+                        logo: "ZOHO"
+                    }
+                ];
+
+                const filterOptions = ["All", "Unread", "Deadlines", "Shortlists", "Eligible", "Not Eligible"];
+                const filteredNotifs = notificationsList.filter(n => {
+                    if (activeNotifFilter === "All") return true;
+                    if (activeNotifFilter === "Unread") return n.isUnread;
+                    return n.type === activeNotifFilter;
+                });
+
+                return (
+                    <div
+                        onClick={() => setShowNotificationsModal(false)}
+                        style={{
+                            position: "fixed",
+                            top: 0,
+                            left: 0,
+                            width: "100vw",
+                            height: "100vh",
+                            backgroundColor: "rgba(15, 23, 42, 0.65)",
+                            backdropFilter: "blur(4px)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            zIndex: 10000,
+                            padding: "16px"
+                        }}
+                    >
+                        <div
+                            onClick={(e) => e.stopPropagation()}
+                            style={{
+                                backgroundColor: "#ffffff",
+                                borderRadius: "24px",
+                                width: "min(620px, 94vw)",
+                                maxHeight: "88vh",
+                                display: "flex",
+                                flexDirection: "column",
+                                boxShadow: "0 25px 50px -12px rgba(0,0,0,0.25)",
+                                padding: "28px",
+                                position: "relative",
+                                boxSizing: "border-box"
+                            }}
+                        >
+                            {/* Header */}
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+                                <h3 style={{ margin: 0, fontSize: "26px", fontWeight: "800", color: "#0f172a" }}>
+                                    Notifications
+                                </h3>
+                                <button
+                                    onClick={() => setShowNotificationsModal(false)}
+                                    style={{
+                                        width: "34px",
+                                        height: "34px",
+                                        borderRadius: "50%",
+                                        backgroundColor: "#f1f5f9",
+                                        border: "none",
+                                        color: "#64748b",
+                                        cursor: "pointer",
+                                        fontSize: "18px",
+                                        fontWeight: "800",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center"
+                                    }}
+                                >
+                                    ✕
+                                </button>
+                            </div>
+
+                            {/* Filter Pills */}
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "20px" }}>
+                                {filterOptions.map((f, fIdx) => {
+                                    const isActive = activeNotifFilter === f;
+                                    return (
+                                        <button
+                                            key={fIdx}
+                                            onClick={() => setActiveNotifFilter(f)}
+                                            style={{
+                                                backgroundColor: isActive ? "#8b5cf6" : "#ffffff",
+                                                color: isActive ? "#ffffff" : "#475569",
+                                                border: isActive ? "none" : "1px solid #cbd5e1",
+                                                borderRadius: "20px",
+                                                padding: "6px 18px",
+                                                fontSize: "13px",
+                                                fontWeight: "700",
+                                                cursor: "pointer",
+                                                boxShadow: isActive ? "0 2px 6px rgba(139,92,246,0.3)" : "none",
+                                                transition: "all 0.15s ease"
+                                            }}
+                                        >
+                                            {f}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+
+                            {/* Notifications List Container */}
+                            <div style={{
+                                flex: 1,
+                                overflowY: "auto",
+                                borderRadius: "20px",
+                                border: "1.5px solid #e0e7ff",
+                                backgroundColor: "#ffffff"
+                            }}>
+                                {filteredNotifs.length === 0 ? (
+                                    <div style={{ padding: "40px 20px", textAlign: "center", color: "#64748b", fontWeight: "600" }}>
+                                        No notifications match the active filter.
+                                    </div>
+                                ) : (
+                                    filteredNotifs.map((n, idx) => (
+                                        <div
+                                            key={n.id || idx}
+                                            style={{
+                                                padding: "18px 20px",
+                                                borderBottom: idx === filteredNotifs.length - 1 ? "none" : "1px solid #e2e8f0",
+                                                display: "flex",
+                                                alignItems: "center",
+                                                gap: "16px",
+                                                backgroundColor: n.isUnread ? "#fcfdff" : "#ffffff",
+                                                transition: "background-color 0.15s ease"
+                                            }}
+                                        >
+                                            {/* Company Logo Box */}
+                                            <div style={{
+                                                width: "52px",
+                                                height: "52px",
+                                                borderRadius: "14px",
+                                                backgroundColor: "#f8fafc",
+                                                border: "1px solid #e2e8f0",
+                                                display: "flex",
+                                                alignItems: "center",
+                                                justifyContent: "center",
+                                                fontSize: "22px",
+                                                fontWeight: "800",
+                                                color: "#2563eb",
+                                                overflow: "hidden",
+                                                flexShrink: 0
+                                            }}>
+                                                {n.company?.includes("Google") || n.logo === "G" ? (
+                                                    <span style={{ color: "#4285F4" }}>G</span>
+                                                ) : n.company?.includes("Zoho") || n.logo === "ZOHO" ? (
+                                                    <span style={{ color: "#e11d48", fontSize: "11px", fontWeight: "900" }}>ZOHO</span>
+                                                ) : (
+                                                    n.company?.charAt(0) || "C"
+                                                )}
+                                            </div>
+
+                                            {/* Content */}
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "10px", marginBottom: "4px" }}>
+                                                    <h4 style={{ margin: 0, fontSize: "16px", fontWeight: "800", color: "#0f172a" }}>
+                                                        {n.title}
+                                                    </h4>
+                                                    <span style={{ fontSize: "11px", color: "#7c3aed", fontWeight: "700", whiteSpace: "nowrap", flexShrink: 0 }}>
+                                                        {n.time}
+                                                    </span>
+                                                </div>
+                                                <p style={{ margin: 0, fontSize: "13px", color: "#64748b", lineHeight: "1.5", fontWeight: "500" }}>
+                                                    {n.desc}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                );
+            })()}
+                {/* MODAL 1D: Filter Drawer Modal (Matching User Screenshot without Purple) */}
+                {showFilterModal && (() => {
+                    const activeMatchCount = placementDrives.length;
+                    return (
+                        <div onClick={() => setShowFilterModal(false)} style={{ position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", backgroundColor: "rgba(15,23,42,0.65)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1150, padding: "16px" }}>
+                            <div onClick={(e) => e.stopPropagation()} style={{ backgroundColor: "#ffffff", borderRadius: "20px", width: "min(520px, calc(100vw - 32px))", maxHeight: "90vh", overflowY: "auto", padding: "28px", boxShadow: "0 25px 50px -12px rgba(0,0,0,0.25)", position: "relative", boxSizing: "border-box" }}>
+                                
+                                {/* Header Row */}
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px", borderBottom: "1px solid #f1f5f9", paddingBottom: "14px" }}>
+                                    <h3 style={{ margin: 0, fontSize: "22px", fontWeight: "800", color: "#0f172a" }}>
+                                        Filters
+                                    </h3>
+                                    <button
+                                        onClick={resetAllFilterOptions}
+                                        style={{ background: "none", border: "none", color: "#2563eb", fontWeight: "700", fontSize: "14px", cursor: "pointer", display: "flex", alignItems: "center", gap: "4px" }}
+                                    >
+                                        <span>↺</span> Reset filters
+                                    </button>
+                                </div>
+
+                                {/* 1. Sort By */}
+                                <div style={{ marginBottom: "24px" }}>
+                                    <div style={{ fontSize: "14px", fontWeight: "600", color: "#64748b", marginBottom: "10px" }}>
+                                        Sort By
+                                    </div>
+                                    <div style={{ display: "flex", flexWrap: "wrap", gap: "10px" }}>
+                                        {["Package (High to Low)", "Deadline", "Applied drives"].map(opt => {
+                                            const isSel = filterSortBy === opt;
+                                            return (
+                                                <button
+                                                    key={opt}
+                                                    onClick={() => setFilterSortBy(opt)}
+                                                    style={{
+                                                        backgroundColor: isSel ? "#eff6ff" : "#ffffff",
+                                                        color: isSel ? "#2563eb" : "#0f172a",
+                                                        border: isSel ? "1.5px solid #2563eb" : "1px solid #cbd5e1",
+                                                        borderRadius: "24px",
+                                                        padding: "8px 20px",
+                                                        fontSize: "13px",
+                                                        fontWeight: isSel ? "700" : "600",
+                                                        cursor: "pointer",
+                                                        transition: "all 0.15s ease"
+                                                    }}
+                                                >
+                                                    {opt}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                {/* 2. Employment Type */}
+                                <div style={{ marginBottom: "24px" }}>
+                                    <div style={{ fontSize: "14px", fontWeight: "600", color: "#64748b", marginBottom: "10px" }}>
+                                        Employment Type
+                                    </div>
+                                    <div style={{ display: "flex", flexWrap: "wrap", gap: "10px" }}>
+                                        {["Full-time", "Internship"].map(opt => {
+                                            const isSel = filterEmpType === opt;
+                                            return (
+                                                <button
+                                                    key={opt}
+                                                    onClick={() => setFilterEmpType(opt)}
+                                                    style={{
+                                                        backgroundColor: isSel ? "#eff6ff" : "#ffffff",
+                                                        color: isSel ? "#2563eb" : "#0f172a",
+                                                        border: isSel ? "1.5px solid #2563eb" : "1px solid #cbd5e1",
+                                                        borderRadius: "24px",
+                                                        padding: "8px 24px",
+                                                        fontSize: "13px",
+                                                        fontWeight: isSel ? "700" : "600",
+                                                        cursor: "pointer",
+                                                        transition: "all 0.15s ease"
+                                                    }}
+                                                >
+                                                    {opt}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                {/* 3. Position Dropdown */}
+                                <div style={{ marginBottom: "24px" }}>
+                                    <div style={{ fontSize: "14px", fontWeight: "600", color: "#64748b", marginBottom: "10px" }}>
+                                        Position
+                                    </div>
+                                    <select
+                                        value={filterPosition}
+                                        onChange={(e) => setFilterPosition(e.target.value)}
+                                        style={{
+                                            width: "100%",
+                                            padding: "12px 16px",
+                                            borderRadius: "12px",
+                                            border: "1.5px solid #cbd5e1",
+                                            fontSize: "14px",
+                                            color: filterPosition ? "#0f172a" : "#94a3b8",
+                                            backgroundColor: "#ffffff",
+                                            fontWeight: "600",
+                                            outline: "none",
+                                            cursor: "pointer"
+                                        }}
+                                    >
+                                        <option value="">Select Your Job Role</option>
+                                        <option value="Software Developer">Software Developer</option>
+                                        <option value="Frontend Developer">Frontend Developer</option>
+                                        <option value="FullStack Developer">FullStack Developer</option>
+                                        <option value="UIUX Designer">UIUX Designer</option>
+                                        <option value="Programmer Analyst">Programmer Analyst</option>
+                                        <option value="System Engineer">System Engineer</option>
+                                    </select>
+                                </div>
+
+                                {/* 4. Minimum Package Slider */}
+                                <div style={{ marginBottom: "24px" }}>
+                                    <div style={{ fontSize: "14px", fontWeight: "600", color: "#64748b", marginBottom: "10px" }}>
+                                        Minimum Package
+                                    </div>
+                                    <input
+                                        type="range"
+                                        min={0}
+                                        max={40}
+                                        step={10}
+                                        value={filterMinPackage}
+                                        onChange={(e) => setFilterMinPackage(Number(e.target.value))}
+                                        style={{
+                                            width: "100%",
+                                            accentColor: "#2563eb",
+                                            cursor: "pointer",
+                                            marginBottom: "8px"
+                                        }}
+                                    />
+                                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "#64748b", fontWeight: "600" }}>
+                                        <span style={{ color: filterMinPackage === 0 ? "#2563eb" : "#64748b", fontWeight: filterMinPackage === 0 ? "800" : "600" }}>Any</span>
+                                        <span style={{ color: filterMinPackage === 10 ? "#2563eb" : "#64748b", fontWeight: filterMinPackage === 10 ? "800" : "600" }}>$10 LPA</span>
+                                        <span style={{ color: filterMinPackage === 20 ? "#2563eb" : "#64748b", fontWeight: filterMinPackage === 20 ? "800" : "600" }}>$20 LPA</span>
+                                        <span style={{ color: filterMinPackage === 30 ? "#2563eb" : "#64748b", fontWeight: filterMinPackage === 30 ? "800" : "600" }}>$30 LPA</span>
+                                        <span style={{ color: filterMinPackage === 40 ? "#2563eb" : "#64748b", fontWeight: filterMinPackage === 40 ? "800" : "600" }}>$40+ LPA</span>
+                                    </div>
+                                </div>
+
+                                {/* 5. Work Mode */}
+                                <div style={{ marginBottom: "24px" }}>
+                                    <div style={{ fontSize: "14px", fontWeight: "600", color: "#64748b", marginBottom: "10px" }}>
+                                        Work Mode
+                                    </div>
+                                    <div style={{ display: "flex", flexWrap: "wrap", gap: "10px" }}>
+                                        {["Onsite", "Hybrid", "Remote"].map(opt => {
+                                            const isSel = filterWorkMode === opt;
+                                            return (
+                                                <button
+                                                    key={opt}
+                                                    onClick={() => setFilterWorkMode(opt)}
+                                                    style={{
+                                                        backgroundColor: isSel ? "#eff6ff" : "#ffffff",
+                                                        color: isSel ? "#2563eb" : "#0f172a",
+                                                        border: isSel ? "1.5px solid #2563eb" : "1px solid #cbd5e1",
+                                                        borderRadius: "24px",
+                                                        padding: "8px 22px",
+                                                        fontSize: "13px",
+                                                        fontWeight: isSel ? "700" : "600",
+                                                        cursor: "pointer",
+                                                        transition: "all 0.15s ease"
+                                                    }}
+                                                >
+                                                    {opt}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                {/* 6. Location */}
+                                <div style={{ marginBottom: "28px" }}>
+                                    <div style={{ fontSize: "14px", fontWeight: "600", color: "#64748b", marginBottom: "10px" }}>
+                                        Location
+                                    </div>
+                                    <div style={{ display: "flex", flexWrap: "wrap", gap: "10px" }}>
+                                        {["Chennai", "Bangalore", "Coimbatore"].map(opt => {
+                                            const isSel = filterLocation === opt;
+                                            return (
+                                                <button
+                                                    key={opt}
+                                                    onClick={() => setFilterLocation(filterLocation === opt ? "" : opt)}
+                                                    style={{
+                                                        backgroundColor: isSel ? "#eff6ff" : "#ffffff",
+                                                        color: isSel ? "#2563eb" : "#0f172a",
+                                                        border: isSel ? "1.5px solid #2563eb" : "1px solid #cbd5e1",
+                                                        borderRadius: "24px",
+                                                        padding: "8px 22px",
+                                                        fontSize: "13px",
+                                                        fontWeight: isSel ? "700" : "600",
+                                                        cursor: "pointer",
+                                                        transition: "all 0.15s ease"
+                                                    }}
+                                                >
+                                                    {opt}
+                                                </button>
+                                            );
+                                        })}
+                                        <button
+                                            onClick={() => {
+                                                const newLoc = window.prompt("Enter new location filter:");
+                                                if (newLoc && newLoc.trim()) setFilterLocation(newLoc.trim());
+                                            }}
+                                            style={{
+                                                backgroundColor: "#f8fafc",
+                                                color: "#334155",
+                                                border: "1px solid #cbd5e1",
+                                                borderRadius: "24px",
+                                                padding: "8px 20px",
+                                                fontSize: "13px",
+                                                fontWeight: "700",
+                                                cursor: "pointer"
+                                            }}
+                                        >
+                                            + Add new
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Footer Action Buttons */}
+                                <div style={{ display: "flex", justifyContent: "space-between", gap: "14px", borderTop: "1px solid #f1f5f9", paddingTop: "20px" }}>
+                                    <button
+                                        onClick={() => setShowFilterModal(false)}
+                                        style={{
+                                            flex: 1,
+                                            backgroundColor: "#ffffff",
+                                            color: "#2563eb",
+                                            border: "1.5px solid #2563eb",
+                                            borderRadius: "28px",
+                                            padding: "12px 24px",
+                                            fontSize: "15px",
+                                            fontWeight: "700",
+                                            cursor: "pointer"
+                                        }}
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={() => setShowFilterModal(false)}
+                                        style={{
+                                            flex: 1,
+                                            backgroundColor: "#2563eb",
+                                            color: "#ffffff",
+                                            border: "none",
+                                            borderRadius: "28px",
+                                            padding: "12px 24px",
+                                            fontSize: "15px",
+                                            fontWeight: "700",
+                                            cursor: "pointer",
+                                            boxShadow: "0 4px 12px rgba(37,99,235,0.3)"
+                                        }}
+                                    >
+                                        Show {activeMatchCount} results
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })()}
+            </div>
+        );
+    };
 
 export default StudentDashboard;
