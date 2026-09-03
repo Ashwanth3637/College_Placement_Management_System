@@ -46,10 +46,15 @@ const registerUser = async (req, res) => {
                     const Student = require("../models/studentModel");
                     await Student.create({
                         user: user._id,
-                        personal: { department: "Computer Science" },
-                        academic: { cgpa: 0, tenthPercentage: 0, twelfthPercentage: 0, backlogs: 0, graduationYear: 2026 },
+                        personal: {
+                            fullName: user.name,
+                            department: "Computer Science & Engineering",
+                            registerNumber: "22CSR" + Math.floor(100 + Math.random() * 900)
+                        },
+                        academic: { cgpa: 7.5, tenthPercentage: 80, twelfthPercentage: 80, backlogs: 0, graduationYear: 2026 },
                         isProfileComplete: false,
                         isVerified: false,
+                        verificationStatus: "pending"
                     });
                 } catch (sErr) {
                     console.warn("Student profile creation warning:", sErr.message);
@@ -166,9 +171,27 @@ const loginUser = async (req, res) => {
                 });
             }
 
-            if (role && user.role && user.role.toLowerCase() !== role.toLowerCase()) {
-                // If demo user role mismatch, override to expected tab role
-                user.role = role.toLowerCase();
+            if (user.role === "student") {
+                try {
+                    const Student = require("../models/studentModel");
+                    let stDoc = await Student.findOne({ user: user._id });
+                    if (!stDoc) {
+                        await Student.create({
+                            user: user._id,
+                            personal: {
+                                fullName: user.name,
+                                department: "Computer Science & Engineering",
+                                registerNumber: "22CSR" + Math.floor(100 + Math.random() * 900)
+                            },
+                            academic: { cgpa: 7.5, tenthPercentage: 80, twelfthPercentage: 80, backlogs: 0, graduationYear: 2026 },
+                            isProfileComplete: false,
+                            isVerified: false,
+                            verificationStatus: "pending"
+                        });
+                    }
+                } catch (sErr) {
+                    console.warn("Student doc auto-creation on login warning:", sErr.message);
+                }
             }
 
             const token = jwt.sign(

@@ -428,6 +428,173 @@ const seedAllModules = async () => {
             }
         }
 
+        // 12. SEED COLLEGES
+        console.log("Seeding Institutional Colleges...");
+        const College = require("./models/collegeModel");
+        const collegesToSeed = [
+            {
+                name: "Kongu Engineering College",
+                code: "KEC-738",
+                email: "placement@kongu.edu",
+                phone: "+91 98427 12345",
+                contactPerson: "Dr. K. Senthil Kumar",
+                contactEmail: "tpo@kongu.edu",
+                address: "Perundurai, Erode District",
+                city: "Perundurai",
+                state: "Tamil Nadu",
+                country: "India",
+                pincode: "638060",
+                website: "https://www.kongu.ac.in",
+                establishedYear: 1984,
+                status: "Active",
+                currentPlan: "Pro",
+                totalStudents: 1245,
+                activeDrives: 28,
+                totalPlaced: 980
+            },
+            {
+                name: "PSG College of Technology",
+                code: "PSG-102",
+                email: "tpo@psgtech.edu",
+                phone: "+91 94432 67890",
+                contactPerson: "Dr. R. Nandagopal",
+                contactEmail: "placement@psgtech.edu",
+                address: "Avinashi Road, Peelamedu",
+                city: "Coimbatore",
+                state: "Tamil Nadu",
+                country: "India",
+                pincode: "641004",
+                website: "https://www.psgtech.edu",
+                establishedYear: 1951,
+                status: "Active",
+                currentPlan: "Premium",
+                totalStudents: 1850,
+                activeDrives: 45,
+                totalPlaced: 1540
+            },
+            {
+                name: "Coimbatore Institute of Technology",
+                code: "CIT-204",
+                email: "placements@cit.edu.in",
+                phone: "+91 98765 43210",
+                contactPerson: "Prof. S. Rajesh",
+                contactEmail: "tpo@cit.edu.in",
+                address: "Civil Aerodrome Post",
+                city: "Coimbatore",
+                state: "Tamil Nadu",
+                country: "India",
+                pincode: "641014",
+                website: "https://www.cit.edu.in",
+                establishedYear: 1956,
+                status: "Active",
+                currentPlan: "Basic",
+                totalStudents: 490,
+                activeDrives: 14,
+                totalPlaced: 360
+            },
+            {
+                name: "Bannari Amman Institute of Technology",
+                code: "BIT-512",
+                email: "admin@bitsathy.ac.in",
+                phone: "+91 98433 99887",
+                contactPerson: "Dr. M. Prakash",
+                contactEmail: "placement@bitsathy.ac.in",
+                address: "Alathukombai Post, Sathyamangalam",
+                city: "Erode",
+                state: "Tamil Nadu",
+                country: "India",
+                pincode: "638401",
+                website: "https://www.bitsathy.ac.in",
+                establishedYear: 1996,
+                status: "Inactive",
+                currentPlan: "Trial",
+                totalStudents: 220,
+                activeDrives: 4,
+                totalPlaced: 95
+            }
+        ];
+
+        for (const col of collegesToSeed) {
+            const existing = await College.findOne({ code: col.code });
+            if (!existing) {
+                await College.create(col);
+                console.log(`  + Seeded College: ${col.name}`);
+            }
+        }
+
+        // 13. SEED SUBSCRIPTIONS
+        console.log("Seeding Subscriptions...");
+        const Subscription = require("./models/subscriptionModel");
+        const subsToSeed = [
+            {
+                collegeName: "Kongu Engineering College",
+                planName: "Pro",
+                startDate: "15 Jan 2025",
+                expiryDate: "15 Jan 2027",
+                amount: 24999,
+                status: "Active",
+                usage: { studentsUsed: 1245, studentsLimit: 5000, recruitersUsed: 42, recruitersLimit: 250, drivesUsed: 28, drivesLimit: "Unlimited" }
+            },
+            {
+                collegeName: "PSG College of Technology",
+                planName: "Premium",
+                startDate: "02 Feb 2025",
+                expiryDate: "02 Aug 2026",
+                amount: 14999,
+                status: "Active",
+                usage: { studentsUsed: 1850, studentsLimit: 2000, recruitersUsed: 94, recruitersLimit: 100, drivesUsed: 45, drivesLimit: 50 }
+            },
+            {
+                collegeName: "Coimbatore Institute of Technology",
+                planName: "Basic",
+                startDate: "10 Mar 2025",
+                expiryDate: "10 Apr 2026",
+                amount: 7999,
+                status: "Expiring Soon",
+                usage: { studentsUsed: 490, studentsLimit: 500, recruitersUsed: 22, recruitersLimit: 25, drivesUsed: 14, drivesLimit: 15 }
+            }
+        ];
+
+        for (const sub of subsToSeed) {
+            const existing = await Subscription.findOne({ collegeName: sub.collegeName });
+            if (!existing) {
+                await Subscription.create(sub);
+                console.log(`  + Seeded Subscription: ${sub.collegeName}`);
+            }
+        }
+
+        // 14. SEED SUPPORT TICKETS
+        console.log("Seeding Support Tickets...");
+        const SupportTicket = require("./models/supportTicketModel");
+        const ticketsToSeed = [
+            {
+                ticketId: "TKT-8841",
+                collegeName: "Kongu Engineering College",
+                subject: "Need student quota increase for upcoming IT recruitment drive",
+                priority: "High",
+                status: "Open",
+                createdBy: "Dr. K. Senthil Kumar",
+                message: "Our department has added 150 lateral entry students. We need to expand student capacity by 200."
+            },
+            {
+                ticketId: "TKT-8839",
+                collegeName: "PSG College of Technology",
+                subject: "Custom NAAC accreditation excel format export assistance",
+                priority: "Medium",
+                status: "In Progress",
+                createdBy: "Dr. R. Nandagopal",
+                message: "Require guidance on custom column ordering for NBA Criterion 5 placement metric reporting."
+            }
+        ];
+
+        for (const tck of ticketsToSeed) {
+            const existing = await SupportTicket.findOne({ ticketId: tck.ticketId });
+            if (!existing) {
+                await SupportTicket.create(tck);
+                console.log(`  + Seeded Ticket: ${tck.ticketId}`);
+            }
+        }
+
         console.log("🎉 Complete System MongoDB Seeding Finished Successfully!");
         process.exit(0);
     } catch (err) {

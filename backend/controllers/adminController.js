@@ -5,6 +5,9 @@ const CompanyDrive = require("../models/companyDriveModel");
 const Application = require("../models/applicationModel");
 const Season = require("../models/seasonModel");
 const AuditLog = require("../models/auditLogModel");
+const College = require("../models/collegeModel");
+const Subscription = require("../models/subscriptionModel");
+const SupportTicket = require("../models/supportTicketModel");
 
 // Helper to log audit actions
 const logAudit = async (actor, action, entityType, entityId, details, ip = "127.0.0.1", status = "SUCCESS") => {
@@ -25,13 +28,13 @@ const logAudit = async (actor, action, entityType, entityId, details, ip = "127.
     }
 };
 
-// 1. Get All Users with role filtering
+// 1. Users CRUD
 const getAllUsers = async (req, res) => {
     try {
         const { role, search } = req.query;
         let query = {};
-        if (role && role !== "all") {
-            query.role = role.toLowerCase();
+        if (role && role !== "All" && role !== "all") {
+            query.role = { $regex: role, $options: "i" };
         }
         if (search) {
             query.$or = [
@@ -46,10 +49,9 @@ const getAllUsers = async (req, res) => {
     }
 };
 
-// 2. Create User
 const createUser = async (req, res) => {
     try {
-        const { name, email, password, role, department } = req.body;
+        const { name, email, password, role, department, college } = req.body;
         const bcrypt = require("bcryptjs");
         const existing = await User.findOne({ email: email.toLowerCase().trim() });
         if (existing) {
@@ -62,6 +64,7 @@ const createUser = async (req, res) => {
             password: hashedPassword,
             role: role || "student",
             department: department || "General",
+            college: college || "Institution Partner",
         });
 
         await logAudit(req.user, "CREATE_USER", "USER", newUser._id, `Created ${newUser.role} user ${newUser.email}`);
@@ -71,29 +74,20 @@ const createUser = async (req, res) => {
     }
 };
 
-// 3. Update User Role / Status
 const updateUser = async (req, res) => {
     try {
         const { id } = req.params;
-        const { name, role, department } = req.body;
-        const updated = await User.findByIdAndUpdate(
-            id,
-            { ...(name && { name }), ...(role && { role }), ...(department && { department }) },
-            { new: true }
-        ).select("-password");
-
+        const updated = await User.findByIdAndUpdate(id, req.body, { new: true }).select("-password");
         if (!updated) {
             return res.status(404).json({ success: false, message: "User not found" });
         }
-
-        await logAudit(req.user, "UPDATE_USER", "USER", id, `Updated user ${updated.email} to role ${updated.role}`);
+        await logAudit(req.user, "UPDATE_USER", "USER", id, `Updated user ${updated.email}`);
         return res.status(200).json({ success: true, message: "User updated successfully", user: updated });
     } catch (err) {
         return res.status(500).json({ success: false, message: "Failed to update user", error: err.message });
     }
 };
 
-// 4. Delete / Deactivate User
 const deleteUser = async (req, res) => {
     try {
         const { id } = req.params;
@@ -108,6 +102,91 @@ const deleteUser = async (req, res) => {
     }
 };
 
+// 2. Colleges CRUD
+const getColleges = async (req, res) => {
+    try {
+        const colleges = await College.find().sort({ createdAt: -1 });
+        return res.status(200).json({ success: true, count: colleges.length, colleges });
+    } catch (err) {
+        return res.status(500).json({ success: false, message: "Failed to fetch colleges", error: err.message });
+    }
+};
+
+const createCollege = async (req, res) => {
+    try {
+        const existing = await College.findOne({ code: req.body.code?.toUpperCase() });
+        if (existing) {
+            return res.status(400).json({ success: false, message: "College with this code already exists" });
+        }
+        const newCollege = await College.create(req.body);
+        await logAudit(req.user, "ONBOARD_COLLEGE", "COLLEGE", newCollege._id, `Onboarded ${newCollege.name}`);
+        return res.status(201).json({ success: true, message: "College onboarded successfully", college: newCollege });
+    } catch (err) {
+        return res.status(500).json({ success: false, message: "Failed to create college", error: err.message });
+    }
+};
+
+const updateCollege = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const updated = await College.findByIdAndUpdate(id, req.body, { new: true });
+        if (!updated) {
+            return res.status(404).json({ success: false, message: "College not found" });
+        }
+        await logAudit(req.user, "UPDATE_COLLEGE", "COLLEGE", id, `Updated college ${updated.name}`);
+        return res.status(200).json({ success: true, message: "College updated", college: updated });
+    } catch (err) {
+        return res.status(500).json({ success: false, message: "Failed to update college", error: err.message });
+    }
+};
+
+const toggleCollegeStatus = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const col = await College.findById(id);
+        if (!col) return res.status(404).json({ success: false, message: "College not found" });
+        col.status = col.status === "Active" ? "Inactive" : "Active";
+        await col.save();
+        await logAudit(req.user, "TOGGLE_COLLEGE_STATUS", "COLLEGE", id, `Toggled ${col.name} to ${col.status}`);
+        return res.status(200).json({ success: true, message: `College status updated to ${col.status}`, college: col });
+    } catch (err) {
+        return res.status(500).json({ success: false, message: "Failed to update status", error: err.message });
+    }
+};
+
+// 3. Subscriptions & Plans
+const getSubscriptions = async (req, res) => {
+    try {
+        const subs = await Subscription.find().sort({ createdAt: -1 });
+        return res.status(200).json({ success: true, subscriptions: subs });
+    } catch (err) {
+        return res.status(500).json({ success: false, message: "Failed to fetch subscriptions", error: err.message });
+    }
+};
+
+// 4. Support Tickets
+const getSupportTickets = async (req, res) => {
+    try {
+        const tickets = await SupportTicket.find().sort({ createdAt: -1 });
+        return res.status(200).json({ success: true, tickets });
+    } catch (err) {
+        return res.status(500).json({ success: false, message: "Failed to fetch support tickets", error: err.message });
+    }
+};
+
+const replySupportTicket = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { response } = req.body;
+        const ticket = await SupportTicket.findByIdAndUpdate(id, { response, status: "Resolved" }, { new: true });
+        if (!ticket) return res.status(404).json({ success: false, message: "Ticket not found" });
+        await logAudit(req.user, "RESOLVE_TICKET", "TICKET", id, `Resolved support ticket ${ticket.ticketId}`);
+        return res.status(200).json({ success: true, message: "Ticket resolved", ticket });
+    } catch (err) {
+        return res.status(500).json({ success: false, message: "Failed to update ticket", error: err.message });
+    }
+};
+
 // 5. Get Placement Seasons
 const getSeasons = async (req, res) => {
     try {
@@ -118,7 +197,6 @@ const getSeasons = async (req, res) => {
     }
 };
 
-// 6. Create / Update Season
 const createSeason = async (req, res) => {
     try {
         const { name, code, startDate, endDate, status, rulesConfig } = req.body;
@@ -156,7 +234,7 @@ const updateSeason = async (req, res) => {
     }
 };
 
-// 7. Get Audit Logs
+// 6. Get Audit Logs
 const getAuditLogs = async (req, res) => {
     try {
         const { limit = 50, entityType, action } = req.query;
@@ -171,10 +249,11 @@ const getAuditLogs = async (req, res) => {
     }
 };
 
-// 8. System Health
+// 7. System Health
 const getSystemHealth = async (req, res) => {
     try {
         const totalUsers = await User.countDocuments();
+        const totalColleges = await College.countDocuments();
         const totalStudents = await Student.countDocuments();
         const totalCompanies = await CompanyProfile.countDocuments();
         const totalDrives = await CompanyDrive.countDocuments();
@@ -189,6 +268,7 @@ const getSystemHealth = async (req, res) => {
                 timestamp: new Date(),
                 database: "Connected (MongoDB Atlas)",
                 metrics: {
+                    totalColleges,
                     totalUsers,
                     totalStudents,
                     totalCompanies,
@@ -208,6 +288,13 @@ module.exports = {
     createUser,
     updateUser,
     deleteUser,
+    getColleges,
+    createCollege,
+    updateCollege,
+    toggleCollegeStatus,
+    getSubscriptions,
+    getSupportTickets,
+    replySupportTicket,
     getSeasons,
     createSeason,
     updateSeason,

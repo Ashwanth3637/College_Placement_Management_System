@@ -55,6 +55,22 @@ const companyDriveSchema = new mongoose.Schema(
             type: String,
             default: "",
         },
+        website: {
+            type: String,
+            default: "",
+        },
+        recruiterName: {
+            type: String,
+            default: "",
+        },
+        recruiterEmail: {
+            type: String,
+            default: "",
+        },
+        recruiterMobile: {
+            type: String,
+            default: "",
+        },
         openings: {
             type: Number,
             default: 10,
