@@ -8,11 +8,11 @@ const companyDriveSchema = new mongoose.Schema(
         },
         jobTitle: {
             type: String,
-            default: function() { return this.role || "Software Engineer"; }
+            default: function () { return this.role || "Software Engineer"; }
         },
         role: {
             type: String,
-            default: function() { return this.jobTitle || "Software Engineer"; }
+            default: function () { return this.jobTitle || "Software Engineer"; }
         },
         jobType: {
             type: String,
@@ -24,11 +24,11 @@ const companyDriveSchema = new mongoose.Schema(
         },
         packageCtc: {
             type: String,
-            default: function() { return this.ctc || "₹18.0 LPA"; }
+            default: function () { return this.ctc || ""; }
         },
         ctc: {
             type: String,
-            default: function() { return this.packageCtc || "₹18.0 LPA"; }
+            default: function () { return this.packageCtc || ""; }
         },
         deadline: {
             type: String,
@@ -37,7 +37,7 @@ const companyDriveSchema = new mongoose.Schema(
         status: {
             type: String,
             enum: ["Draft", "Pending Approval", "Approved", "Active", "Rejected", "Closed"],
-            default: "Pending Approval",
+            default: "Active",
         },
         rejectionReason: {
             type: String,
@@ -73,24 +73,33 @@ const companyDriveSchema = new mongoose.Schema(
         },
         openings: {
             type: Number,
-            default: 10,
+            default: 1,
         },
         eligibleBranches: [{ type: String }],
+        departments: [{ type: String }],
+        department: {
+            type: String,
+            default: "",
+        },
         minCgpa: {
             type: Number,
-            default: 7.0,
+            default: 0,
         },
         minTenth: {
             type: Number,
-            default: 60.0,
+            default: 0,
         },
         minTwelfth: {
             type: Number,
-            default: 60.0,
+            default: 0,
         },
         gradYear: {
             type: Number,
             default: 2026,
+        },
+        batch: {
+            type: String,
+            default: "",
         },
         maxBacklogs: {
             type: Number,
@@ -99,18 +108,20 @@ const companyDriveSchema = new mongoose.Schema(
         requiredSkills: [{ type: String }],
         jobDescription: {
             type: String,
-            default: "Responsible for software development, technical problem solving, and building scalable applications.",
+            default: "",
         },
         selectionProcess: {
             type: String,
-            default: "Aptitude Test → Technical Interview → HR Round",
+            default: "",
         },
         rounds: [
             {
-                roundNumber: { type: Number, default: 1 },
-                roundName: { type: String, default: "Round 1: Online Assessment" },
-                mode: { type: String, enum: ["Online", "Offline", "Hybrid"], default: "Online" },
+                roundNumber: { type: Number, required: true },
+                roundName: { type: String, required: true },
+                mode: { type: String, default: "Online" },
                 date: { type: String, default: "" },
+                time: { type: String, default: "" },
+                venue: { type: String, default: "" },
                 description: { type: String, default: "" },
             }
         ],
@@ -138,6 +149,49 @@ const companyDriveSchema = new mongoose.Schema(
         isActive: {
             type: Boolean,
             default: true,
+        },
+
+        // Flow 3: Enhanced drive details
+        aboutCompany: {
+            type: String,
+            default: "",
+        },
+        jobLocations: [{ type: String }],
+        roles: [{ type: String }],
+        workArrangement: {
+            type: String,
+            enum: ["Remote", "WFO", "Hybrid", "On-site"],
+            default: "WFO",
+        },
+        internStipend: {
+            type: String,
+            default: "",
+        },
+        keyResponsibilities: {
+            type: String,
+            default: "",
+        },
+        hiringProcess: {
+            type: String,
+            default: "",
+        },
+        eligibleCriteria: {
+            type: String,
+            default: "",
+        },
+        optInOutDeadline: {
+            type: Date,
+            default: null,
+        },
+        attachments: [{
+            name: { type: String, default: "" },
+            url: { type: String, default: "" },
+            uploadedAt: { type: Date, default: Date.now },
+        }],
+        collegeId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "College",
+            default: null,
         },
     },
     {

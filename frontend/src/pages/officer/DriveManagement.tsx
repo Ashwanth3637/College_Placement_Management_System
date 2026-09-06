@@ -11,27 +11,70 @@ export const DriveManagement: React.FC = () => {
 
   // Multi-step Wizard State
   const [showCreateWizard, setShowCreateWizard] = useState(false);
-  const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
-  const [wizardForm, setWizardForm] = useState<any>({
+  const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4>(1);
+
+  const initialWizardForm = {
     company: "",
     role: "",
-    logo: "https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg",
+    logo: "",
     website: "",
-    ctc: "₹12.0 LPA",
-    location: "Bangalore, India",
-    jobDescription: "Responsible for core software engineering, feature development, and scalable cloud solutions.",
+    ctc: "",
+    location: "",
+    jobDescription: "",
     recruiterName: "",
     recruiterEmail: "",
     recruiterMobile: "",
     workMode: "On-site",
-    minTenth: 65,
-    minTwelfth: 65,
-    minCgpa: 7.0,
-    maxBacklogs: 0,
-    eligibleBranches: ["CSE", "IT", "ECE"],
-    deadline: "2026-09-30",
-    openings: 15
-  });
+    department: "",
+    eligibleBranches: "",
+    batch: "",
+    gradYear: "",
+    minTenth: "",
+    minTwelfth: "",
+    minCgpa: "",
+    maxBacklogs: "",
+    deadline: "",
+    openings: "",
+    rounds: [
+      { roundNumber: 1, roundName: "", mode: "Online", date: "", time: "", venue: "", description: "" }
+    ]
+  };
+
+  const [wizardForm, setWizardForm] = useState<any>(initialWizardForm);
+
+  const handleAddRound = () => {
+    setWizardForm((prev: any) => ({
+      ...prev,
+      rounds: [
+        ...(prev.rounds || []),
+        {
+          roundNumber: ((prev.rounds || []).length) + 1,
+          roundName: "",
+          mode: "Online",
+          date: "",
+          time: "",
+          venue: "",
+          description: ""
+        }
+      ]
+    }));
+  };
+
+  const handleUpdateRound = (index: number, field: string, value: any) => {
+    setWizardForm((prev: any) => {
+      const updated = [...(prev.rounds || [])];
+      updated[index] = { ...updated[index], [field]: value };
+      return { ...prev, rounds: updated };
+    });
+  };
+
+  const handleRemoveRound = (index: number) => {
+    setWizardForm((prev: any) => {
+      const filtered = (prev.rounds || []).filter((_: any, i: number) => i !== index);
+      const renumbered = filtered.map((r: any, idx: number) => ({ ...r, roundNumber: idx + 1 }));
+      return { ...prev, rounds: renumbered };
+    });
+  };
 
   // Fetch Applications to calculate live Opt-In counts
   const fetchApplications = async () => {
@@ -142,7 +185,7 @@ export const DriveManagement: React.FC = () => {
     return resultList;
   };
 
-  // Publish New Drive (Step 3 Submit)
+  // Publish New Drive (Step 4 Submit)
   const handlePublishDrive = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!wizardForm.company || !wizardForm.role || !wizardForm.deadline) {
@@ -150,7 +193,37 @@ export const DriveManagement: React.FC = () => {
       return;
     }
 
+    const deptVal = wizardForm.department || wizardForm.eligibleBranches;
+    const batchVal = wizardForm.batch || wizardForm.gradYear;
+
+    if (!deptVal || !String(deptVal).trim()) {
+      alert("Please specify Eligible Department(s) in the Criteria step.");
+      return;
+    }
+
+    if (!batchVal || !String(batchVal).trim()) {
+      alert("Please specify Eligible Batch (Graduation Year) in the Criteria step.");
+      return;
+    }
+
     try {
+      const formattedRounds = (wizardForm.rounds || [])
+        .filter((r: any) => r.roundName && r.roundName.trim().length > 0)
+        .map((r: any, idx: number) => ({
+          roundNumber: r.roundNumber || idx + 1,
+          roundName: r.roundName.trim(),
+          mode: r.mode || "Online",
+          date: r.date || "",
+          time: r.time || "",
+          venue: r.venue || "",
+          description: r.description || ""
+        }));
+
+      const parsedBranches = Array.isArray(deptVal)
+        ? deptVal
+        : String(deptVal).split(",").map((b: string) => b.trim()).filter(Boolean);
+      const parsedGradYear = Number(batchVal) || undefined;
+
       const payload = {
         company: wizardForm.company,
         jobTitle: wizardForm.role,
@@ -158,20 +231,27 @@ export const DriveManagement: React.FC = () => {
         packageCtc: wizardForm.ctc,
         ctc: wizardForm.ctc,
         location: wizardForm.location,
-        logo: wizardForm.logo || "https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg",
+        logo: wizardForm.logo || "",
         website: wizardForm.website,
         jobDescription: wizardForm.jobDescription,
         recruiterName: wizardForm.recruiterName,
         recruiterEmail: wizardForm.recruiterEmail,
         recruiterMobile: wizardForm.recruiterMobile,
         workMode: wizardForm.workMode,
-        minTenth: Number(wizardForm.minTenth) || 60,
-        minTwelfth: Number(wizardForm.minTwelfth) || 60,
-        minCgpa: Number(wizardForm.minCgpa) || 6.5,
-        maxBacklogs: Number(wizardForm.maxBacklogs) || 0,
-        eligibleBranches: Array.isArray(wizardForm.eligibleBranches) ? wizardForm.eligibleBranches : ["CSE", "IT", "ECE"],
+        department: parsedBranches.join(", "),
+        departments: parsedBranches,
+        eligibleBranches: parsedBranches,
+        batch: String(batchVal).trim(),
+        gradYear: parsedGradYear,
+        minTenth: wizardForm.minTenth !== "" ? Number(wizardForm.minTenth) : undefined,
+        minTwelfth: wizardForm.minTwelfth !== "" ? Number(wizardForm.minTwelfth) : undefined,
+        minCgpa: wizardForm.minCgpa !== "" ? Number(wizardForm.minCgpa) : undefined,
+        maxBacklogs: wizardForm.maxBacklogs !== "" ? Number(wizardForm.maxBacklogs) : 0,
         deadline: wizardForm.deadline,
-        openings: Number(wizardForm.openings) || 10,
+        openings: wizardForm.openings !== "" ? Number(wizardForm.openings) : undefined,
+        rounds: formattedRounds.length > 0 ? formattedRounds : [
+          { roundNumber: 1, roundName: "Assessment / Interview", mode: "Online", date: wizardForm.deadline, time: "", venue: "", description: "" }
+        ],
         status: "Active",
         isOfficerPublished: true,
         isCreatedByOfficer: true,
@@ -186,29 +266,10 @@ export const DriveManagement: React.FC = () => {
       });
 
       if (res.ok) {
-        alert(`Placement Drive for "${wizardForm.company}" published successfully! Students can now view and apply.`);
+        alert(`Placement Drive for "${wizardForm.company}" published successfully with ${payload.rounds.length} selection round(s)! Students can now view and apply.`);
         setShowCreateWizard(false);
         setCurrentStep(1);
-        setWizardForm({
-          company: "",
-          role: "",
-          logo: "",
-          website: "",
-          ctc: "₹12.0 LPA",
-          location: "Bangalore, India",
-          jobDescription: "",
-          recruiterName: "",
-          recruiterEmail: "",
-          recruiterMobile: "",
-          workMode: "On-site",
-          minTenth: 65,
-          minTwelfth: 65,
-          minCgpa: 7.0,
-          maxBacklogs: 0,
-          eligibleBranches: ["CSE", "IT", "ECE"],
-          deadline: "2026-09-30",
-          openings: 15
-        });
+        setWizardForm(initialWizardForm);
         fetchDrives();
       } else {
         const d = await res.json();
@@ -397,19 +458,19 @@ export const DriveManagement: React.FC = () => {
                           </div>
                           <div>
                             <div style={{ fontWeight: 800, color: "#0F172A", fontSize: "13.5px" }}>{d.company}</div>
-                            <div style={{ fontSize: "12px", color: "#4338CA", fontWeight: 600 }}>{d.role || d.jobTitle || "Software Trainee"}</div>
+                            <div style={{ fontSize: "12px", color: "#4338CA", fontWeight: 600 }}>{d.role || d.jobTitle || "—"}</div>
                           </div>
                         </div>
                       </td>
 
                       {/* Package CTC */}
                       <td style={{ padding: "14px 18px", whiteSpace: "nowrap" }}>
-                        <strong style={{ color: "#0B3D91", fontSize: "13.5px" }}>{d.ctc || d.packageCtc || "₹12 LPA"}</strong>
+                        <strong style={{ color: "#0B3D91", fontSize: "13.5px" }}>{d.ctc || d.packageCtc || "—"}</strong>
                       </td>
 
                       {/* Location */}
                       <td style={{ padding: "14px 18px", color: "#334155", whiteSpace: "nowrap", fontSize: "12.5px" }}>
-                        {d.location || "On Campus"}
+                        {d.location || "—"}
                       </td>
 
                       {/* Deadline */}
@@ -502,7 +563,12 @@ export const DriveManagement: React.FC = () => {
                   Create & Publish Placement Drive
                 </h3>
                 <div style={{ fontSize: "12px", color: "#64748B", marginTop: "2px" }}>
-                  Step {currentStep} of 3 • {currentStep === 1 ? "Company & Role" : (currentStep === 2 ? "Recruiter POC Details" : "Academic Eligibility & Publish")}
+                  Step {currentStep} of 4 • {
+                    currentStep === 1 ? "Company & Role" :
+                    currentStep === 2 ? "Recruiter POC Details" :
+                    currentStep === 3 ? "Selection Rounds Setup" :
+                    "Academic Eligibility & Publish"
+                  }
                 </div>
               </div>
               <button
@@ -518,16 +584,17 @@ export const DriveManagement: React.FC = () => {
               {[
                 { step: 1, label: "1. Company & Role" },
                 { step: 2, label: "2. Recruiter Contact" },
-                { step: 3, label: "3. Academic Criteria" }
+                { step: 3, label: "3. Selection Rounds" },
+                { step: 4, label: "4. Criteria & Publish" }
               ].map((s) => (
                 <div
                   key={s.step}
                   style={{
                     flex: 1,
-                    padding: "8px 10px",
+                    padding: "8px 6px",
                     borderRadius: "8px",
                     textAlign: "center",
-                    fontSize: "12px",
+                    fontSize: "11px",
                     fontWeight: 700,
                     backgroundColor: currentStep === s.step ? "#EEF2FF" : (currentStep > s.step ? "#DCFCE7" : "#F8FAFC"),
                     color: currentStep === s.step ? "#4338CA" : (currentStep > s.step ? "#15803D" : "#94A3B8"),
@@ -675,54 +742,264 @@ export const DriveManagement: React.FC = () => {
               </div>
             )}
 
-            {/* STEP 3: ACADEMIC ELIGIBILITY & REGISTRATION DEADLINE */}
+            {/* STEP 3: SELECTION ROUNDS SETUP */}
             {currentStep === 3 && (
+              <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <h4 style={{ margin: 0, fontSize: "14px", fontWeight: 800, color: "#0F172A" }}>
+                      Recruitment Selection Rounds
+                    </h4>
+                    <span style={{ fontSize: "12px", color: "#64748B" }}>
+                      Configure rounds for this drive. These are saved to database and rendered in student application pipelines.
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleAddRound}
+                    style={{
+                      padding: "6px 14px",
+                      backgroundColor: "#4F46E5",
+                      color: "#FFFFFF",
+                      border: "none",
+                      borderRadius: "6px",
+                      fontSize: "12px",
+                      fontWeight: 700,
+                      cursor: "pointer"
+                    }}
+                  >
+                    + Add Round
+                  </button>
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "12px", maxHeight: "380px", overflowY: "auto", paddingRight: "4px" }}>
+                  {(wizardForm.rounds || []).map((round: any, rIdx: number) => (
+                    <div key={rIdx} style={{ backgroundColor: "#F8FAFC", padding: "14px", borderRadius: "10px", border: "1px solid #E2E8F0", display: "flex", flexDirection: "column", gap: "10px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span style={{ fontSize: "11px", fontWeight: 800, color: "#4F46E5", backgroundColor: "#EEF2FF", padding: "3px 10px", borderRadius: "12px" }}>
+                          Round {round.roundNumber || rIdx + 1}
+                        </span>
+                        {(wizardForm.rounds || []).length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveRound(rIdx)}
+                            style={{ background: "none", border: "none", color: "#DC2626", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}
+                          >
+                            Remove Round
+                          </button>
+                        )}
+                      </div>
+
+                      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "10px" }}>
+                        <div>
+                          <label style={{ display: "block", fontSize: "11px", fontWeight: 700, color: "#475569", marginBottom: "3px" }}>Round Title *</label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="e.g. Online Assessment, Technical Interview, HR Round"
+                            value={round.roundName}
+                            onChange={(e) => handleUpdateRound(rIdx, "roundName", e.target.value)}
+                            style={{ width: "100%", padding: "7px 10px", border: "1px solid #CBD5E1", borderRadius: "6px", fontSize: "12px", boxSizing: "border-box" }}
+                          />
+                        </div>
+                        <div>
+                          <label style={{ display: "block", fontSize: "11px", fontWeight: 700, color: "#475569", marginBottom: "3px" }}>Mode</label>
+                          <select
+                            value={round.mode}
+                            onChange={(e) => handleUpdateRound(rIdx, "mode", e.target.value)}
+                            style={{ width: "100%", padding: "7px 10px", border: "1px solid #CBD5E1", borderRadius: "6px", fontSize: "12px", boxSizing: "border-box" }}
+                          >
+                            <option value="Online">Online</option>
+                            <option value="In-Person Campus">In-Person Campus</option>
+                            <option value="Hybrid">Hybrid</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px" }}>
+                        <div>
+                          <label style={{ display: "block", fontSize: "11px", fontWeight: 700, color: "#475569", marginBottom: "3px" }}>Scheduled Date</label>
+                          <input
+                            type="date"
+                            value={round.date}
+                            onChange={(e) => handleUpdateRound(rIdx, "date", e.target.value)}
+                            style={{ width: "100%", padding: "7px 10px", border: "1px solid #CBD5E1", borderRadius: "6px", fontSize: "12px", boxSizing: "border-box" }}
+                          />
+                        </div>
+                        <div>
+                          <label style={{ display: "block", fontSize: "11px", fontWeight: 700, color: "#475569", marginBottom: "3px" }}>Scheduled Time</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. 10:00 AM"
+                            value={round.time}
+                            onChange={(e) => handleUpdateRound(rIdx, "time", e.target.value)}
+                            style={{ width: "100%", padding: "7px 10px", border: "1px solid #CBD5E1", borderRadius: "6px", fontSize: "12px", boxSizing: "border-box" }}
+                          />
+                        </div>
+                        <div>
+                          <label style={{ display: "block", fontSize: "11px", fontWeight: 700, color: "#475569", marginBottom: "3px" }}>Venue / Platform</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. Lab 2 / HackerRank / Teams"
+                            value={round.venue}
+                            onChange={(e) => handleUpdateRound(rIdx, "venue", e.target.value)}
+                            style={{ width: "100%", padding: "7px 10px", border: "1px solid #CBD5E1", borderRadius: "6px", fontSize: "12px", boxSizing: "border-box" }}
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label style={{ display: "block", fontSize: "11px", fontWeight: 700, color: "#475569", marginBottom: "3px" }}>Round Description / Syllabus</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. DSA, coding challenges, core computer science concepts"
+                          value={round.description}
+                          onChange={(e) => handleUpdateRound(rIdx, "description", e.target.value)}
+                          style={{ width: "100%", padding: "7px 10px", border: "1px solid #CBD5E1", borderRadius: "6px", fontSize: "12px", boxSizing: "border-box" }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* STEP 4: ACADEMIC ELIGIBILITY & REGISTRATION DEADLINE */}
+            {currentStep === 4 && (
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
-                <div>
-                  <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "#334155", marginBottom: "4px" }}>Min 10th Standard Cutoff (%) *</label>
+                <div style={{ gridColumn: "span 2" }}>
+                  <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "#334155", marginBottom: "4px" }}>
+                    Eligible Department(s) / Branches *
+                  </label>
                   <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={wizardForm.minTenth}
-                    onChange={(e) => setWizardForm({ ...wizardForm, minTenth: Number(e.target.value) })}
+                    type="text"
+                    required
+                    placeholder="e.g. CSE, IT, ECE, AIDS, MECH"
+                    value={wizardForm.department || wizardForm.eligibleBranches || ""}
+                    onChange={(e) => setWizardForm({ ...wizardForm, department: e.target.value, eligibleBranches: e.target.value })}
                     style={{ width: "100%", padding: "9px 12px", border: "1px solid #CBD5E1", borderRadius: "8px", fontSize: "13px", boxSizing: "border-box" }}
                   />
+                  <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginTop: "6px", alignItems: "center" }}>
+                    <span style={{ fontSize: "11px", color: "#64748B" }}>Quick add:</span>
+                    {["CSE", "IT", "ECE", "EEE", "AIDS", "MECH", "CIVIL", "All Departments"].map((dept) => (
+                      <button
+                        key={dept}
+                        type="button"
+                        onClick={() => {
+                          const current = (wizardForm.department || wizardForm.eligibleBranches || "").trim();
+                          if (dept === "All Departments") {
+                            setWizardForm({ ...wizardForm, department: "All Departments", eligibleBranches: "All Departments" });
+                            return;
+                          }
+                          const parts = current.split(",").map((s: string) => s.trim()).filter(Boolean);
+                          if (!parts.includes(dept)) {
+                            const updated = parts.length > 0 ? `${current}, ${dept}` : dept;
+                            setWizardForm({ ...wizardForm, department: updated, eligibleBranches: updated });
+                          }
+                        }}
+                        style={{
+                          fontSize: "11px",
+                          padding: "2px 8px",
+                          backgroundColor: "#F1F5F9",
+                          border: "1px solid #CBD5E1",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                          color: "#334155"
+                        }}
+                      >
+                        + {dept}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 <div>
-                  <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "#334155", marginBottom: "4px" }}>Min 12th / Diploma Cutoff (%) *</label>
+                  <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "#334155", marginBottom: "4px" }}>
+                    Eligible Batch (Graduation / Pass-out Year) *
+                  </label>
                   <input
                     type="number"
-                    min="0"
-                    max="100"
-                    value={wizardForm.minTwelfth}
-                    onChange={(e) => setWizardForm({ ...wizardForm, minTwelfth: Number(e.target.value) })}
+                    required
+                    min="2020"
+                    max="2035"
+                    placeholder="e.g. 2026"
+                    value={wizardForm.batch || wizardForm.gradYear || ""}
+                    onChange={(e) => setWizardForm({ ...wizardForm, batch: e.target.value, gradYear: e.target.value })}
                     style={{ width: "100%", padding: "9px 12px", border: "1px solid #CBD5E1", borderRadius: "8px", fontSize: "13px", boxSizing: "border-box" }}
                   />
+                  <div style={{ display: "flex", gap: "6px", marginTop: "6px", alignItems: "center" }}>
+                    <span style={{ fontSize: "11px", color: "#64748B" }}>Quick pick:</span>
+                    {["2025", "2026", "2027", "2028"].map((yr) => (
+                      <button
+                        key={yr}
+                        type="button"
+                        onClick={() => setWizardForm({ ...wizardForm, batch: yr, gradYear: yr })}
+                        style={{
+                          fontSize: "11px",
+                          padding: "2px 8px",
+                          backgroundColor: (wizardForm.batch === yr || wizardForm.gradYear === yr) ? "#EEF2FF" : "#F1F5F9",
+                          border: (wizardForm.batch === yr || wizardForm.gradYear === yr) ? "1px solid #6366F1" : "1px solid #CBD5E1",
+                          color: (wizardForm.batch === yr || wizardForm.gradYear === yr) ? "#4F46E5" : "#334155",
+                          borderRadius: "6px",
+                          cursor: "pointer",
+                          fontWeight: (wizardForm.batch === yr || wizardForm.gradYear === yr) ? 700 : 500
+                        }}
+                      >
+                        {yr}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 <div>
-                  <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "#334155", marginBottom: "4px" }}>Min CGPA Cutoff *</label>
+                  <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "#334155", marginBottom: "4px" }}>Min CGPA Cutoff</label>
                   <input
                     type="number"
                     step="0.01"
                     min="0"
                     max="10"
+                    placeholder="e.g. 6.5"
                     value={wizardForm.minCgpa}
-                    onChange={(e) => setWizardForm({ ...wizardForm, minCgpa: Number(e.target.value) })}
+                    onChange={(e) => setWizardForm({ ...wizardForm, minCgpa: e.target.value })}
                     style={{ width: "100%", padding: "9px 12px", border: "1px solid #CBD5E1", borderRadius: "8px", fontSize: "13px", boxSizing: "border-box" }}
                   />
                 </div>
 
                 <div>
-                  <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "#334155", marginBottom: "4px" }}>Max Active Backlogs Allowed *</label>
+                  <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "#334155", marginBottom: "4px" }}>Min 10th Standard Cutoff (%)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    placeholder="e.g. 60"
+                    value={wizardForm.minTenth}
+                    onChange={(e) => setWizardForm({ ...wizardForm, minTenth: e.target.value })}
+                    style={{ width: "100%", padding: "9px 12px", border: "1px solid #CBD5E1", borderRadius: "8px", fontSize: "13px", boxSizing: "border-box" }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "#334155", marginBottom: "4px" }}>Min 12th / Diploma Cutoff (%)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    placeholder="e.g. 60"
+                    value={wizardForm.minTwelfth}
+                    onChange={(e) => setWizardForm({ ...wizardForm, minTwelfth: e.target.value })}
+                    style={{ width: "100%", padding: "9px 12px", border: "1px solid #CBD5E1", borderRadius: "8px", fontSize: "13px", boxSizing: "border-box" }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: "#334155", marginBottom: "4px" }}>Max Active Backlogs Allowed</label>
                   <input
                     type="number"
                     min="0"
                     max="10"
+                    placeholder="e.g. 0"
                     value={wizardForm.maxBacklogs}
-                    onChange={(e) => setWizardForm({ ...wizardForm, maxBacklogs: Number(e.target.value) })}
+                    onChange={(e) => setWizardForm({ ...wizardForm, maxBacklogs: e.target.value })}
                     style={{ width: "100%", padding: "9px 12px", border: "1px solid #CBD5E1", borderRadius: "8px", fontSize: "13px", boxSizing: "border-box" }}
                   />
                 </div>
@@ -743,8 +1020,9 @@ export const DriveManagement: React.FC = () => {
                   <input
                     type="number"
                     min="1"
+                    placeholder="e.g. 10"
                     value={wizardForm.openings}
-                    onChange={(e) => setWizardForm({ ...wizardForm, openings: Number(e.target.value) })}
+                    onChange={(e) => setWizardForm({ ...wizardForm, openings: e.target.value })}
                     style={{ width: "100%", padding: "9px 12px", border: "1px solid #CBD5E1", borderRadius: "8px", fontSize: "13px", boxSizing: "border-box" }}
                   />
                 </div>
@@ -780,15 +1058,15 @@ export const DriveManagement: React.FC = () => {
                   Cancel
                 </button>
 
-                {currentStep < 3 ? (
+                {currentStep < 4 ? (
                   <button
                     type="button"
                     onClick={() => {
-                      if (currentStep === 1 && (!wizardForm.company || !wizardForm.role)) {
-                        alert("Please provide Company Name and Job Role before proceeding.");
+                      if (currentStep === 1 && (!wizardForm.company || !wizardForm.role || !wizardForm.ctc)) {
+                        alert("Please provide Company Name, Job Role, and CTC before proceeding.");
                         return;
                       }
-                      setCurrentStep((prev) => (prev < 3 ? (prev + 1) as any : 3));
+                      setCurrentStep((prev) => (prev < 4 ? (prev + 1) as any : 4));
                     }}
                     style={{ padding: "9px 22px", backgroundColor: "#4F46E5", color: "#FFFFFF", border: "none", borderRadius: "8px", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}
                   >
@@ -827,17 +1105,50 @@ export const DriveManagement: React.FC = () => {
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px", fontSize: "13px", color: "#334155", marginBottom: "20px" }}>
               <div><strong>Package (CTC):</strong> {selectedDrive.ctc || selectedDrive.packageCtc}</div>
               <div><strong>Location:</strong> {selectedDrive.location}</div>
-              <div><strong>Min CGPA:</strong> {selectedDrive.minCgpa || 6.5}</div>
-              <div><strong>10th / 12th Cutoff:</strong> {selectedDrive.minTenth || 60}% / {selectedDrive.minTwelfth || 60}%</div>
+              <div><strong>Eligible Department(s):</strong> {Array.isArray(selectedDrive.eligibleBranches) && selectedDrive.eligibleBranches.length > 0 ? selectedDrive.eligibleBranches.join(", ") : (selectedDrive.department || selectedDrive.departments || "All Branches")}</div>
+              <div><strong>Eligible Batch:</strong> {selectedDrive.batch || selectedDrive.gradYear || "All Batches"}</div>
+              <div><strong>Min CGPA:</strong> {selectedDrive.minCgpa !== undefined && selectedDrive.minCgpa !== "" ? selectedDrive.minCgpa : "No cutoff"}</div>
+              <div><strong>10th / 12th Cutoff:</strong> {selectedDrive.minTenth ? `${selectedDrive.minTenth}%` : "None"} / {selectedDrive.minTwelfth ? `${selectedDrive.minTwelfth}%` : "None"}</div>
               <div><strong>Max Backlogs:</strong> {selectedDrive.maxBacklogs ?? 0}</div>
               <div><strong>Deadline:</strong> {selectedDrive.deadline}</div>
               {selectedDrive.recruiterName && <div><strong>Recruiter Name:</strong> {selectedDrive.recruiterName}</div>}
               {selectedDrive.recruiterEmail && <div><strong>Recruiter Email:</strong> {selectedDrive.recruiterEmail}</div>}
             </div>
 
-            <div style={{ backgroundColor: "#F8FAFC", padding: "14px", borderRadius: "10px", border: "1px solid #E2E8F0", fontSize: "12.5px", color: "#475569", lineHeight: 1.5, marginBottom: "20px" }}>
+            <div style={{ backgroundColor: "#F8FAFC", padding: "14px", borderRadius: "10px", border: "1px solid #E2E8F0", fontSize: "12.5px", color: "#475569", lineHeight: 1.5, marginBottom: "16px" }}>
               <strong>Job Description:</strong>
               <div style={{ marginTop: "4px" }}>{selectedDrive.jobDescription || "No detailed description provided."}</div>
+            </div>
+
+            {/* Selection Rounds Section */}
+            <div style={{ backgroundColor: "#F8FAFC", padding: "14px", borderRadius: "10px", border: "1px solid #E2E8F0", marginBottom: "20px" }}>
+              <div style={{ fontSize: "12px", fontWeight: 800, color: "#0F172A", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "10px" }}>
+                Selection Rounds Workflow ({((selectedDrive.rounds && selectedDrive.rounds.length > 0) ? selectedDrive.rounds : (selectedDrive.roundsWorkflow || [])).length})
+              </div>
+              {((selectedDrive.rounds && selectedDrive.rounds.length > 0) ? selectedDrive.rounds : (selectedDrive.roundsWorkflow || [])).length === 0 ? (
+                <div style={{ fontSize: "12px", color: "#64748B", fontStyle: "italic" }}>No specific selection rounds configured for this drive.</div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                  {((selectedDrive.rounds && selectedDrive.rounds.length > 0) ? selectedDrive.rounds : (selectedDrive.roundsWorkflow || [])).map((rnd: any, idx: number) => (
+                    <div key={idx} style={{ backgroundColor: "#FFFFFF", padding: "10px 12px", borderRadius: "8px", border: "1px solid #CBD5E1", fontSize: "12px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span style={{ fontWeight: 800, color: "#4F46E5" }}>Round {rnd.roundNumber || idx + 1}: {rnd.roundName || rnd.name}</span>
+                        <span style={{ fontSize: "10.5px", color: "#4F46E5", backgroundColor: "#EEF2FF", padding: "2px 8px", borderRadius: "8px", fontWeight: 700 }}>{rnd.mode || "Online"}</span>
+                      </div>
+                      {(rnd.date || rnd.time || rnd.venue) && (
+                        <div style={{ fontSize: "11px", color: "#64748B", marginTop: "4px", display: "flex", gap: "10px", flexWrap: "wrap" }}>
+                          {rnd.date && <span><strong>Date:</strong> {rnd.date}</span>}
+                          {rnd.time && <span><strong>Time:</strong> {rnd.time}</span>}
+                          {rnd.venue && <span><strong>Venue:</strong> {rnd.venue}</span>}
+                        </div>
+                      )}
+                      {rnd.description && (
+                        <div style={{ fontSize: "11.5px", color: "#475569", marginTop: "4px" }}>{rnd.description}</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Opted-In Candidates List */}

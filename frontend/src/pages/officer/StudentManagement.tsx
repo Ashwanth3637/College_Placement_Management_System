@@ -114,6 +114,7 @@ const StudentManagement: React.FC = () => {
   const [actionMessage, setActionMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [rejectionReason, setRejectionReason] = useState<string>("");
   const [showRejectModal, setShowRejectModal] = useState<boolean>(false);
+  const [rejectTargetStudent, setRejectTargetStudent] = useState<StudentRecord | null>(null);
 
   const openStudentModal = (st: StudentRecord) => {
     const sId = st._id || st.id || st.user?._id || "";
@@ -472,8 +473,12 @@ const StudentManagement: React.FC = () => {
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        setSelectedStudent(null);
-        setShowRejectModal(false);
+        if (showRejectModal) {
+          setShowRejectModal(false);
+          setRejectTargetStudent(null);
+        } else {
+          setSelectedStudent(null);
+        }
       }
     };
     window.addEventListener("keydown", handleKeyDown);
@@ -701,24 +706,81 @@ const StudentManagement: React.FC = () => {
   };
 
   const handleReject = async () => {
-    if (!selectedStudent) return;
-    const targetId = selectedStudent._id || selectedStudent.id || selectedStudent.user?._id || "";
-    const targetName = selectedStudent.user?.name || "Student";
+    const target = rejectTargetStudent || selectedStudent;
+    if (!target) return;
+    const targetId = target._id || target.id || target.user?._id || "";
+    const targetName = target.user?.name || target.personal?.fullName || "Student";
+    const targetEmail = (target.user?.email || target.personal?.email || (target as any).email || "").toLowerCase().trim();
     if (!targetId) return;
 
-    setStudents(prev => prev.map(s => (s._id === targetId || s.id === targetId || s.user?._id === targetId) ? { ...s, isVerified: false, isProfileComplete: false } : s));
-    setSelectedStudent(prev => prev ? { ...prev, isVerified: false, isProfileComplete: false } : null);
+    const finalReason = rejectionReason.trim() || "Profile details require correction as specified by Placement Officer. Please review and update.";
+
+    setStudents(prev =>
+      prev.map(s => {
+        const sId = s._id || s.id || s.user?._id;
+        const sEmail = (s.user?.email || s.personal?.email || (s as any).email || "").toLowerCase().trim();
+        if (sId === targetId || (targetEmail && sEmail === targetEmail)) {
+          return {
+            ...s,
+            isVerified: false,
+            verificationStatus: "rejected",
+            rejectionReason: finalReason,
+            isProfileComplete: false,
+          };
+        }
+        return s;
+      })
+    );
+
+    if (selectedStudent && (selectedStudent._id === targetId || selectedStudent.id === targetId || selectedStudent.user?._id === targetId)) {
+      setSelectedStudent(null);
+    }
     setShowRejectModal(false);
-    setActionMessage({ type: "error", text: ` Rejected ${targetName} Profile` });
+    setRejectTargetStudent(null);
+    setActionMessage({ type: "error", text: `✓ Rejected ${targetName}'s Profile. Rejection feedback sent to student.` });
+
+    if (targetEmail) {
+      localStorage.setItem(`cpms_verification_status_${targetEmail}`, "rejected");
+      localStorage.setItem(`cpms_rejection_reason_${targetEmail}`, finalReason);
+      localStorage.setItem(`cpms_profile_verified_${targetEmail}`, "false");
+    }
+    if (targetId) {
+      localStorage.setItem(`cpms_verification_status_${targetId}`, "rejected");
+      localStorage.setItem(`cpms_rejection_reason_${targetId}`, finalReason);
+      localStorage.setItem(`cpms_profile_verified_${targetId}`, "false");
+    }
+    localStorage.setItem(`cpms_verification_status_global`, "rejected");
+    localStorage.setItem(`cpms_rejection_reason_global`, finalReason);
+    localStorage.setItem(`cpms_profile_verified_global`, "false");
+
+    try {
+      const channel = new BroadcastChannel("cpms_profile_channel");
+      channel.postMessage({
+        type: "PROFILE_REJECTED",
+        isVerified: false,
+        verificationStatus: "rejected",
+        rejectionReason: finalReason,
+        studentId: targetId,
+        studentEmail: targetEmail,
+      });
+      channel.close();
+    } catch (e) {}
+
+    window.dispatchEvent(
+      new CustomEvent("cpms_verification_updated", {
+        detail: { isVerified: false, verificationStatus: "rejected", rejectionReason: finalReason },
+      })
+    );
+    window.dispatchEvent(new Event("storage"));
 
     try {
       await fetch(`${API_BASE_URL}/api/student/reject/${targetId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rejectionReason: rejectionReason || "Academic criteria verification failed" }),
+        body: JSON.stringify({ rejectionReason: finalReason }),
       });
-    } catch (err) { }
-    setTimeout(() => setActionMessage(null), 4000);
+    } catch (err) {}
+    setTimeout(() => setActionMessage(null), 5000);
   };
 
   const handleTogglePlacementStatus = async (studentId?: string, isPlacedTarget?: boolean, companyNameTarget?: string) => {
@@ -939,8 +1001,12 @@ const StudentManagement: React.FC = () => {
     const matchesYear = yearFilter === "All" || year === yearFilter;
 
     let statusKey = "Pending Verification";
-    if (st.isVerified) statusKey = "Verified";
-    else if (st.isProfileComplete === false) statusKey = "Rejected";
+    const isRejectedStudent = st.verificationStatus === "rejected" || Boolean((st as any).rejectionReason) || st.isProfileComplete === false;
+    if (isRejectedStudent) {
+      statusKey = "Rejected";
+    } else if (st.isVerified && st.verificationStatus !== "pending") {
+      statusKey = "Verified";
+    }
 
     const matchesStatus = verificationFilter === "All" || statusKey === verificationFilter;
 
@@ -955,8 +1021,9 @@ const StudentManagement: React.FC = () => {
 
   // Calculate Summary Metrics Dynamically
   const totalCount = students.length;
-  const verifiedCount = students.filter(s => s.isVerified).length;
-  const pendingCount = students.filter(s => !s.isVerified && s.isProfileComplete !== false).length;
+  const verifiedCount = students.filter(s => s.isVerified && s.verificationStatus !== "pending" && s.verificationStatus !== "rejected").length;
+  const rejectedCount = students.filter(s => s.verificationStatus === "rejected" || s.isProfileComplete === false || Boolean((s as any).rejectionReason)).length;
+  const pendingCount = students.filter(s => !s.isVerified && s.verificationStatus !== "rejected" && s.isProfileComplete !== false && !Boolean((s as any).rejectionReason)).length;
   const placedCount = students.filter(s => isStudentPlaced(s)).length;
 
   return (
@@ -1100,9 +1167,30 @@ const StudentManagement: React.FC = () => {
                         {st.academic?.graduationYear || 2026}
                       </td>
                       <td style={{ padding: "12px 16px", textAlign: "center" }}>
-                        <span style={{ padding: "4px 10px", borderRadius: "12px", fontSize: "11px", fontWeight: "700", backgroundColor: st.isProfileComplete === false ? "#fee2e2" : st.isVerified ? "#dcfce7" : "#fffbeb", color: st.isProfileComplete === false ? "#dc2626" : st.isVerified ? "#15803d" : "#b45309", border: st.isProfileComplete === false ? "1px solid #fecaca" : st.isVerified ? "1px solid #86efac" : "1px solid #fde68a" }}>
-                          {st.isProfileComplete === false ? "Rejected " : st.isVerified ? "Verified " : "Pending"}
-                        </span>
+                        {(() => {
+                          const isRejected = st.verificationStatus === "rejected" || Boolean((st as any).rejectionReason) || st.isProfileComplete === false;
+                          const isVer = !isRejected && st.isVerified && st.verificationStatus !== "pending";
+                          return (
+                            <div style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", gap: "2px" }}>
+                              <span style={{
+                                padding: "4px 10px",
+                                borderRadius: "12px",
+                                fontSize: "11px",
+                                fontWeight: "700",
+                                backgroundColor: isRejected ? "#fee2e2" : isVer ? "#dcfce7" : "#fffbeb",
+                                color: isRejected ? "#dc2626" : isVer ? "#15803d" : "#b45309",
+                                border: isRejected ? "1px solid #fecaca" : isVer ? "1px solid #86efac" : "1px solid #fde68a"
+                              }}>
+                                {isRejected ? "Rejected ✕" : isVer ? "Verified ✓" : "Pending ⏳"}
+                              </span>
+                              {isRejected && (st as any).rejectionReason && (
+                                <span title={`Reason: ${(st as any).rejectionReason}`} style={{ fontSize: "10px", color: "#dc2626", maxWidth: "120px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                  {(st as any).rejectionReason}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </td>
                       <td style={{ padding: "12px 16px", textAlign: "center" }}>
                         <button
@@ -1128,40 +1216,60 @@ const StudentManagement: React.FC = () => {
                         </button>
                       </td>
                       <td style={{ padding: "12px 16px", textAlign: "center" }}>
-                        <button
-                          type="button"
-                          onClick={() => openStudentModal(st)}
-                          title="View Details"
-                          style={{
-                            width: "36px",
-                            height: "36px",
-                            borderRadius: "10px",
-                            backgroundColor: "#f8fafc",
-                            border: "1.5px solid #cbd5e1",
-                            color: "#475569",
-                            cursor: "pointer",
-                            display: "inline-flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            transition: "all 0.15s ease",
-                            boxShadow: "0 1px 2px rgba(0, 0, 0, 0.04)"
-                          }}
-                          onMouseEnter={(e: any) => {
-                            e.currentTarget.style.backgroundColor = "#eff6ff";
-                            e.currentTarget.style.borderColor = "#2563eb";
-                            e.currentTarget.style.color = "#2563eb";
-                          }}
-                          onMouseLeave={(e: any) => {
-                            e.currentTarget.style.backgroundColor = "#f8fafc";
-                            e.currentTarget.style.borderColor = "#cbd5e1";
-                            e.currentTarget.style.color = "#475569";
-                          }}
-                        >
-                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                            <circle cx="12" cy="12" r="3" />
-                          </svg>
-                        </button>
+                        <div style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                          <button
+                            type="button"
+                            onClick={() => openStudentModal(st)}
+                            title="View & Verify Details"
+                            style={{
+                              padding: "6px 10px",
+                              borderRadius: "8px",
+                              backgroundColor: "#f8fafc",
+                              border: "1.5px solid #cbd5e1",
+                              color: "#0f172a",
+                              fontSize: "12px",
+                              fontWeight: "600",
+                              cursor: "pointer",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "4px",
+                              transition: "all 0.15s ease",
+                              boxShadow: "0 1px 2px rgba(0, 0, 0, 0.04)"
+                            }}
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                              <circle cx="12" cy="12" r="3" />
+                            </svg>
+                            <span>Review</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setRejectTargetStudent(st);
+                              setRejectionReason("");
+                              setShowRejectModal(true);
+                            }}
+                            title="Reject Profile with Reason"
+                            style={{
+                              padding: "6px 9px",
+                              borderRadius: "8px",
+                              backgroundColor: "#fef2f2",
+                              border: "1.5px solid #fecaca",
+                              color: "#dc2626",
+                              fontSize: "12px",
+                              fontWeight: "700",
+                              cursor: "pointer",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "3px",
+                              transition: "all 0.15s ease",
+                            }}
+                          >
+                            ✕ Reject
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -1551,7 +1659,11 @@ const StudentManagement: React.FC = () => {
                      Approve Profile
                   </button>
                   <button
-                    onClick={() => { setRejectionReason(""); setShowRejectModal(true); }}
+                    onClick={() => {
+                      setRejectTargetStudent(selectedStudent);
+                      setRejectionReason("");
+                      setShowRejectModal(true);
+                    }}
                     style={{
                       padding: "10px 20px",
                       backgroundColor: "#dc2626",
@@ -1567,7 +1679,7 @@ const StudentManagement: React.FC = () => {
                       gap: "6px",
                     }}
                   >
-                     Reject Profile
+                    ✕ Reject Profile
                   </button>
                 </div>
                 <button
@@ -1583,7 +1695,7 @@ const StudentManagement: React.FC = () => {
                     cursor: "pointer",
                   }}
                 >
-                  Cancel
+                  Close
                 </button>
               </div>
             </div>
@@ -1591,31 +1703,222 @@ const StudentManagement: React.FC = () => {
         );
       })()}
 
-      {/* Rejection Reason Modal */}
-      {showRejectModal && (
-        <div onClick={() => setShowRejectModal(false)} style={styles.modalOverlay}>
-          <div onClick={(e) => e.stopPropagation()} style={styles.modalContent}>
-            <h3 style={{ margin: "0 0 12px 0", color: "#dc2626" }}>Reject Student Academic Profile</h3>
-            <p style={{ fontSize: "13px", color: "#64748b", margin: "0 0 12px 0" }}>
-              Specify the reason for rejection (e.g. CGPA mismatch, unreadable resume). The student will be prompted to re-upload.
-            </p>
-            <textarea
-              value={rejectionReason}
-              onChange={(e) => setRejectionReason(e.target.value)}
-              placeholder="Enter rejection reason for candidate..."
-              style={styles.textarea}
-            />
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "16px" }}>
-              <button onClick={() => setShowRejectModal(false)} style={styles.cancelBtn}>
-                Cancel
-              </button>
-              <button onClick={handleReject} style={styles.confirmRejectBtn}>
-                Reject Profile
-              </button>
+      {/* Pop-up Dialog Box for Rejection with Scrim Background */}
+      {showRejectModal && (() => {
+        const target = rejectTargetStudent || selectedStudent;
+        const candidateName = target?.user?.name || target?.personal?.fullName || "Candidate";
+        const candidateEmail = target?.user?.email || target?.personal?.email || (target as any)?.email || "";
+        const candidateDept = target?.personal?.department || "Student";
+        const candidateRegNo = target?.personal?.registerNumber || "";
+
+        const quickReasons = [
+          "CGPA mismatch with mark sheet",
+          "Incorrect 10th / 12th percentage",
+          "Active backlogs not disclosed",
+          "Invalid register number or department",
+          "Resume unreadable or missing required sections",
+          "Incomplete academic information",
+        ];
+
+        return (
+          <div
+            onClick={() => {
+              setShowRejectModal(false);
+              setRejectTargetStudent(null);
+            }}
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              width: "100vw",
+              height: "100vh",
+              backgroundColor: "rgba(15, 23, 42, 0.75)",
+              backdropFilter: "blur(6px)",
+              WebkitBackdropFilter: "blur(6px)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 100000,
+              padding: "20px",
+              boxSizing: "border-box",
+            }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                backgroundColor: "#ffffff",
+                borderRadius: "18px",
+                width: "100%",
+                maxWidth: "520px",
+                boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(0, 0, 0, 0.05)",
+                overflow: "hidden",
+                display: "flex",
+                flexDirection: "column",
+                animation: "fadeInScale 0.2s ease-out",
+              }}
+            >
+              {/* Modal Header */}
+              <div style={{ padding: "20px 24px", borderBottom: "1px solid #fee2e2", backgroundColor: "#fff5f5", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                  <div style={{ width: "40px", height: "40px", borderRadius: "10px", backgroundColor: "#fee2e2", border: "1px solid #fca5a5", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "20px", color: "#dc2626" }}>
+                    ⚠️
+                  </div>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: "17px", fontWeight: "800", color: "#991b1b" }}>
+                      Reject Student Profile
+                    </h3>
+                    <p style={{ margin: "2px 0 0 0", fontSize: "12px", color: "#7f1d1d" }}>
+                      Provide the reason why details are incorrect
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowRejectModal(false);
+                    setRejectTargetStudent(null);
+                  }}
+                  style={{
+                    backgroundColor: "transparent",
+                    border: "none",
+                    fontSize: "20px",
+                    fontWeight: "700",
+                    color: "#94a3b8",
+                    cursor: "pointer",
+                    padding: "4px 8px",
+                    borderRadius: "6px",
+                  }}
+                  title="Close (Esc)"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: "16px" }}>
+                {/* Candidate Info Pill */}
+                <div style={{ backgroundColor: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "10px", padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "12.5px" }}>
+                  <div>
+                    <strong style={{ color: "#0f172a", fontSize: "13px" }}>{candidateName}</strong>
+                    <div style={{ color: "#64748b", fontSize: "11.5px" }}>{candidateEmail}</div>
+                  </div>
+                  <div style={{ textAlign: "right", fontSize: "11.5px", color: "#475569" }}>
+                    <div><strong>Reg:</strong> {candidateRegNo || "N/A"}</div>
+                    <div>{candidateDept}</div>
+                  </div>
+                </div>
+
+                <p style={{ fontSize: "13px", color: "#475569", margin: 0, lineHeight: 1.5 }}>
+                  The candidate will see this reason on their portal and will be requested to update their incorrect information and re-submit for approval.
+                </p>
+
+                {/* Quick Reasons Chips */}
+                <div>
+                  <div style={{ fontSize: "11.5px", fontWeight: "700", color: "#64748b", textTransform: "uppercase", marginBottom: "8px" }}>
+                    Quick Select Common Reasons:
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                    {quickReasons.map((reason, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setRejectionReason(reason)}
+                        style={{
+                          backgroundColor: rejectionReason === reason ? "#fee2e2" : "#f1f5f9",
+                          color: rejectionReason === reason ? "#b91c1c" : "#334155",
+                          border: rejectionReason === reason ? "1px solid #f87171" : "1px solid #e2e8f0",
+                          borderRadius: "16px",
+                          padding: "4px 10px",
+                          fontSize: "11px",
+                          fontWeight: "600",
+                          cursor: "pointer",
+                          transition: "all 0.15s ease",
+                        }}
+                      >
+                        {reason}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Textarea for Specific Reason */}
+                <div>
+                  <label style={{ display: "block", fontSize: "12.5px", fontWeight: "700", color: "#1e293b", marginBottom: "6px" }}>
+                    Rejection Reason / Feedback to Candidate:
+                  </label>
+                  <textarea
+                    autoFocus
+                    value={rejectionReason}
+                    onChange={(e) => setRejectionReason(e.target.value)}
+                    placeholder="e.g. 12th percentage entered as 92% does not match the uploaded marksheet (shows 82%). Please correct academic details and re-upload."
+                    style={{
+                      width: "100%",
+                      minHeight: "95px",
+                      padding: "12px",
+                      borderRadius: "8px",
+                      border: "1.5px solid #cbd5e1",
+                      fontSize: "13px",
+                      fontFamily: "inherit",
+                      boxSizing: "border-box",
+                      outline: "none",
+                      resize: "vertical",
+                      lineHeight: "1.5",
+                      color: "#0f172a",
+                    }}
+                    onFocus={(e) => (e.target.style.borderColor = "#dc2626")}
+                    onBlur={(e) => (e.target.style.borderColor = "#cbd5e1")}
+                  />
+                </div>
+              </div>
+
+              {/* Modal Footer with Cancel and Reject Button */}
+              <div style={{ padding: "16px 24px", backgroundColor: "#f8fafc", borderTop: "1px solid #e2e8f0", display: "flex", justifyContent: "flex-end", gap: "10px" }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowRejectModal(false);
+                    setRejectTargetStudent(null);
+                  }}
+                  style={{
+                    padding: "9px 18px",
+                    backgroundColor: "#ffffff",
+                    color: "#475569",
+                    border: "1px solid #cbd5e1",
+                    borderRadius: "8px",
+                    fontSize: "13px",
+                    fontWeight: "700",
+                    cursor: "pointer",
+                    transition: "all 0.15s ease",
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleReject}
+                  style={{
+                    padding: "9px 20px",
+                    backgroundColor: "#dc2626",
+                    color: "#ffffff",
+                    border: "none",
+                    borderRadius: "8px",
+                    fontSize: "13px",
+                    fontWeight: "700",
+                    cursor: "pointer",
+                    boxShadow: "0 2px 8px rgba(220, 38, 38, 0.3)",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    transition: "all 0.15s ease",
+                  }}
+                >
+                  <span>✕ Reject Profile</span>
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 };
@@ -1685,7 +1988,7 @@ const styles: { [key: string]: React.CSSProperties } = {
   },
   mainGrid: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+    gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 280px), 1fr))",
     gap: "16px",
   },
   listCard: {

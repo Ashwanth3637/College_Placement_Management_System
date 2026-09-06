@@ -18,6 +18,8 @@ export interface ApplicationRecord {
   currentRound?: number;
   roundStatus?: string;
   roundName?: string;
+  roundsWorkflow?: any[];
+  rounds?: any[];
   resumeName: string;
   resumeUrl?: string;
   cgpa: number;
@@ -284,21 +286,21 @@ const ApplicationManagement: React.FC = () => {
 
           uniqueMap.set(compositeKey, {
             id: existing?.id || app.id || `app_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
-            studentName: "Ashwanth S",
-            regNo: "22CSR025",
-            department: "Computer Science & Engineering",
-            email: "ashwanth@gmail.com",
-            phone: app.phone || existing?.phone || "+91 98765 43210",
+            studentName: app.studentName || existing?.studentName || "Applicant",
+            regNo: app.regNo || existing?.regNo || "",
+            department: app.department || existing?.department || "",
+            email: email,
+            phone: app.phone || existing?.phone || "",
             companyName: norm.company,
             jobRole: cleanRole,
-            appliedDate: app.appliedDate ? String(app.appliedDate).slice(0, 10) : (existing?.appliedDate || "27 Aug 2026"),
+            appliedDate: app.appliedDate ? String(app.appliedDate).slice(0, 10) : (existing?.appliedDate || ""),
             status: app.status || existing?.status || "Opted-In",
             currentRound: app.currentRound || existing?.currentRound || 1,
             roundStatus: app.roundStatus || existing?.roundStatus,
             roundName: app.roundName || existing?.roundName,
-
-            resumeName: app.resumeName || existing?.resumeName || "Ashwanth_S_Resume.pdf",
-            resumeUrl: app.resumeUrl || existing?.resumeUrl || `${API_BASE_URL}/uploads/resumes/Ashwanth_S_Resume.pdf`,
+            roundsWorkflow: app.roundsWorkflow || existing?.roundsWorkflow || [],
+            resumeName: app.resumeName || existing?.resumeName || "Resume.pdf",
+            resumeUrl: app.resumeUrl || existing?.resumeUrl,
             cgpa: normCgpa,
             minCgpa: normMinCgpa,
             tenth: normTenth,
@@ -310,7 +312,7 @@ const ApplicationManagement: React.FC = () => {
             gradYear: app.gradYear || 2026,
             reqGradYear: app.reqGradYear || 2026,
             history: app.history && Array.isArray(app.history) && app.history.length > 0 ? app.history : (existing?.history || [
-              { date: "27 Aug 2026 10:00 AM", title: "Opt-In Application Submitted", desc: "Student explicitly opted in for placement drive." }
+              { date: new Date().toLocaleDateString(), title: "Opt-In Application Submitted", desc: "Student opted in for placement drive." }
             ])
           });
         };
@@ -324,22 +326,23 @@ const ApplicationManagement: React.FC = () => {
               apiData.forEach((a: any) => {
                 addUniqueApp({
                   id: a._id || a.id,
-                  studentName: a.studentName || "Ashwanth S",
-                  regNo: a.regNo || "22CSR025",
-                  department: a.department || "CSE",
-                  email: a.email || "ashwanth@gmail.com",
-                  phone: a.phone || "+91 98765 43210",
+                  studentName: a.studentName || a.name || "Applicant",
+                  regNo: a.regNo || a.rollNo || a.registerNumber || "",
+                  department: a.department || a.dept || a.branch || "",
+                  email: a.email || a.studentEmail || "",
+                  phone: a.phone || a.mobile || "",
                   companyName: a.companyName,
                   jobRole: a.jobRole,
-                  appliedDate: a.appliedDate || "24 Aug 2026",
+                  appliedDate: a.appliedDate ? String(a.appliedDate).slice(0, 10) : "",
                   status: a.status,
                   currentRound: a.currentRound || 1,
                   roundStatus: a.roundStatus || "In Progress",
-                  roundName: a.roundName || "Round 1: Technical Assessment",
+                  roundName: a.roundName || "Round 1: Selection Assessment",
+                  roundsWorkflow: a.roundsWorkflow || [],
                   history: a.history || [],
                   interviewSchedule: a.interviewSchedule || {},
                   remarks: a.remarks || "",
-                  cgpa: a.cgpa || 8.0,
+                  cgpa: a.cgpa || 0,
                   gradYear: a.gradYear || 2026
                 });
               });
@@ -482,6 +485,37 @@ const ApplicationManagement: React.FC = () => {
 
     return matchesSearch && matchesDrive && matchesDept && matchesStatus;
   });
+
+  // Helper: Retrieve exact drive rounds configured for an application
+  const getAppRoundsList = (app: ApplicationRecord | null): any[] => {
+    if (!app) return [{ roundNumber: 1, roundName: "Selection Assessment", mode: "Online" }];
+    if (Array.isArray((app as any).roundsWorkflow) && (app as any).roundsWorkflow.length > 0) {
+      return (app as any).roundsWorkflow;
+    }
+    if (Array.isArray((app as any).rounds) && (app as any).rounds.length > 0) {
+      return (app as any).rounds;
+    }
+    try {
+      const savedDrives = localStorage.getItem("cpms_drives");
+      if (savedDrives) {
+        const parsed = JSON.parse(savedDrives);
+        if (Array.isArray(parsed)) {
+          const comp = String(app.companyName || "").toLowerCase().trim();
+          const matched = parsed.find((d: any) =>
+            (d.companyName || d.company || "").toLowerCase().includes(comp) ||
+            comp.includes((d.companyName || d.company || "").toLowerCase())
+          );
+          if (matched && Array.isArray(matched.rounds) && matched.rounds.length > 0) {
+            return matched.rounds;
+          }
+        }
+      }
+    } catch (e) {}
+
+    return [
+      { roundNumber: 1, roundName: "Selection Assessment", mode: "Online", venueOrLink: "Portal / Campus", description: "Assessment Round" }
+    ];
+  };
 
   // Helper: Update Status & Append Timeline History Event
   const handleUpdateStatus = (
@@ -1081,44 +1115,7 @@ const ApplicationManagement: React.FC = () => {
                   </div>
                 ) : (
                   (() => {
-                    const getCompanyRoundsList = (companyName: string) => {
-                      try {
-                        const savedDrives = localStorage.getItem("cpms_drives");
-                        if (savedDrives) {
-                          const parsed = JSON.parse(savedDrives);
-                          if (Array.isArray(parsed)) {
-                            const matched = parsed.find((d: any) => d.companyName && d.companyName.toLowerCase().includes(companyName.toLowerCase()));
-                            if (matched && Array.isArray(matched.rounds) && matched.rounds.length > 0) {
-                              return matched.rounds;
-                            }
-                          }
-                        }
-                      } catch (e) {}
-
-                      if (companyName.toLowerCase().includes("google")) {
-                        return [
-                          { roundNumber: 1, roundName: "Online Coding Challenge" },
-                          { roundNumber: 2, roundName: "Technical Round 1" },
-                          { roundNumber: 3, roundName: "System Design" },
-                          { roundNumber: 4, roundName: "Googliness & HR" }
-                        ];
-                      } else if (companyName.toLowerCase().includes("zoho")) {
-                        return [
-                          { roundNumber: 1, roundName: "Written Aptitude & C" },
-                          { roundNumber: 2, roundName: "Basic Programming" },
-                          { roundNumber: 3, roundName: "Advanced Programming" },
-                          { roundNumber: 4, roundName: "Technical & HR" }
-                        ];
-                      }
-
-                      return [
-                        { roundNumber: 1, roundName: "Online Test" },
-                        { roundNumber: 2, roundName: "Technical Interview" },
-                        { roundNumber: 3, roundName: "HR Round" }
-                      ];
-                    };
-
-                    const driveRounds = getCompanyRoundsList(selectedApp.companyName);
+                    const driveRounds = getAppRoundsList(selectedApp);
                     const currentRoundNum = selectedApp.currentRound || 1;
                     const isSelectedFinal = selectedApp.status === "Selected";
 
@@ -1189,44 +1186,7 @@ const ApplicationManagement: React.FC = () => {
 
                 {/* Company Assigned Recruitment Rounds Schedule */}
                 {(() => {
-                  const getCompanyRounds = (companyName: string) => {
-                    try {
-                      const savedDrives = localStorage.getItem("cpms_drives");
-                      if (savedDrives) {
-                        const parsed = JSON.parse(savedDrives);
-                        if (Array.isArray(parsed)) {
-                          const matched = parsed.find((d: any) => d.companyName.toLowerCase().includes(companyName.toLowerCase()));
-                          if (matched && Array.isArray(matched.rounds) && matched.rounds.length > 0) {
-                            return matched.rounds;
-                          }
-                        }
-                      }
-                    } catch (e) {}
-
-                    if (companyName.toLowerCase().includes("google")) {
-                      return [
-                        { roundNumber: 1, roundName: "Round 1: Online Coding Challenge", mode: "Online", date: "23 Aug 2026", venueOrLink: "Google Challenge Portal", description: "2 DSA Problems (90 Mins)" },
-                        { roundNumber: 2, roundName: "Round 2: Technical Round 1 (DSA)", mode: "Online", date: "25 Aug 2026", venueOrLink: "Google Meet", description: "Trees & Graphs" },
-                        { roundNumber: 3, roundName: "Round 3: Technical Round 2 (System Design)", mode: "Online", date: "26 Aug 2026", venueOrLink: "Google Meet", description: "System Architecture" },
-                        { roundNumber: 4, roundName: "Round 4: Googliness & HR Round", mode: "Online", date: "27 Aug 2026", venueOrLink: "Google Meet", description: "Culture Fit Interview" }
-                      ];
-                    } else if (companyName.toLowerCase().includes("zoho")) {
-                      return [
-                        { roundNumber: 1, roundName: "Round 1: Written Aptitude & C Programming", mode: "On-Campus", date: "28 Aug 2026", venueOrLink: "Auditorium & CS Lab 1", description: "Aptitude & C Debugging" },
-                        { roundNumber: 2, roundName: "Round 2: Basic Programming Round", mode: "On-Campus", date: "28 Aug 2026", venueOrLink: "CS Lab 2 & 3", description: "5 Coding Questions" },
-                        { roundNumber: 3, roundName: "Round 3: Advanced Programming Round", mode: "On-Campus", date: "29 Aug 2026", venueOrLink: "CS Lab 3", description: "Complex Data Structures" },
-                        { roundNumber: 4, roundName: "Round 4: Technical & HR Interview", mode: "In-Person", date: "29 Aug 2026", venueOrLink: "Placement Hall", description: "Project & Core CS" }
-                      ];
-                    }
-
-                    return [
-                      { roundNumber: 1, roundName: "Round 1: Online Aptitude & Coding Test", mode: "Online", date: "24 Aug 2026", venueOrLink: "HackerRank Portal", description: "Aptitude & Coding" },
-                      { roundNumber: 2, roundName: "Round 2: Technical Interview", mode: "Online", date: "25 Aug 2026", venueOrLink: "Google Meet / Teams", description: "Data Structures & Core CS" },
-                      { roundNumber: 3, roundName: "Round 3: HR & Management Round", mode: "Online", date: "26 Aug 2026", venueOrLink: "Google Meet / Teams", description: "Behavioral & Offer Discussion" }
-                    ];
-                  };
-
-                  const rounds = getCompanyRounds(selectedApp.companyName);
+                  const rounds = getAppRoundsList(selectedApp);
                   const currentStageIdx = STAGE_ORDER.indexOf(selectedApp.status);
 
                   return (
@@ -1303,47 +1263,7 @@ const ApplicationManagement: React.FC = () => {
 
             {/* Modal Footer with Round-Aware Stage Action Buttons */}
             {(() => {
-              const getCompanyRoundsList = (companyName: string) => {
-                try {
-                  const savedDrives = localStorage.getItem("cpms_drives");
-                  if (savedDrives) {
-                    const parsed = JSON.parse(savedDrives);
-                    if (Array.isArray(parsed)) {
-                      const matched = parsed.find((d: any) => 
-                        d.companyName && 
-                        (d.companyName.toLowerCase().includes(companyName.toLowerCase()) || companyName.toLowerCase().includes(d.companyName.toLowerCase()))
-                      );
-                      if (matched && Array.isArray(matched.rounds) && matched.rounds.length > 0) {
-                        return matched.rounds;
-                      }
-                    }
-                  }
-                } catch (e) {}
-
-                if (companyName.toLowerCase().includes("google")) {
-                  return [
-                    { roundNumber: 1, roundName: "Round 1: Online Coding Challenge", mode: "Online", date: "23 Aug 2026", venueOrLink: "Google Challenge Portal" },
-                    { roundNumber: 2, roundName: "Round 2: Technical Round 1 (DSA)", mode: "Online", date: "25 Aug 2026", venueOrLink: "Google Meet" },
-                    { roundNumber: 3, roundName: "Round 3: Technical Round 2 (System Design)", mode: "Online", date: "26 Aug 2026", venueOrLink: "Google Meet" },
-                    { roundNumber: 4, roundName: "Round 4: Googliness & HR Round", mode: "Online", date: "27 Aug 2026", venueOrLink: "Google Meet" }
-                  ];
-                } else if (companyName.toLowerCase().includes("zoho")) {
-                  return [
-                    { roundNumber: 1, roundName: "Round 1: Written Aptitude & C Programming", mode: "On-Campus", date: "28 Aug 2026", venueOrLink: "Auditorium & CS Lab 1" },
-                    { roundNumber: 2, roundName: "Round 2: Basic Programming Round", mode: "On-Campus", date: "28 Aug 2026", venueOrLink: "CS Lab 2 & 3" },
-                    { roundNumber: 3, roundName: "Round 3: Advanced Programming Round", mode: "On-Campus", date: "29 Aug 2026", venueOrLink: "CS Lab 3" },
-                    { roundNumber: 4, roundName: "Round 4: Technical & HR Interview", mode: "In-Person", date: "29 Aug 2026", venueOrLink: "Placement Hall" }
-                  ];
-                }
-
-                return [
-                  { roundNumber: 1, roundName: "Round 1: Online Aptitude & Coding Test", mode: "Online", date: "24 Aug 2026", venueOrLink: "HackerRank Portal" },
-                  { roundNumber: 2, roundName: "Round 2: Technical Interview", mode: "Online", date: "25 Aug 2026", venueOrLink: "Google Meet / Teams" },
-                  { roundNumber: 3, roundName: "Round 3: HR & Management Round", mode: "Online", date: "26 Aug 2026", venueOrLink: "Google Meet / Teams" }
-                ];
-              };
-
-              const driveRounds = getCompanyRoundsList(selectedApp.companyName);
+              const driveRounds = getAppRoundsList(selectedApp);
               const totalRounds = driveRounds.length;
               let currentRoundStep = selectedApp.currentRound || 1;
               const isFinalRound = currentRoundStep >= totalRounds;

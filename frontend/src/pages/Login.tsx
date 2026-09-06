@@ -158,18 +158,19 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
   };
 
   return (
-    <div style={{ minHeight: "100vh", display: "flex", backgroundColor: "#071E4A", fontFamily: "'Inter', -apple-system, sans-serif" }}>
+    <div className="login-root-container" style={{ minHeight: "100vh", display: "flex", backgroundColor: "#071E4A", fontFamily: "'Inter', -apple-system, sans-serif" }}>
       
       {/* ========================================================================= */}
       {/* LEFT HERO PANE WITH MODERN ILLUSTRATION IMAGE & ENTERPRISE BRANDING */}
       {/* ========================================================================= */}
       <div
+        className="login-hero-pane"
         style={{
           flex: "1 1 54%",
           display: "flex",
           flexDirection: "column",
           justifyContent: "space-between",
-          padding: "clamp(28px, 4vw, 44px) clamp(32px, 5vw, 56px)",
+          padding: "clamp(24px, 4vw, 44px) clamp(24px, 5vw, 56px)",
           background: "linear-gradient(145deg, #051937 0%, #002B66 40%, #0B3D91 75%, #124EA8 100%)",
           color: "#FFFFFF",
           position: "relative",
@@ -256,7 +257,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
 
           <h1
             style={{
-              fontSize: "clamp(26px, 3.2vw, 36px)",
+              fontSize: "clamp(24px, 3.2vw, 36px)",
               fontWeight: 800,
               lineHeight: 1.25,
               letterSpacing: "-0.5px",
@@ -272,6 +273,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
 
           {/* Modern Premium Hero Image Container */}
           <div
+            className="login-hero-image-box"
             style={{
               position: "relative",
               borderRadius: "16px",
@@ -328,7 +330,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
           </div>
 
           {/* KPI Glassmorphism Stats Highlights */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "12px", maxWidth: "580px" }}>
+          <div className="login-hero-stats" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "12px", maxWidth: "580px" }}>
             <div style={{ backgroundColor: "rgba(255, 255, 255, 0.08)", backdropFilter: "blur(6px)", padding: "14px 16px", borderRadius: "12px", border: "1px solid rgba(255, 255, 255, 0.16)" }}>
               <div style={{ fontSize: "20px", fontWeight: 800, color: "#FFFFFF" }}>98.4%</div>
               <div style={{ fontSize: "11px", color: "#93C5FD", marginTop: "2px", fontWeight: 600 }}>Placement Rate</div>
@@ -361,17 +363,19 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
       {/* RIGHT AUTHENTICATION CARD PANE */}
       {/* ========================================================================= */}
       <div
+        className="login-auth-pane"
         style={{
           flex: "1 1 46%",
           backgroundColor: "#F8FAFC",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          padding: "clamp(24px, 4vw, 40px)",
+          padding: "clamp(20px, 4vw, 40px)",
           overflowY: "auto",
         }}
       >
         <div
+          className="login-auth-card"
           style={{
             width: "100%",
             maxWidth: "460px",
@@ -380,6 +384,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             padding: "36px 32px",
             boxShadow: "0 12px 36px rgba(15, 23, 42, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04)",
             border: "1px solid #E2E8F0",
+            boxSizing: "border-box"
           }}
         >
           {/* Header */}
@@ -403,7 +408,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
               <div style={{ fontSize: "11px", fontWeight: 700, color: "#64748B", textTransform: "uppercase", marginBottom: "8px", letterSpacing: "0.04em" }}>
                 QUICK 1-CLICK DEMO PROFILES:
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+              <div className="login-demo-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
                 {demoAccounts.map(acc => {
                   const isCurrent = email === acc.email;
                   return (

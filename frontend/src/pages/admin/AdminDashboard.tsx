@@ -400,7 +400,7 @@ export const AdminDashboard: React.FC<SuperAdminDashboardProps> = ({ user, onLog
     const openTicketsCount = supportTickets.filter(t => t.status === "Open").length;
 
     return (
-        <div style={{ display: "flex", height: "100vh", width: "100vw", overflow: "hidden", backgroundColor: "#F8FAFC", fontFamily: "'Inter', -apple-system, sans-serif" }}>
+        <div style={{ display: "flex", height: "100vh", width: "100%", overflow: "hidden", backgroundColor: "#F8FAFC", fontFamily: "'Inter', -apple-system, sans-serif" }}>
             
             {/* Mobile Menu Backdrop */}
             {isMobileMenuOpen && (

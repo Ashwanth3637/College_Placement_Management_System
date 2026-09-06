@@ -58,11 +58,15 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
 html {
   font-size: 13.5px;
-  height: 100vh;
-  width: 100vw;
-  overflow: hidden !important;
+  min-height: 100%;
+  width: 100%;
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
@@ -70,27 +74,36 @@ body {
   font-size: 13px;
   line-height: 1.45;
   color: var(--color-neutral-900);
-  height: 100vh;
-  width: 100vw;
+  min-height: 100%;
+  width: 100%;
   margin: 0;
   padding: 0;
-  overflow: hidden !important;
+  overflow-x: hidden;
+  background: var(--color-neutral-100);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 #root {
-  height: 100vh;
-  width: 100vw;
-  overflow: hidden !important;
+  min-height: 100vh;
+  min-height: 100dvh;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
 }
 
-/* Permanent Fixed Sidebar Navbar */
-aside, .app-drawer-sidebar {
-  position: sticky !important;
-  top: 0 !important;
-  height: 100vh !important;
-  max-height: 100vh !important;
-  flex-shrink: 0 !important;
-  overflow-y: auto !important;
+/* Permanent Fixed Sidebar Navbar on Desktop */
+@media (min-width: 1025px) {
+  aside, .app-drawer-sidebar {
+    position: sticky !important;
+    top: 0 !important;
+    height: 100vh !important;
+    max-height: 100dvh !important;
+    flex-shrink: 0 !important;
+    overflow-y: auto !important;
+    z-index: 100 !important;
+  }
 }
 
 /* Custom sleek scrollbar for main page content */
@@ -540,11 +553,18 @@ table {
 
 @media (max-width: 1024px) {
   .mobile-hamburger-toggle {
-    display: flex !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    flex-shrink: 0 !important;
   }
 
   .mobile-drawer-close {
-    display: block !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
   }
 
   .app-mobile-header {
@@ -565,29 +585,44 @@ table {
 
   .app-drawer-sidebar {
     position: fixed !important;
-    left: -280px;
-    top: 0;
-    bottom: 0;
-    width: 270px !important;
+    left: -320px !important;
+    top: 0 !important;
+    bottom: 0 !important;
+    width: min(85vw, 280px) !important;
+    max-width: 85vw !important;
+    height: 100% !important;
+    max-height: 100dvh !important;
     z-index: 9999 !important;
-    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), left 0.25s ease-in-out !important;
-    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.15) !important;
+    transition: left 0.28s cubic-bezier(0.33, 1, 0.68, 1) !important;
+    box-shadow: 6px 0 24px rgba(15, 23, 42, 0.18) !important;
+    overflow-y: auto !important;
+    visibility: hidden;
   }
 
   .app-drawer-sidebar.open {
     left: 0 !important;
+    visibility: visible !important;
+  }
+
+  .app-menu-backdrop {
+    display: block !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    background-color: rgba(15, 23, 42, 0.6) !important;
+    backdrop-filter: blur(4px) !important;
+    -webkit-backdrop-filter: blur(4px) !important;
+    z-index: 9990 !important;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease !important;
   }
 
   .app-menu-backdrop.open {
-    display: block !important;
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: rgba(15, 23, 42, 0.55);
-    backdrop-filter: blur(3px);
-    z-index: 9998;
+    opacity: 1 !important;
+    pointer-events: auto !important;
   }
 }
 
@@ -602,6 +637,7 @@ table {
     position: sticky !important;
     left: 0 !important;
     display: flex !important;
+    visibility: visible !important;
   }
 }
 
@@ -1182,4 +1218,177 @@ td strong,
   border: 1px solid #FCA5A5 !important;
   font-weight: 700 !important;
 }
+
+/* ==========================================================================
+   COMPREHENSIVE RESPONSIVE SYSTEM (Mobile, Tablet, Laptop, Desktop)
+   ========================================================================== */
+
+/* 1. Touch & Overflow Responsive Tables */
+.responsive-table-wrapper {
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  overscroll-behavior-x: contain !important;
+  position: relative !important;
+}
+
+.responsive-table-wrapper::-webkit-scrollbar {
+  height: 5px;
+}
+.responsive-table-wrapper::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+/* 2. Login Page Responsive Layout */
+.login-root-container {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  width: 100%;
+  overflow-x: hidden;
+}
+
+.login-hero-pane {
+  flex: 1 1 54%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.login-auth-pane {
+  flex: 1 1 46%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (max-width: 980px) {
+  .login-root-container {
+    flex-direction: column !important;
+    height: auto !important;
+    min-height: 100vh !important;
+  }
+
+  .login-hero-pane {
+    flex: none !important;
+    width: 100% !important;
+    padding: 32px 24px !important;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.1) !important;
+  }
+
+  .login-hero-pane .login-hero-image-box {
+    display: none !important;
+  }
+
+  .login-hero-stats {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 10px !important;
+    width: 100% !important;
+  }
+
+  .login-auth-pane {
+    flex: none !important;
+    width: 100% !important;
+    padding: 32px 20px !important;
+    background-color: #F8FAFC !important;
+  }
+
+  .login-auth-card {
+    max-width: 520px !important;
+    margin: 0 auto !important;
+    padding: 28px 24px !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .login-hero-pane {
+    padding: 24px 16px !important;
+  }
+
+  .login-hero-stats {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+  }
+
+  .login-hero-stats > div:last-child {
+    grid-column: span 2;
+  }
+
+  .login-auth-pane {
+    padding: 20px 14px !important;
+  }
+
+  .login-auth-card {
+    padding: 20px 16px !important;
+    border-radius: 14px !important;
+  }
+
+  .login-demo-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* 3. Global Responsive Modal Overrides */
+@media (max-width: 768px) {
+  /* Prevent fixed modals from overflowing device viewports */
+  div[style*="position: fixed"] > div[style*="border-radius"],
+  div[style*="position: fixed"] > div[style*="borderRadius"] {
+    width: min(94vw, 680px) !important;
+    max-width: 94vw !important;
+    max-height: 90vh !important;
+    max-height: 90dvh !important;
+    overflow-y: auto !important;
+    padding: 16px !important;
+    margin: auto !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Responsive header toolbars */
+  .student-top-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 12px !important;
+  }
+
+  .student-top-header > div:last-child {
+    width: 100% !important;
+    justify-content: space-between !important;
+  }
+}
+
+/* 4. Small Screen Form and Grid Adaptations */
+@media (max-width: 640px) {
+  /* Multi-column grid collapses */
+  div[style*="grid-template-columns: 1fr 1fr"],
+  div[style*="gridTemplateColumns: \"1fr 1fr\""],
+  div[style*="gridTemplateColumns: '1fr 1fr'"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Filter bars and action button groups */
+  .filter-bar,
+  .action-row {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+  }
+
+  .filter-bar > *,
+  .action-row > * {
+    width: 100% !important;
+  }
+}
+
+/* 5. Fluid Grid minmax protection on extra small devices */
+@media (max-width: 440px) {
+  div[style*="minmax(360px"],
+  div[style*="minmax(340px"],
+  div[style*="minmax(320px"] {
+    grid-template-columns: 1fr !important;
+  }
+}
+
 

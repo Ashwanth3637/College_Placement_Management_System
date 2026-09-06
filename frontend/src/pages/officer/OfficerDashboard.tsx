@@ -3,7 +3,6 @@ import { API_BASE_URL } from "../../config/api";
 import StudentManagement from "./StudentManagement";
 import DriveManagement from "./DriveManagement";
 import ApplicationManagement from "./ApplicationManagement";
-import InterviewManagement from "./InterviewManagement";
 import SelectionsManagement from "./SelectionsManagement";
 import ReportsAnalyticsManagement from "./ReportsAnalyticsManagement";
 
@@ -45,7 +44,7 @@ export const OfficerDashboard: React.FC<DashboardProps> = ({ user, onLogout, ini
           const data = await res.json();
           if (Array.isArray(data)) setDrivesList(data);
         }
-      } catch (e) {}
+      } catch (e) { }
 
       // 2. Fetch Students
       try {
@@ -54,7 +53,7 @@ export const OfficerDashboard: React.FC<DashboardProps> = ({ user, onLogout, ini
           const data = await res.json();
           if (Array.isArray(data)) setStudentsList(data);
         }
-      } catch (e) {}
+      } catch (e) { }
 
       // 3. Fetch Applications
       try {
@@ -63,7 +62,7 @@ export const OfficerDashboard: React.FC<DashboardProps> = ({ user, onLogout, ini
           const data = await res.json();
           if (Array.isArray(data)) setApplicationsList(data);
         }
-      } catch (e) {}
+      } catch (e) { }
 
       // 4. Fetch Selections
       try {
@@ -72,7 +71,7 @@ export const OfficerDashboard: React.FC<DashboardProps> = ({ user, onLogout, ini
           const data = await res.json();
           if (Array.isArray(data)) setSelectionsList(data);
         }
-      } catch (e) {}
+      } catch (e) { }
     } finally {
       setLoading(false);
     }
@@ -94,8 +93,8 @@ export const OfficerDashboard: React.FC<DashboardProps> = ({ user, onLogout, ini
   const recentApplications = applicationsList.slice(0, 4);
 
   return (
-    <div style={{ display: "flex", height: "100vh", width: "100vw", overflow: "hidden", backgroundColor: "#F8FAFC", fontFamily: "'Inter', -apple-system, sans-serif" }}>
-      
+    <div style={{ display: "flex", height: "100vh", width: "100%", overflow: "hidden", backgroundColor: "#F8FAFC", fontFamily: "'Inter', -apple-system, sans-serif" }}>
+
       {/* Mobile Menu Backdrop */}
       {isMobileMenuOpen && (
         <div
@@ -183,18 +182,6 @@ export const OfficerDashboard: React.FC<DashboardProps> = ({ user, onLogout, ini
                     <polyline points="14 2 14 8 20 8" />
                     <line x1="16" y1="13" x2="8" y2="13" />
                     <line x1="16" y1="17" x2="8" y2="17" />
-                  </svg>
-                )
-              },
-              {
-                id: "interviews",
-                label: "Interview Schedules",
-                svg: (
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                    <line x1="16" y1="2" x2="16" y2="6" />
-                    <line x1="8" y1="2" x2="8" y2="6" />
-                    <line x1="3" y1="10" x2="21" y2="10" />
                   </svg>
                 )
               },
@@ -303,7 +290,7 @@ export const OfficerDashboard: React.FC<DashboardProps> = ({ user, onLogout, ini
 
       {/* Right Main Body Content */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, height: "100vh", overflowY: "auto", overflowX: "hidden", maxWidth: "100vw", boxSizing: "border-box" }}>
-        
+
         {/* Top Header */}
         <div style={{ padding: "clamp(12px, 3vw, 20px) clamp(12px, 3vw, 28px) 0 clamp(12px, 3vw, 28px)", boxSizing: "border-box", width: "100%" }}>
           <header
@@ -353,13 +340,13 @@ export const OfficerDashboard: React.FC<DashboardProps> = ({ user, onLogout, ini
 
         {/* Content Body */}
         <main style={{ flex: 1, padding: "clamp(14px, 3vw, 24px) clamp(12px, 3vw, 28px)", boxSizing: "border-box", width: "100%", maxWidth: "100%" }}>
-          
+
           {/* ========================================================================= */}
           {/* TAB 1: EXECUTIVE DASHBOARD (Student Module Layout & Cards) */}
           {/* ========================================================================= */}
           {activeTab === "stats" && (
             <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-              
+
               {/* Executive Welcome Hero Banner */}
               <div style={{
                 background: "linear-gradient(135deg, #1E1B4B 0%, #312E81 50%, #4338CA 100%)",
@@ -492,8 +479,8 @@ export const OfficerDashboard: React.FC<DashboardProps> = ({ user, onLogout, ini
               </div>
 
               {/* Dual-Card Container (Left: Upcoming Placement Drives, Right: Recent Applications Pipeline) */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 360px), 1fr))", gap: "20px" }}>
-                
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 300px), 1fr))", gap: "20px" }}>
+
                 {/* LEFT CARD: Upcoming Placement Drives */}
                 <div style={{ backgroundColor: "#FFFFFF", borderRadius: "16px", border: "1px solid #E2E8F0", padding: "20px 22px", boxShadow: "0 1px 4px rgba(0,0,0,0.03)", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
                   <div>
@@ -654,10 +641,7 @@ export const OfficerDashboard: React.FC<DashboardProps> = ({ user, onLogout, ini
           {/* TAB 4: APPLICATION PIPELINE */}
           {activeTab === "applications" && <ApplicationManagement />}
 
-          {/* TAB 5: INTERVIEW SCHEDULES */}
-          {activeTab === "interviews" && <InterviewManagement />}
-
-          {/* TAB 6: OFFERS & SELECTIONS */}
+          {/* TAB 5: OFFERS & SELECTIONS */}
           {activeTab === "selections" && <SelectionsManagement user={user} />}
 
           {/* TAB 7: REPORTS & ANALYTICS */}

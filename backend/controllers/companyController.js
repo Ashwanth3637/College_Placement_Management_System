@@ -52,47 +52,126 @@ const getDrives = async (req, res) => {
 const createDrive = async (req, res) => {
     try {
         const body = req.body;
+
+        // Handle attachments from multer
+        let attachments = [];
+        if (req.files && req.files.length > 0) {
+            attachments = req.files.map(f => ({
+                name: f.originalname,
+                url: `/uploads/${f.filename}`,
+                uploadedAt: new Date(),
+            }));
+        }
+        // Also accept attachments from JSON body
+        if (body.attachments) {
+            try {
+                const parsed = typeof body.attachments === "string" ? JSON.parse(body.attachments) : body.attachments;
+                if (Array.isArray(parsed)) attachments = [...attachments, ...parsed];
+            } catch (e) { }
+        }
+
+        // Parse custom rounds if provided
+        let customRounds = [];
+        if (body.rounds) {
+            try {
+                const parsedRounds = typeof body.rounds === "string" ? JSON.parse(body.rounds) : body.rounds;
+                if (Array.isArray(parsedRounds)) {
+                    customRounds = parsedRounds.map((r, idx) => ({
+                        roundNumber: Number(r.roundNumber) || (idx + 1),
+                        roundName: r.roundName || `Round ${idx + 1}`,
+                        mode: r.mode || "Online",
+                        date: r.date || "",
+                        time: r.time || "",
+                        venue: r.venue || "",
+                        description: r.description || ""
+                    }));
+                }
+            } catch (e) { }
+        }
+
         const payload = {
-            company: body.company || "Amazon Development Center",
-            jobTitle: body.jobTitle || body.role || "Software Engineer",
-            role: body.role || body.jobTitle || "Software Engineer",
-            jobType: body.jobType || "Full-Time (FTE)",
-            location: body.location || "Bangalore, India",
-            packageCtc: body.packageCtc || body.ctc || "₹18.0 LPA",
-            ctc: body.ctc || body.packageCtc || "₹18.0 LPA",
-            deadline: body.deadline || "30 Sep 2026",
-            status: body.status || "Pending Approval",
+            company: (body.company || body.companyName || "").trim(),
+            jobTitle: (body.jobTitle || body.role || "").trim(),
+            role: (body.role || body.jobTitle || "").trim(),
+            jobType: body.jobType || "Full-Time",
+            location: (body.location || "").trim(),
+            packageCtc: (body.packageCtc || body.ctc || "").trim(),
+            ctc: (body.ctc || body.packageCtc || "").trim(),
+            deadline: body.deadline || "",
+            status: body.status || "Active",
             rejectionReason: body.rejectionReason || "",
             approvedBy: body.approvedBy || "",
-            createdBy: body.createdBy || body.company || "",
-            logo: body.logo || "https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg",
-            openings: body.openings ? Number(body.openings) : 10,
-            eligibleBranches: Array.isArray(body.eligibleBranches) ? body.eligibleBranches : (body.eligibleBranches ? body.eligibleBranches.split(",").map(b => b.trim()) : ["CSE", "IT"]),
-            minCgpa: body.minCgpa ? Number(body.minCgpa) : 7.0,
-            minTenth: body.minTenth ? Number(body.minTenth) : 60.0,
-            minTwelfth: body.minTwelfth ? Number(body.minTwelfth) : 60.0,
-            gradYear: body.gradYear ? Number(body.gradYear) : 2026,
-            maxBacklogs: body.maxBacklogs ? Number(body.maxBacklogs) : 0,
-            requiredSkills: Array.isArray(body.requiredSkills) ? body.requiredSkills : (body.requiredSkills ? body.requiredSkills.split(",").map(s => s.trim()) : ["Java", "React"]),
-            jobDescription: body.jobDescription || "Design, develop, and maintain software applications.",
-            selectionProcess: body.selectionProcess || "Aptitude Test → Technical Interview → HR Round",
-            rounds: Array.isArray(body.rounds) && body.rounds.length > 0 ? body.rounds : [
-                { roundNumber: 1, roundName: "Round 1: Online Assessment", mode: "Online", date: body.deadline || "", description: "Coding & Aptitude assessment" }
-            ],
+            createdBy: body.createdBy || "Placement Officer",
+            logo: body.logo || "",
+            website: body.website || "",
+            recruiterName: body.recruiterName || "",
+            recruiterEmail: body.recruiterEmail || "",
+            recruiterMobile: body.recruiterMobile || "",
+            openings: body.openings ? Number(body.openings) : 1,
+            eligibleBranches: Array.isArray(body.eligibleBranches)
+                ? body.eligibleBranches
+                : (body.departments
+                    ? (Array.isArray(body.departments) ? body.departments : body.departments.split(",").map(b => b.trim()).filter(Boolean))
+                    : (body.department
+                        ? body.department.split(",").map(b => b.trim()).filter(Boolean)
+                        : (body.eligibleBranches ? body.eligibleBranches.split(",").map(b => b.trim()).filter(Boolean) : []))),
+            departments: Array.isArray(body.departments)
+                ? body.departments
+                : (body.eligibleBranches
+                    ? (Array.isArray(body.eligibleBranches) ? body.eligibleBranches : body.eligibleBranches.split(",").map(b => b.trim()).filter(Boolean))
+                    : (body.department ? body.department.split(",").map(b => b.trim()).filter(Boolean) : [])),
+            department: (body.department || (Array.isArray(body.eligibleBranches) ? body.eligibleBranches.join(", ") : body.eligibleBranches) || "").toString(),
+            minCgpa: body.minCgpa ? Number(body.minCgpa) : 0,
+            minTenth: body.minTenth ? Number(body.minTenth) : 0,
+            minTwelfth: body.minTwelfth ? Number(body.minTwelfth) : 0,
+            gradYear: body.gradYear ? Number(body.gradYear) : (body.batch ? Number(body.batch) : 2026),
+            batch: (body.batch || body.gradYear || "").toString(),
+            maxBacklogs: body.maxBacklogs !== undefined ? Number(body.maxBacklogs) : 0,
+            requiredSkills: Array.isArray(body.requiredSkills) ? body.requiredSkills : (body.requiredSkills ? body.requiredSkills.split(",").map(s => s.trim()) : []),
+            jobDescription: body.jobDescription || "",
+            selectionProcess: body.selectionProcess || (customRounds.length > 0 ? customRounds.map(r => r.roundName).join(" → ") : ""),
+            rounds: customRounds,
             workMode: body.workMode || "On-site",
-            bondAgreement: body.bondAgreement || "None",
+            bondAgreement: body.bondAgreement || "",
             benefitsPerks: body.benefitsPerks || "",
             additionalInstructions: body.additionalInstructions || "",
             isActive: true,
+
+            // Flow 3: Enhanced drive details
+            aboutCompany: body.aboutCompany || "",
+            jobLocations: Array.isArray(body.jobLocations) ? body.jobLocations : (body.jobLocations ? body.jobLocations.split(",").map(l => l.trim()) : []),
+            roles: Array.isArray(body.roles) ? body.roles : (body.roles ? body.roles.split(",").map(r => r.trim()) : []),
+            workArrangement: body.workArrangement || body.workMode || "WFO",
+            internStipend: body.internStipend || "",
+            keyResponsibilities: body.keyResponsibilities || "",
+            hiringProcess: body.hiringProcess || body.selectionProcess || "",
+            eligibleCriteria: body.eligibleCriteria || "",
+            optInOutDeadline: body.optInOutDeadline || null,
+            attachments: attachments,
         };
 
         const drive = new CompanyDrive(payload);
         await drive.save();
 
-        res.status(201).json({ message: "Placement drive created & saved successfully in MongoDB!", drive });
+        // Automatically trigger live notification for all students
+        try {
+            const Notification = require("../models/notificationModel");
+            await Notification.create({
+                recipientId: "all",
+                title: `New Drive Live: ${drive.company}`,
+                message: `${drive.company} has announced placement registration for ${drive.role || drive.jobTitle}${drive.packageCtc ? ` (${drive.packageCtc})` : ""}. Opt-in before ${drive.deadline || "deadline"}.`,
+                type: "Drives",
+                company: drive.company,
+                driveId: drive._id.toString(),
+            });
+        } catch (notifErr) {
+            console.error("Failed to create drive notification:", notifErr);
+        }
+
+        res.status(201).json({ message: "Placement drive created & saved successfully!", drive });
     } catch (error) {
         console.error("Create Company Drive Error:", error);
-        res.status(500).json({ message: "Failed to create company drive in MongoDB", error: error.message });
+        res.status(500).json({ message: "Failed to create company drive", error: error.message });
     }
 };
 
@@ -211,20 +290,24 @@ const registerCompanyProfile = async (req, res) => {
         const body = req.body;
 
         const payload = {
-            companyName: body.companyName || "New Enterprise",
-            companyEmail: body.companyEmail || body.email || "contact@enterprise.com",
-            industry: body.industry || "IT & Software Services",
-            website: body.website || "https://enterprise.com",
-            location: body.location || "Bangalore, India",
-            description: body.description || "Enterprise technology and software solutions.",
-            contactPersonName: body.contactPersonName || body.recruiterName || body.hrName || "Recruiter Lead",
-            contactEmail: body.contactEmail || body.recruiterEmail || body.email || "recruitment@enterprise.com",
-            contactPhone: body.contactPhone || body.recruiterPhone || body.contactNumber || "+91 98765 43210",
-            logo: body.logo || body.logoUrl || "https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg",
+            companyName: (body.companyName || "").trim(),
+            companyEmail: (body.companyEmail || body.email || "").trim(),
+            industry: (body.industry || "").trim(),
+            website: (body.website || "").trim(),
+            location: (body.location || "").trim(),
+            description: body.description || "",
+            contactPersonName: (body.contactPersonName || body.recruiterName || body.hrName || "").trim(),
+            contactEmail: (body.contactEmail || body.recruiterEmail || body.email || "").trim(),
+            contactPhone: (body.contactPhone || body.recruiterPhone || body.contactNumber || "").trim(),
+            logo: body.logo || body.logoUrl || "",
             status: "Pending Approval",
             rejectionReason: "",
             approvedBy: "",
         };
+
+        if (!payload.companyName) {
+            return res.status(400).json({ message: "Company name is required" });
+        }
 
         const company = new CompanyProfile(payload);
         await company.save();

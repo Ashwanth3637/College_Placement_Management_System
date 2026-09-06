@@ -5,43 +5,50 @@ const companyProfileSchema = new mongoose.Schema(
         companyName: {
             type: String,
             required: true,
-            default: "Amazon Development Center",
+            trim: true,
         },
         companyEmail: {
             type: String,
-            default: "recruitment@amazon.com",
+            default: "",
+            trim: true,
         },
         industry: {
             type: String,
-            default: "Cloud & Software Technology",
+            default: "",
+            trim: true,
         },
         website: {
             type: String,
-            default: "https://amazon.jobs",
+            default: "",
+            trim: true,
         },
         location: {
             type: String,
-            default: "Bangalore, India",
+            default: "",
+            trim: true,
         },
         description: {
             type: String,
-            default: "Amazon Development Center India engages in software development for global retail and cloud technologies.",
+            default: "",
         },
         contactPersonName: {
             type: String,
-            default: "Arvind Kumar",
+            default: "",
+            trim: true,
         },
         contactEmail: {
             type: String,
-            default: "arvind.k@amazon.com",
+            default: "",
+            trim: true,
         },
         contactPhone: {
             type: String,
-            default: "+91 98765 43210",
+            default: "",
+            trim: true,
         },
         logo: {
             type: String,
-            default: "https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg",
+            default: "",
         },
         status: {
             type: String,
@@ -59,11 +66,11 @@ const companyProfileSchema = new mongoose.Schema(
         // Aliases for compatibility
         hrName: {
             type: String,
-            default: "Arvind Kumar",
+            default: "",
         },
         contactNumber: {
             type: String,
-            default: "+91 98765 43210",
+            default: "",
         },
     },
     {

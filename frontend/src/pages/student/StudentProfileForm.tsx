@@ -215,8 +215,10 @@ const StudentProfileForm: React.FC<StudentProfileFormProps> = ({
               <select
                 value={department}
                 onChange={(e) => setDepartment(e.target.value)}
+                required
                 style={styles.input}
               >
+                <option value="">-- Select Department --</option>
                 <option value="Computer Science & Engineering">Computer Science & Engineering</option>
                 <option value="Information Technology">Information Technology</option>
                 <option value="Electronics & Communication">Electronics & Communication</option>

@@ -129,7 +129,9 @@ const seedAllModules = async () => {
                 deadline: "2026-09-10",
                 minCgpa: 8.0,
                 eligibleBranches: ["Computer Science & Engineering", "Information Science", "Electronics & Communication"],
-                status: "Active"
+                status: "Active",
+                jobDescription: "As a Software Development Engineer (SDE-1), you will be responsible for designing and developing scalable software solutions, writing clean, robust code, and collaborating with cross-functional engineering teams to solve complex distributed computing challenges.",
+                requiredSkills: ["Java", "Python", "Data Structures", "Distributed Systems"]
             },
             {
                 company: "Tata Consultancy Services",
@@ -141,7 +143,9 @@ const seedAllModules = async () => {
                 deadline: "2026-09-15",
                 minCgpa: 7.0,
                 eligibleBranches: ["Computer Science & Engineering", "Information Science", "Electronics & Communication", "Mechanical Engineering"],
-                status: "Active"
+                status: "Active",
+                jobDescription: "Join TCS as a Systems Engineer to work on next-generation digital solutions, cloud infrastructure, enterprise software development, and modern automation pipelines across diverse client domains.",
+                requiredSkills: ["Java", "SQL", "Cloud Computing", "Problem Solving"]
             }
         ];
 

@@ -118,9 +118,102 @@ const createCollege = async (req, res) => {
         if (existing) {
             return res.status(400).json({ success: false, message: "College with this code already exists" });
         }
-        const newCollege = await College.create(req.body);
-        await logAudit(req.user, "ONBOARD_COLLEGE", "COLLEGE", newCollege._id, `Onboarded ${newCollege.name}`);
-        return res.status(201).json({ success: true, message: "College onboarded successfully", college: newCollege });
+
+        // Create the college record
+        const newCollege = await College.create({
+            name: req.body.name,
+            code: req.body.code?.toUpperCase(),
+            email: req.body.email,
+            phone: req.body.phone || "",
+            contactPerson: req.body.officerName || req.body.contactPerson || "",
+            contactEmail: req.body.officerEmail || req.body.contactEmail || "",
+            address: req.body.address || "",
+            city: req.body.city || "",
+            state: req.body.state || "Tamil Nadu",
+            country: req.body.country || "India",
+            pincode: req.body.pincode || "",
+            website: req.body.website || "",
+            establishedYear: req.body.establishedYear || 2000,
+            status: "Active",
+            currentPlan: req.body.currentPlan || req.body.planName || "Basic",
+            allowedEmailDomains: req.body.allowedEmailDomains || [],
+            departments: req.body.departments || [],
+        });
+
+        // Flow 1: Auto-create Placement Officer user if officer details provided
+        let officerUser = null;
+        const officerEmail = (req.body.officerEmail || "").toLowerCase().trim();
+        const officerName = req.body.officerName || "Placement Officer";
+        const officerPassword = req.body.officerPassword || "password123";
+
+        if (officerEmail) {
+            const bcrypt = require("bcryptjs");
+            const existingOfficer = await User.findOne({ email: officerEmail });
+            if (!existingOfficer) {
+                const hashedPassword = await bcrypt.hash(officerPassword, 10);
+                officerUser = await User.create({
+                    name: officerName,
+                    email: officerEmail,
+                    password: hashedPassword,
+                    role: "officer",
+                    collegeId: newCollege._id,
+                });
+                newCollege.placementOfficerId = officerUser._id;
+                newCollege.contactPerson = officerName;
+                newCollege.contactEmail = officerEmail;
+                await newCollege.save();
+            } else {
+                // Link existing officer to this college
+                existingOfficer.collegeId = newCollege._id;
+                existingOfficer.role = "officer";
+                await existingOfficer.save();
+                newCollege.placementOfficerId = existingOfficer._id;
+                await newCollege.save();
+                officerUser = existingOfficer;
+            }
+        }
+
+        // Auto-create Subscription record for the selected plan
+        const planName = req.body.currentPlan || req.body.planName || "Basic";
+        const planLimits = {
+            Trial: { students: 100, recruiters: 5, drives: 2, amount: 0, duration: 14 },
+            Basic: { students: 500, recruiters: 25, drives: 15, amount: 7999, duration: 90 },
+            Premium: { students: 2000, recruiters: 100, drives: 50, amount: 14999, duration: 180 },
+            Pro: { students: 5000, recruiters: 250, drives: "Unlimited", amount: 24999, duration: 365 },
+        };
+        const limits = planLimits[planName] || planLimits["Basic"];
+        const startDate = new Date();
+        const expiryDate = new Date(startDate.getTime() + limits.duration * 24 * 60 * 60 * 1000);
+
+        try {
+            await Subscription.create({
+                collegeId: newCollege._id,
+                collegeName: newCollege.name,
+                planName,
+                startDate: startDate.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
+                expiryDate: expiryDate.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
+                amount: limits.amount,
+                status: "Active",
+                usage: {
+                    studentsUsed: 0,
+                    studentsLimit: limits.students,
+                    recruitersUsed: 0,
+                    recruitersLimit: limits.recruiters,
+                    drivesUsed: 0,
+                    drivesLimit: limits.drives,
+                },
+            });
+        } catch (subErr) {
+            console.warn("Subscription creation warning:", subErr.message);
+        }
+
+        await logAudit(req.user, "ONBOARD_COLLEGE", "COLLEGE", newCollege._id, `Onboarded ${newCollege.name} with officer ${officerEmail || "N/A"} on ${planName} plan`);
+        return res.status(201).json({
+            success: true,
+            message: `College "${newCollege.name}" onboarded successfully${officerUser ? ` with Placement Officer (${officerEmail})` : ""} on ${planName} plan.`,
+            college: newCollege,
+            officer: officerUser ? { id: officerUser._id, name: officerUser.name, email: officerUser.email } : null,
+        });
     } catch (err) {
         return res.status(500).json({ success: false, message: "Failed to create college", error: err.message });
     }

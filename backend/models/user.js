@@ -22,6 +22,19 @@ const userSchema = new mongoose.Schema(
             enum: ["student", "officer", "admin"],
             default: "student",
         },
+        collegeId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "College",
+            default: null,
+        },
+        isFrozen: {
+            type: Boolean,
+            default: false,
+        },
+        frozenAt: {
+            type: Date,
+            default: null,
+        },
     },
     {
         timestamps: true,

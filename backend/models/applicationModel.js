@@ -86,7 +86,19 @@ const applicationSchema = new mongoose.Schema(
         resumeName: { type: String, default: "Resume_Student.pdf" },
         resumeUrl: { type: String, default: "" },
 
-        isActive: { type: Boolean, default: true }
+        isActive: { type: Boolean, default: true },
+
+        // Flow 4: Opt-in/Opt-out tracking
+        optInOutStatus: {
+            type: String,
+            enum: ["pending", "opted-in", "opted-out"],
+            default: "pending",
+        },
+        optInOutDeadline: {
+            type: Date,
+            default: null,
+        },
+        ineligibilityReasons: [{ type: String }],
     },
     { timestamps: true }
 );

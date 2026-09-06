@@ -24,20 +24,32 @@ interface PlacementDrive {
   _id?: string;
   id?: string;
   company: string;
-  logo: string;
-  bgColor: string;
+  logo?: string;
+  bgColor?: string;
   role: string;
+  jobTitle?: string;
   ctc: string;
-  minCgpa: number;
-  minTenth: number;
-  minTwelfth: number;
-  maxBacklogs: number;
-  gradYear: number;
-  departments: string[];
-  requiredSkills: string[];
-  location: string;
-  deadline: string;
+  packageCtc?: string;
+  jobType?: string;
+  workMode?: string;
+  minCgpa?: number;
+  minTenth?: number;
+  minTwelfth?: number;
+  maxBacklogs?: number;
+  gradYear?: number;
+  batch?: string;
+  departments?: string[];
+  department?: string;
+  eligibleBranches?: string[];
+  requiredSkills?: string[];
+  location?: string;
+  deadline?: string;
+  jobDescription?: string;
+  description?: string;
+  rounds?: any[];
+  roundsWorkflow?: any[];
   statusTag?: "Opted-In" | "Opted-Out" | "Eligible" | "Not Eligible" | "Completed";
+  [key: string]: any;
 }
 
 const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, initialTab = "dashboard" }) => {
@@ -93,7 +105,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
         const parsed = JSON.parse(savedPending);
         if (parsed.personal?.email) return parsed.personal.email;
         if (parsed.user?.email) return parsed.user.email;
-      } catch (e) {}
+      } catch (e) { }
     }
     return user?.email || "ashwanths.22cse@kongu.edu";
   });
@@ -118,7 +130,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
           if (parsed.personal?.fullName) {
             setDisplayName(parsed.personal.fullName);
           }
-        } catch (e) {}
+        } catch (e) { }
       }
 
       const savedName = localStorage.getItem(`cpms_student_fullname_${userId}`) || localStorage.getItem("cpms_student_fullname");
@@ -178,7 +190,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
       if (saved && ["All", "Opted-In", "Opted-Out", "Eligible", "Not Eligible", "Up coming", "Completed"].includes(saved)) {
         return saved as CampusDriveFilter;
       }
-    } catch (e) {}
+    } catch (e) { }
     return "Eligible";
   });
 
@@ -186,7 +198,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
     setDriveFilterState(filter);
     try {
       localStorage.setItem(`cpms_drive_filter_student_${userKey}`, filter);
-    } catch (e) {}
+    } catch (e) { }
   };
 
   const [selectedApplicationModal, setSelectedApplicationModal] = useState<any | null>(null);
@@ -200,6 +212,54 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
   const [optOutReason, setOptOutReason] = useState<string>("");
   const [showNotificationsModal, setShowNotificationsModal] = useState<boolean>(false);
   const [activeNotifFilter, setActiveNotifFilter] = useState<string>("All");
+  const [liveNotifications, setLiveNotifications] = useState<any[]>([]);
+
+  const fetchLiveNotifications = async () => {
+    try {
+      const email = (user?.email || "").toLowerCase().trim();
+      const userId = user?.id || user?._id || "";
+      const res = await fetch(`${API_BASE_URL}/api/notifications?email=${encodeURIComponent(email)}&userId=${encodeURIComponent(userId)}&role=student`);
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          setLiveNotifications(data);
+        }
+      }
+    } catch (e) { }
+  };
+
+  useEffect(() => {
+    fetchLiveNotifications();
+    const interval = setInterval(fetchLiveNotifications, 8000);
+    window.addEventListener("cpms_new_notification", fetchLiveNotifications);
+    window.addEventListener("storage", fetchLiveNotifications);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("cpms_new_notification", fetchLiveNotifications);
+      window.removeEventListener("storage", fetchLiveNotifications);
+    };
+  }, [user?.email]);
+
+  const handleMarkAllStudentNotificationsRead = async () => {
+    try {
+      await fetch(`${API_BASE_URL}/api/notifications/mark-all-read`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: user?.id || user?._id, email: user?.email })
+      });
+      setLiveNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+    } catch (e) { }
+  };
+
+  const handleMarkSingleNotificationRead = async (id: string) => {
+    try {
+      await fetch(`${API_BASE_URL}/api/notifications/${id}/read`, { method: "PUT" });
+      setLiveNotifications(prev => prev.map(n => (n._id === id || n.id === id) ? { ...n, isRead: true } : n));
+    } catch (e) { }
+  };
+
+  const unreadNotifsCount = liveNotifications.filter(n => !n.isRead).length;
+
   const [appTrackerFilter, setAppTrackerFilter] = useState<"all" | "in_progress" | "completed">("all");
 
   const [showFilterModal, setShowFilterModal] = useState<boolean>(false);
@@ -213,7 +273,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
   });
   const setFilterSortBy = (val: string) => {
     setFilterSortByState(val);
-    try { localStorage.setItem(`cpms_filter_sortBy_${userKey}`, val); } catch (e) {}
+    try { localStorage.setItem(`cpms_filter_sortBy_${userKey}`, val); } catch (e) { }
   };
 
   const [filterEmpType, setFilterEmpTypeState] = useState<string>(() => {
@@ -225,7 +285,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
   });
   const setFilterEmpType = (val: string) => {
     setFilterEmpTypeState(val);
-    try { localStorage.setItem(`cpms_filter_empType_${userKey}`, val); } catch (e) {}
+    try { localStorage.setItem(`cpms_filter_empType_${userKey}`, val); } catch (e) { }
   };
 
   const [filterPosition, setFilterPositionState] = useState<string>(() => {
@@ -237,7 +297,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
   });
   const setFilterPosition = (val: string) => {
     setFilterPositionState(val);
-    try { localStorage.setItem(`cpms_filter_position_${userKey}`, val); } catch (e) {}
+    try { localStorage.setItem(`cpms_filter_position_${userKey}`, val); } catch (e) { }
   };
 
   const [filterMinPackage, setFilterMinPackageState] = useState<number>(() => {
@@ -250,7 +310,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
   });
   const setFilterMinPackage = (val: number) => {
     setFilterMinPackageState(val);
-    try { localStorage.setItem(`cpms_filter_minPackage_${userKey}`, String(val)); } catch (e) {}
+    try { localStorage.setItem(`cpms_filter_minPackage_${userKey}`, String(val)); } catch (e) { }
   };
 
   const [filterWorkMode, setFilterWorkModeState] = useState<string>(() => {
@@ -262,7 +322,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
   });
   const setFilterWorkMode = (val: string) => {
     setFilterWorkModeState(val);
-    try { localStorage.setItem(`cpms_filter_workMode_${userKey}`, val); } catch (e) {}
+    try { localStorage.setItem(`cpms_filter_workMode_${userKey}`, val); } catch (e) { }
   };
 
   const [filterLocation, setFilterLocationState] = useState<string>(() => {
@@ -274,7 +334,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
   });
   const setFilterLocation = (val: string) => {
     setFilterLocationState(val);
-    try { localStorage.setItem(`cpms_filter_location_${userKey}`, val); } catch (e) {}
+    try { localStorage.setItem(`cpms_filter_location_${userKey}`, val); } catch (e) { }
   };
 
   const resetAllFilterOptions = () => {
@@ -387,7 +447,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
           });
         }
       }
-    } catch (e) {}
+    } catch (e) { }
 
     // 2. User-specific applications from cpms_applications
     try {
@@ -413,7 +473,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
           });
         }
       }
-    } catch (e) {}
+    } catch (e) { }
 
     return Array.from(set);
   };
@@ -430,7 +490,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
           });
         }
       }
-    } catch (e) {}
+    } catch (e) { }
     return Array.from(set);
   };
 
@@ -492,7 +552,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
           if (parsed && (parsed.academic || parsed.personal)) return parsed;
         }
       }
-    } catch (e) {}
+    } catch (e) { }
     return null;
   };
   const localProfile = getLocalProfileData();
@@ -509,6 +569,12 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
   const [studentResumeUrl, setStudentResumeUrl] = useState<string>("");
   const [studentSkills, setStudentSkills] = useState<string[]>([]);
   const [isProfileVerified, setIsProfileVerified] = useState<boolean>(false);
+  const [verificationStatus, setVerificationStatus] = useState<string>(() => {
+    return localStorage.getItem(`cpms_verification_status_${userId}`) || localStorage.getItem(`cpms_verification_status_${userEmailLower}`) || "pending";
+  });
+  const [rejectionReason, setRejectionReason] = useState<string>(() => {
+    return localStorage.getItem(`cpms_rejection_reason_${userId}`) || localStorage.getItem(`cpms_rejection_reason_${userEmailLower}`) || "";
+  });
   const [selectedDriveCriteria, setSelectedDriveCriteria] = useState<PlacementDrive | null>(null);
   const [optInConfirmDrive, setOptInConfirmDrive] = useState<any>(null);
   const [optOutConfirmDrive, setOptOutConfirmDrive] = useState<any>(null);
@@ -553,10 +619,13 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
 
     const checkLocalVerification = () => {
       const uKey = (userEmail || userId || "").toLowerCase().trim();
-      const localStatus = localStorage.getItem(`cpms_verification_status_${uKey}`) || localStorage.getItem(`cpms_verification_status_global`);
+      const localStatus = localStorage.getItem(`cpms_verification_status_${uKey}`) || localStorage.getItem(`cpms_verification_status_global`) || "pending";
+      const localReason = localStorage.getItem(`cpms_rejection_reason_${uKey}`) || localStorage.getItem(`cpms_rejection_reason_global`) || "";
+      setVerificationStatus(localStatus);
+      setRejectionReason(localReason);
       if (localStatus === "Approved" || localStatus === "verified") {
         setIsProfileVerified(true);
-      } else if (localStatus === "pending" || localStatus === "Pending" || localStatus === "false") {
+      } else {
         setIsProfileVerified(false);
       }
     };
@@ -577,21 +646,33 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
 
         if (student) {
           // Database response is authoritative
+          const dbStatus = student.verificationStatus || (student.isVerified ? "verified" : "pending");
+          const dbReason = student.rejectionReason || "";
           const dbVerified = Boolean(
             student.isVerified === true &&
-            student.verificationStatus !== "pending" &&
-            (student.verificationStatus === "verified" || student.verificationStatus === "Approved" || student.verificationStatus === "Verified")
+            dbStatus !== "pending" &&
+            dbStatus !== "rejected" &&
+            (dbStatus === "verified" || dbStatus === "Approved" || dbStatus === "Verified")
           );
 
           setIsProfileVerified(dbVerified);
+          setVerificationStatus(dbStatus);
+          if (dbReason || dbStatus === "rejected") {
+            setRejectionReason(dbReason);
+          }
 
           try {
             localStorage.setItem(`cpms_profile_verified_${userId}`, String(dbVerified));
             localStorage.setItem(`cpms_profile_verified_${userEmail}`, String(dbVerified));
             localStorage.setItem(`cpms_profile_verified_global`, String(dbVerified));
-            localStorage.setItem(`cpms_verification_status_${userEmail}`, dbVerified ? "verified" : "pending");
-            localStorage.setItem(`cpms_verification_status_${userId}`, dbVerified ? "verified" : "pending");
-            localStorage.setItem(`cpms_verification_status_global`, dbVerified ? "verified" : "pending");
+            localStorage.setItem(`cpms_verification_status_${userEmail}`, dbStatus);
+            localStorage.setItem(`cpms_verification_status_${userId}`, dbStatus);
+            localStorage.setItem(`cpms_verification_status_global`, dbStatus);
+            if (dbReason) {
+              localStorage.setItem(`cpms_rejection_reason_${userEmail}`, dbReason);
+              localStorage.setItem(`cpms_rejection_reason_${userId}`, dbReason);
+              localStorage.setItem(`cpms_rejection_reason_global`, dbReason);
+            }
           } catch (e) { }
 
           if (student.personal?.department) setStudentDepartment(student.personal.department);
@@ -633,12 +714,28 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
     try {
       channel = new BroadcastChannel("cpms_profile_channel");
       channel.onmessage = (event) => {
-        if (event.data && (event.data.type === "PROFILE_VERIFIED" || event.data.type === "PROFILE_UPDATED")) {
+        if (event.data && (event.data.type === "PROFILE_VERIFIED" || event.data.type === "PROFILE_UPDATED" || event.data.type === "PROFILE_REJECTED")) {
           setIsProfileVerified(Boolean(event.data.isVerified));
+          if (event.data.verificationStatus) {
+            setVerificationStatus(event.data.verificationStatus);
+          }
+          if (event.data.rejectionReason !== undefined) {
+            setRejectionReason(event.data.rejectionReason);
+          }
           try {
             localStorage.setItem(`cpms_profile_verified_${userId}`, String(event.data.isVerified));
             localStorage.setItem(`cpms_profile_verified_${userEmail}`, String(event.data.isVerified));
             localStorage.setItem(`cpms_profile_verified_global`, String(event.data.isVerified));
+            if (event.data.verificationStatus) {
+              localStorage.setItem(`cpms_verification_status_${userEmail}`, event.data.verificationStatus);
+              localStorage.setItem(`cpms_verification_status_${userId}`, event.data.verificationStatus);
+              localStorage.setItem(`cpms_verification_status_global`, event.data.verificationStatus);
+            }
+            if (event.data.rejectionReason) {
+              localStorage.setItem(`cpms_rejection_reason_${userEmail}`, event.data.rejectionReason);
+              localStorage.setItem(`cpms_rejection_reason_${userId}`, event.data.rejectionReason);
+              localStorage.setItem(`cpms_rejection_reason_global`, event.data.rejectionReason);
+            }
           } catch (e) { }
           fetchProfile();
         }
@@ -679,7 +776,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
             officerInterviews = parsed;
           }
         }
-      } catch (e) {}
+      } catch (e) { }
 
       const sName = (displayName || user?.name || "").toLowerCase().trim();
       const sReg = (localStorage.getItem("cpms_student_regno") || "").toLowerCase().trim();
@@ -740,11 +837,16 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
   const isOfficerDrive = (pd: any) => {
     if (!pd) return false;
     const creator = String(pd.createdBy || "").toLowerCase();
-    return pd.isOfficerPublished === true || 
-        pd.isCreatedByOfficer === true || 
-        pd.createdExplicitlyByOfficer === true || 
-        creator.includes("officer") || 
-        creator === "placement officer";
+    const st = String(pd.status || "").toLowerCase();
+    return pd.isOfficerPublished === true ||
+      pd.isCreatedByOfficer === true ||
+      pd.createdExplicitlyByOfficer === true ||
+      creator.includes("officer") ||
+      creator === "placement officer" ||
+      st === "approved" ||
+      st === "active" ||
+      st === "upcoming" ||
+      st === "ongoing";
   };
 
   const isDeptMatch = (branch: string, studentDept: string) => {
@@ -786,28 +888,39 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
               if (!map.has(key)) {
                 map.set(key, {
                   id: pd.id || pd._id || key,
+                  _id: pd._id || pd.id,
                   company: pd.companyName || pd.company || "Approved Company",
                   logo: pd.logoUrl || pd.logo || "https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg",
                   bgColor: "#ffffff",
                   role: pd.jobRole || pd.jobTitle || pd.role || "Software Developer",
+                  jobTitle: pd.jobTitle || pd.jobRole || pd.role || "Software Developer",
                   ctc: pd.salaryPackage || pd.packageCtc || pd.ctc || "18 LPA",
+                  packageCtc: pd.packageCtc || pd.salaryPackage || pd.ctc || "18 LPA",
+                  jobType: pd.jobType || "Full-Time (FTE)",
+                  workMode: pd.workMode || pd.workArrangement || "On-site",
                   minCgpa: Number(pd.minCgpa ?? pd.eligibility?.minCgpa) || 6.5,
                   minTenth: Number(pd.minTenth ?? pd.eligibility?.minTenth ?? pd.eligibility?.tenthCutoff) || 60,
                   minTwelfth: Number(pd.minTwelfth ?? pd.eligibility?.minTwelfth ?? pd.eligibility?.twelfthCutoff) || 60,
                   maxBacklogs: Number(pd.maxBacklogs ?? pd.eligibility?.maxBacklogs) ?? 1,
                   gradYear: Number(pd.gradYear ?? pd.eligibility?.gradYear) || 2026,
                   departments: pd.departments || pd.eligibleBranches || ["CSE", "IT", "ECE"],
+                  eligibleBranches: pd.eligibleBranches || pd.departments || ["CSE", "IT", "ECE"],
                   requiredSkills: pd.requiredSkills || ["Problem Solving", "Coding"],
                   location: pd.location || "Bangalore",
                   deadline: pd.driveDate || pd.deadline || pd.applicationDeadline || "28 Aug 2026",
-                  statusTag: "Eligible"
+                  jobDescription: pd.jobDescription || pd.description || "",
+                  description: pd.description || pd.jobDescription || "",
+                  aboutCompany: pd.aboutCompany || "",
+                  rounds: pd.rounds || pd.roundsWorkflow || [],
+                  statusTag: "Eligible",
+                  ...pd
                 } as any);
               }
             });
           return Array.from(map.values());
         }
       }
-    } catch (e) {}
+    } catch (e) { }
     return [];
   });
 
@@ -860,14 +973,14 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
           const minTwelfthVal = Number(pd.minTwelfth ?? pd.eligibility?.minTwelfth ?? pd.eligibility?.twelfthCutoff) || 60;
           const maxBacklogsVal = Number(pd.maxBacklogs ?? pd.eligibility?.maxBacklogs) ?? 1;
           const reqGradYear = Number(pd.gradYear ?? pd.eligibility?.gradYear) || 2026;
-          
+
           let eligibleBranches: string[] = [];
           if (Array.isArray(pd.eligibleBranches) && pd.eligibleBranches.length > 0) {
             eligibleBranches = pd.eligibleBranches;
           } else if (Array.isArray(pd.departments) && pd.departments.length > 0) {
             eligibleBranches = pd.departments;
           } else if (pd.eligibility?.departments) {
-            eligibleBranches = typeof pd.eligibility.departments === "string" 
+            eligibleBranches = typeof pd.eligibility.departments === "string"
               ? pd.eligibility.departments.split(",").map((s: string) => s.trim()).filter(Boolean)
               : pd.eligibility.departments;
           } else {
@@ -899,21 +1012,32 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
           const driveKey = pd.id || pd._id || `${compStr}_${roleStr}`;
 
           dynamicApproved.push({
+            ...pd,
             id: driveKey,
-            company: pd.companyName || pd.company || "Approved Company",
-            logo: pd.logoUrl || pd.logo || "https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg",
+            _id: pd._id || pd.id || driveKey,
+            company: pd.companyName || pd.company || "",
+            logo: pd.logoUrl || pd.logo || "",
             bgColor: "#ffffff",
-            role: pd.jobRole || pd.jobTitle || pd.role || "Software Developer",
-            ctc: pd.salaryPackage || pd.packageCtc || pd.ctc || "18 LPA",
+            role: pd.jobRole || pd.jobTitle || pd.role || "",
+            jobTitle: pd.jobTitle || pd.jobRole || pd.role || "",
+            ctc: pd.salaryPackage || pd.packageCtc || pd.ctc || "",
+            packageCtc: pd.packageCtc || pd.salaryPackage || pd.ctc || "",
+            jobType: pd.jobType || "Full-Time (FTE)",
+            workMode: pd.workMode || pd.workArrangement || "On-site",
             minCgpa: minCgpaVal,
             minTenth: minTenthVal,
             minTwelfth: minTwelfthVal,
             maxBacklogs: maxBacklogsVal,
             gradYear: reqGradYear,
             departments: eligibleBranches,
-            requiredSkills: pd.requiredSkills || ["Problem Solving", "Coding"],
-            location: pd.location || "Bangalore",
-            deadline: pd.driveDate || pd.deadline || pd.applicationDeadline || "28 Aug 2026",
+            eligibleBranches: eligibleBranches,
+            requiredSkills: pd.requiredSkills || [],
+            location: pd.location || "",
+            deadline: pd.driveDate || pd.deadline || pd.applicationDeadline || "",
+            jobDescription: pd.jobDescription || pd.description || "",
+            description: pd.description || pd.jobDescription || "",
+            aboutCompany: pd.aboutCompany || "",
+            rounds: pd.rounds || pd.roundsWorkflow || [],
             statusTag: isOptedIn ? "Opted-In" : (isOptedOut ? "Opted-Out" : (isEligible ? "Eligible" : "Not Eligible")),
             isEligible,
             ineligibilityReason: ineligibilityReasons.join(" • ")
@@ -994,7 +1118,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
             });
           }
         }
-      } catch (e) {}
+      } catch (e) { }
 
       const activeRoundIdx = savedAppRecord?.currentRound || 1;
       const currentStatus = savedAppRecord?.status || "Opted-In";
@@ -1004,43 +1128,31 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
 
       // Fetch Drive Recruitment Rounds
       let driveRoundsList: any[] = [];
-      try {
-        const savedDrivesStr = localStorage.getItem("cpms_drives");
-        if (savedDrivesStr) {
-          const parsedDrives = JSON.parse(savedDrivesStr);
-          if (Array.isArray(parsedDrives)) {
-            const matchedDrive = parsedDrives.find((pd: any) =>
-              (pd.companyName || pd.company || "").toLowerCase().includes(comp)
-            );
-            if (matchedDrive && Array.isArray(matchedDrive.rounds) && matchedDrive.rounds.length > 0) {
-              driveRoundsList = matchedDrive.rounds;
+      if (Array.isArray((d as any).rounds) && (d as any).rounds.length > 0) {
+        driveRoundsList = (d as any).rounds;
+      } else if (Array.isArray(savedAppRecord?.roundsWorkflow) && savedAppRecord.roundsWorkflow.length > 0) {
+        driveRoundsList = savedAppRecord.roundsWorkflow;
+      } else {
+        try {
+          const savedDrivesStr = localStorage.getItem("cpms_drives");
+          if (savedDrivesStr) {
+            const parsedDrives = JSON.parse(savedDrivesStr);
+            if (Array.isArray(parsedDrives)) {
+              const matchedDrive = parsedDrives.find((pd: any) =>
+                (pd.companyName || pd.company || "").toLowerCase().includes(comp)
+              );
+              if (matchedDrive && Array.isArray(matchedDrive.rounds) && matchedDrive.rounds.length > 0) {
+                driveRoundsList = matchedDrive.rounds;
+              }
             }
           }
-        }
-      } catch (e) {}
+        } catch (e) { }
+      }
 
       if (driveRoundsList.length === 0) {
-        if (comp.includes("google")) {
-          driveRoundsList = [
-            { roundNumber: 1, roundName: "Round 1: Online Coding Challenge", mode: "Online", date: "23 Aug 2026" },
-            { roundNumber: 2, roundName: "Round 2: Technical Round 1 (DSA)", mode: "Online", date: "25 Aug 2026" },
-            { roundNumber: 3, roundName: "Round 3: Technical Round 2 (System Design)", mode: "Online", date: "26 Aug 2026" },
-            { roundNumber: 4, roundName: "Round 4: Googliness & HR Round", mode: "Online", date: "27 Aug 2026" }
-          ];
-        } else if (comp.includes("zoho")) {
-          driveRoundsList = [
-            { roundNumber: 1, roundName: "Round 1: Written Aptitude & C Programming", mode: "On-Campus", date: "28 Aug 2026" },
-            { roundNumber: 2, roundName: "Round 2: Basic Programming Round", mode: "On-Campus", date: "28 Aug 2026" },
-            { roundNumber: 3, roundName: "Round 3: Advanced Programming Round", mode: "On-Campus", date: "29 Aug 2026" },
-            { roundNumber: 4, roundName: "Round 4: Technical & HR Interview", mode: "In-Person", date: "29 Aug 2026" }
-          ];
-        } else {
-          driveRoundsList = [
-            { roundNumber: 1, roundName: "Round 1: Online Aptitude & Coding Test", mode: "Online", date: "24 Aug 2026" },
-            { roundNumber: 2, roundName: "Round 2: Technical Interview", mode: "Online", date: "25 Aug 2026" },
-            { roundNumber: 3, roundName: "Round 3: HR & Management Round", mode: "Online", date: "26 Aug 2026" }
-          ];
-        }
+        driveRoundsList = [
+          { roundNumber: 1, roundName: "Selection Assessment", mode: "Online", date: d.deadline || "" }
+        ];
       }
 
       // Build dynamic rounds status list for modal & table
@@ -1466,7 +1578,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
     allUserKeys.forEach(k => {
       try {
         localStorage.setItem(k, JSON.stringify(updatedApplied));
-      } catch (e) {}
+      } catch (e) { }
     });
 
     // Also save to cpms_applied_drives_global
@@ -1474,7 +1586,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
       const globalStr = localStorage.getItem("cpms_applied_drives_global");
       let globalArr: any[] = [];
       if (globalStr) {
-        try { globalArr = JSON.parse(globalStr); } catch (e) {}
+        try { globalArr = JSON.parse(globalStr); } catch (e) { }
       }
       if (!Array.isArray(globalArr)) globalArr = [];
 
@@ -1498,14 +1610,14 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
         globalArr.push(newRecord);
       }
       localStorage.setItem("cpms_applied_drives_global", JSON.stringify(globalArr));
-    } catch (e) {}
+    } catch (e) { }
 
     // Also save to cpms_applications
     try {
       const appsStr = localStorage.getItem("cpms_applications");
       let appsArr: any[] = [];
       if (appsStr) {
-        try { appsArr = JSON.parse(appsStr); } catch (e) {}
+        try { appsArr = JSON.parse(appsStr); } catch (e) { }
       }
       if (!Array.isArray(appsArr)) appsArr = [];
 
@@ -1567,7 +1679,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
           status: "Applied"
         })
       }).catch(err => console.error("Error creating application in MongoDB:", err));
-    } catch (e) {}
+    } catch (e) { }
 
     window.dispatchEvent(new Event("storage"));
     window.dispatchEvent(new CustomEvent("cpms_drives_updated"));
@@ -1578,7 +1690,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
     if (reason && reason.trim()) {
       try {
         localStorage.setItem(`cpms_optout_reason_${driveId}_${userKey}`, reason.trim());
-      } catch (e) {}
+      } catch (e) { }
     }
     const compStr = (driveComp || "").toLowerCase().trim();
     const roleStr = (driveRole || "").toLowerCase().trim();
@@ -1606,7 +1718,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
     allUserKeys.forEach(k => {
       try {
         localStorage.setItem(k, JSON.stringify(updatedOptOut));
-      } catch (e) {}
+      } catch (e) { }
     });
 
     const allAppliedKeys = [
@@ -1623,7 +1735,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
     allAppliedKeys.forEach(k => {
       try {
         localStorage.setItem(k, JSON.stringify(updatedApplied));
-      } catch (e) {}
+      } catch (e) { }
     });
 
     window.dispatchEvent(new Event("storage"));
@@ -1632,7 +1744,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
   };
 
   return (
-    <div style={{ display: "flex", height: "100vh", width: "100vw", overflow: "hidden", backgroundColor: "#f4f6f8", fontFamily: "'Inter', -apple-system, sans-serif" }}>
+    <div style={{ display: "flex", height: "100vh", width: "100%", overflow: "hidden", backgroundColor: "#f4f6f8", fontFamily: "'Inter', -apple-system, sans-serif" }}>
       {/* Mobile Menu Backdrop */}
       <div
         className={`app-menu-backdrop ${isMobileMenuOpen ? "open" : ""}`}
@@ -1646,7 +1758,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
           <div style={{ padding: "20px 18px", borderBottom: "1px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "space-between", backgroundColor: "#FFFFFF" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
               <div style={{ width: "36px", height: "36px", backgroundColor: "#4F46E5", borderRadius: "8px", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "800", fontSize: "18px", boxShadow: "0 2px 8px rgba(11,61,145,0.25)" }}>
-                
+
               </div>
               <div>
                 <div style={{ fontWeight: "800", color: "#4F46E5", fontSize: "13.5px", letterSpacing: "-0.2px", lineHeight: "1.2" }}>CAMPUS PLACEMENT</div>
@@ -1658,7 +1770,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
               className="mobile-drawer-close"
               style={{ display: "none", background: "none", border: "none", fontSize: "20px", color: "#64748b", cursor: "pointer", padding: "4px" }}
             >
-              
+
             </button>
           </div>
 
@@ -1751,8 +1863,16 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
             </div>
             <div style={{ overflow: "hidden" }}>
               <div style={{ fontSize: "13px", fontWeight: "700", color: "#0f172a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{displayName}</div>
-              <div style={{ fontSize: "11px", color: isProfileVerified ? "#15803D" : "#B45309", fontWeight: 700 }}>
-                {isProfileVerified ? "● Approved by Officer" : "● Verification Pending"}
+              <div style={{
+                fontSize: "11px",
+                color: isProfileVerified ? "#15803D" : (verificationStatus === "rejected" ? "#DC2626" : "#B45309"),
+                fontWeight: 700
+              }}>
+                {isProfileVerified
+                  ? "● Approved by Officer"
+                  : (verificationStatus === "rejected"
+                    ? "● Profile Rejected - Action Needed"
+                    : "● Verification Pending")}
               </div>
             </div>
           </div>
@@ -1775,13 +1895,13 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
               transition: "all 0.15s ease",
             }}
           >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#DC2626" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> <span>Sign Out</span>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#DC2626" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></svg> <span>Sign Out</span>
           </button>
         </div>
       </aside>
 
       {/* Main Area */}
-      <main style={{ flex: 1, height: "100vh", padding: "clamp(14px, 3vw, 24px) clamp(14px, 3vw, 32px)", overflowY: "auto", overflowX: "hidden", backgroundColor: "#f8fafc" }}>
+      <main style={{ flex: 1, minWidth: 0, height: "100vh", padding: "clamp(14px, 3vw, 24px) clamp(14px, 3vw, 32px)", overflowY: "auto", overflowX: "hidden", backgroundColor: "#f8fafc" }}>
         {/* Top Header Bar */}
         <div className="student-top-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px", backgroundColor: "#ffffff", padding: "12px 20px", borderRadius: "12px", border: "1px solid #e2e8f0", borderLeft: "4px solid #4F46E5", gap: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.02)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
@@ -1791,7 +1911,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
               style={{ display: "none", alignItems: "center", justifyContent: "center", width: "36px", height: "36px", borderRadius: "8px", border: "1px solid #e2e8f0", backgroundColor: "#ffffff", cursor: "pointer", fontSize: "18px", color: "#4F46E5", flexShrink: 0 }}
               aria-label="Open Menu"
             >
-              
+
             </button>
             <div>
               <h2 style={{ margin: 0, fontSize: "19px", fontWeight: "800", color: "#0f172a", letterSpacing: "-0.3px" }}>
@@ -1824,25 +1944,28 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
               }}
               title="Live Notifications"
             >
-              
-              <span style={{
-                position: "absolute",
-                top: "-3px",
-                right: "-3px",
-                backgroundColor: "#B91C1C",
-                color: "#ffffff",
-                borderRadius: "50%",
-                width: "16px",
-                height: "16px",
-                fontSize: "9.5px",
-                fontWeight: "800",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                border: "1.5px solid #ffffff"
-              }}>
-                3
-              </span>
+
+              {unreadNotifsCount > 0 && (
+                <span style={{
+                  position: "absolute",
+                  top: "-3px",
+                  right: "-3px",
+                  backgroundColor: "#B91C1C",
+                  color: "#ffffff",
+                  borderRadius: "50%",
+                  minWidth: "16px",
+                  height: "16px",
+                  fontSize: "9.5px",
+                  fontWeight: "800",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  border: "1.5px solid #ffffff",
+                  padding: "0 2px"
+                }}>
+                  {unreadNotifsCount > 9 ? "9+" : unreadNotifsCount}
+                </span>
+              )}
             </button>
 
             <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "4px 8px", backgroundColor: "#F8FAFC", borderRadius: "8px", border: "1px solid #E2E8F0" }}>
@@ -1896,7 +2019,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
               title="Dismiss"
               aria-label="Dismiss Alert"
             >
-              
+
             </button>
           </div>
         )}
@@ -1927,6 +2050,89 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
 
           return (
             <div>
+              {/* Profile Rejection Alert Banner */}
+              {verificationStatus === "rejected" && (
+                <div style={{
+                  backgroundColor: "#FEF2F2",
+                  border: "2px solid #EF4444",
+                  borderRadius: "16px",
+                  padding: "20px 24px",
+                  marginBottom: "22px",
+                  boxShadow: "0 10px 25px -5px rgba(239, 68, 68, 0.15)",
+                  display: "flex",
+                  alignItems: "flex-start",
+                  justifyContent: "space-between",
+                  gap: "18px",
+                  flexWrap: "wrap",
+                }}>
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: "14px", flex: 1, minWidth: "280px" }}>
+                    <div style={{
+                      width: "44px",
+                      height: "44px",
+                      borderRadius: "12px",
+                      backgroundColor: "#FEE2E2",
+                      border: "1px solid #FCA5A5",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: "22px",
+                      color: "#DC2626",
+                      flexShrink: 0,
+                    }}>
+                      ⚠️
+                    </div>
+                    <div>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
+                        <span style={{ backgroundColor: "#DC2626", color: "#FFFFFF", fontSize: "11px", fontWeight: 800, padding: "2px 8px", borderRadius: "10px", textTransform: "uppercase" }}>
+                          Action Required
+                        </span>
+                        <h3 style={{ margin: 0, fontSize: "17px", fontWeight: 800, color: "#991B1B" }}>
+                          Profile Rejected by Placement Officer
+                        </h3>
+                      </div>
+                      <p style={{ margin: "0 0 10px 0", fontSize: "13px", color: "#7F1D1D", lineHeight: 1.5 }}>
+                        The Placement Officer reviewed your profile and identified incorrect details. You cannot participate in campus recruitment drives until you update your profile and get approved.
+                      </p>
+                      <div style={{
+                        backgroundColor: "#FFFFFF",
+                        border: "1.5px solid #FCA5A5",
+                        borderRadius: "10px",
+                        padding: "12px 16px",
+                        fontSize: "13.5px",
+                        color: "#991B1B",
+                      }}>
+                        <strong style={{ color: "#7F1D1D" }}>Officer's Reason:</strong>{" "}
+                        <span style={{ fontWeight: 600 }}>
+                          "{rejectionReason || "Academic criteria verification failed. Please review your details and re-upload your profile."}"
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px", alignSelf: "center" }}>
+                    <button
+                      onClick={() => setCurrentTab("profile")}
+                      style={{
+                        backgroundColor: "#DC2626",
+                        color: "#FFFFFF",
+                        border: "none",
+                        borderRadius: "10px",
+                        padding: "12px 22px",
+                        fontSize: "13.5px",
+                        fontWeight: 700,
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        boxShadow: "0 4px 12px rgba(220, 38, 38, 0.3)",
+                        transition: "all 0.2s ease",
+                      }}
+                    >
+                      <span>✏️ Update Details Now →</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Executive Welcome Hero Banner */}
               <div style={{
                 background: "linear-gradient(135deg, #07255A 0%, #0B3D91 50%, #1E5FCC 100%)",
@@ -1947,7 +2153,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                     Campus Placement Portal • Verified Candidate
                   </div>
                   <h1 style={{ fontSize: "23px", fontWeight: 800, margin: "0 0 6px 0", color: "#FFFFFF", letterSpacing: "-0.3px" }}>
-                    Welcome back, {displayName || "Ashwanth"}! 
+                    Welcome back, {displayName || "Ashwanth"}!
                   </h1>
                   <p style={{ fontSize: "13.5px", color: "#BFDBFE", margin: 0, lineHeight: 1.5 }}>
                     You are eligible for <strong>{filterCounts["Eligible"] || 14} campus drives</strong> this week. Check closing deadlines and track your interview rounds below.
@@ -2077,8 +2283,8 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
               </div>
 
               {/* DUAL CARD CONTAINER (Closing Soon Drives + Upcoming Drives) MATCHING USER IMAGE */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))", gap: "20px", marginBottom: "32px" }}>
-                
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 300px), 1fr))", gap: "20px", marginBottom: "32px" }}>
+
                 {/* LEFT CARD: Closing Soon Drives Matching Officer Dashboard Design */}
                 <div style={{ backgroundColor: "#FFFFFF", borderRadius: "16px", border: "1px solid #E2E8F0", padding: "20px 22px", boxShadow: "0 1px 4px rgba(0,0,0,0.03)", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
                   <div>
@@ -2201,7 +2407,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "16px" }}>
                       <div>
                         <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "16px", fontWeight: 800, color: "#0F172A" }}>
-                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4F46E5" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Upcoming Drives
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4F46E5" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg> Upcoming Drives
                         </div>
                         <div style={{ fontSize: "12.5px", color: "#64748B", marginTop: "3px" }}>
                           Campus recruitment drives & test pipeline
@@ -2426,8 +2632,8 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                 </div>
               ) : (
                 <div style={{ backgroundColor: "#FFFFFF", borderRadius: "12px", border: "1px solid #E2E8F0", overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.02)", marginBottom: "24px" }}>
-                  <div style={{ overflowX: "auto" }}>
-                    <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: "12.5px" }}>
+                  <div className="responsive-table-wrapper" style={{ overflowX: "auto" }}>
+                    <table style={{ width: "100%", minWidth: "680px", borderCollapse: "collapse", textAlign: "left", fontSize: "12.5px" }}>
                       <thead>
                         <tr style={{ backgroundColor: "#F8FAFC", borderBottom: "1px solid #E2E8F0", color: "#475569", fontSize: "11.5px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
                           <th style={{ padding: "11px 16px", fontWeight: 700 }}>#</th>
@@ -2484,7 +2690,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                                       {drive.company}
                                     </div>
                                     <div style={{ fontSize: "11px", color: "#64748B", marginTop: "1px", display: "flex", alignItems: "center", gap: "3px" }}>
-                                       {drive.location || "Bangalore, India"}
+                                      {drive.location || "Bangalore, India"}
                                     </div>
                                   </div>
                                 </div>
@@ -2723,8 +2929,8 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                 </div>
               ) : (
                 <div style={{ backgroundColor: "#FFFFFF", borderRadius: "12px", border: "1px solid #E2E8F0", overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.02)" }}>
-                  <div style={{ overflowX: "auto" }}>
-                    <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: "12.5px" }}>
+                  <div className="responsive-table-wrapper" style={{ overflowX: "auto" }}>
+                    <table style={{ width: "100%", minWidth: "680px", borderCollapse: "collapse", textAlign: "left", fontSize: "12.5px" }}>
                       <thead>
                         <tr style={{ backgroundColor: "#F8FAFC", borderBottom: "1px solid #E2E8F0", color: "#475569", fontSize: "11.5px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
                           <th style={{ padding: "11px 16px", fontWeight: 700 }}>#</th>
@@ -2781,7 +2987,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                                       {app.company}
                                     </div>
                                     <div style={{ fontSize: "11px", color: "#64748B", marginTop: "1px", display: "flex", alignItems: "center", gap: "3px" }}>
-                                       {app.location || "Bangalore, India"}
+                                      {app.location || "Bangalore, India"}
                                     </div>
                                   </div>
                                 </div>
@@ -2822,7 +3028,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                                     fontWeight: 700,
                                     whiteSpace: "nowrap"
                                   }}>
-                                     Selected
+                                    Selected
                                   </span>
                                 ) : (
                                   <span style={{
@@ -2903,7 +3109,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                   gap: "4px"
                 }}
               >
-                 Refresh Schedule
+                Refresh Schedule
               </button>
             </div>
 
@@ -2916,7 +3122,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                 ️ {interviewsError}
               </div>
             ) : (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "20px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 280px), 1fr))", gap: "20px" }}>
                 {(() => {
                   // Build deduplicated interviews list: 1 card per company role
                   const seenKeys = new Set<string>();
@@ -2959,7 +3165,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                   if (sortedList.length === 0) {
                     return (
                       <div style={{ padding: "40px 0", textAlign: "center", color: "#64748b", fontWeight: "700", fontSize: "14px", gridColumn: "1 / -1" }}>
-                         No interviews scheduled yet.
+                        No interviews scheduled yet.
                       </div>
                     );
                   }
@@ -3122,8 +3328,8 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
               </div>
 
               {/* Table */}
-              <div style={{ overflowX: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: "0", fontSize: "13px" }}>
+              <div className="responsive-table-wrapper" style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", minWidth: "680px", borderCollapse: "separate", borderSpacing: "0", fontSize: "13px" }}>
                   <thead>
                     <tr style={{ backgroundColor: "#f8fafc", color: "#64748b", fontSize: "11px", fontWeight: "800", textTransform: "uppercase", letterSpacing: "0.5px" }}>
                       <th style={{ padding: "12px 16px", textAlign: "left", borderRadius: "8px 0 0 8px" }}>Company</th>
@@ -3220,7 +3426,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                           "cpms_offers_list",
                         ].filter(Boolean);
                         offerKeys.forEach(k => {
-                          try { localStorage.setItem(k, JSON.stringify(updated)); } catch (e) {}
+                          try { localStorage.setItem(k, JSON.stringify(updated)); } catch (e) { }
                         });
                         window.dispatchEvent(new Event("storage"));
                       }
@@ -3239,7 +3445,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                       gap: "6px"
                     }}
                   >
-                     Accept Placement Offer
+                    Accept Placement Offer
                   </button>
                   <button
                     onClick={() => {
@@ -3256,7 +3462,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                           "cpms_offers_list",
                         ].filter(Boolean);
                         offerKeys.forEach(k => {
-                          try { localStorage.setItem(k, JSON.stringify(updated)); } catch (e) {}
+                          try { localStorage.setItem(k, JSON.stringify(updated)); } catch (e) { }
                         });
                         window.dispatchEvent(new Event("storage"));
                       }
@@ -3275,7 +3481,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                       gap: "6px"
                     }}
                   >
-                     Decline Offer
+                    Decline Offer
                   </button>
                 </div>
               </div>
@@ -3288,6 +3494,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
 
         {/* MODAL 1: Drive Details & Criteria View (Matching Mockup Aesthetics without Purple) */}
         {selectedDriveCriteria && (() => {
+          const selectedDrive = selectedDriveCriteria;
           const isOptedIn = isDriveOptedIn(selectedDriveCriteria) || selectedDriveCriteria.statusTag === "Opted-In";
           const isOptedOut = isDriveOptedOut(selectedDriveCriteria) || selectedDriveCriteria.statusTag === "Opted-Out";
           const isIneligible = selectedDriveCriteria.statusTag === "Not Eligible" || (selectedDriveCriteria as any).isEligible === false;
@@ -3295,7 +3502,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
           return (
             <div onClick={() => setSelectedDriveCriteria(null)} style={{ position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", backgroundColor: "rgba(15,23,42,0.6)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: "16px" }}>
               <div onClick={(e) => e.stopPropagation()} style={{ backgroundColor: "#ffffff", borderRadius: "20px", width: "min(860px, calc(100vw - 32px))", maxHeight: "90vh", overflowY: "auto", boxShadow: "0 25px 50px -12px rgba(0,0,0,0.25)", padding: "24px", position: "relative" }}>
-                
+
                 {/* Close Button */}
                 <button
                   onClick={() => setSelectedDriveCriteria(null)}
@@ -3318,7 +3525,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                     zIndex: 10
                   }}
                 >
-                  
+
                 </button>
 
                 {/* Top Header Card */}
@@ -3399,7 +3606,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                             fontSize: "13px"
                           }}
                         >
-                           Opted-In
+                          Opted-In
                         </button>
                       ) : isOptedOut ? (
                         <button
@@ -3414,7 +3621,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                             fontSize: "13px"
                           }}
                         >
-                           Opted-Out
+                          Opted-Out
                         </button>
                       ) : (
                         <>
@@ -3470,25 +3677,26 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                   </span>
                 </div>
 
-                {/* Section 1: About the Role */}
-                <div style={{ marginBottom: "28px" }}>
-                  <h4 style={{ fontSize: "16px", fontWeight: "800", color: "#0f172a", margin: "0 0 10px 0" }}>
-                    About the Role
+                {/* Section 1: About the Opportunity */}
+                <div style={{ marginBottom: "24px" }}>
+                  <h4 style={{ fontSize: "15px", fontWeight: "800", color: "#0f172a", margin: "0 0 8px 0" }}>
+                    About the Opportunity
                   </h4>
-                  <p style={{ fontSize: "14px", color: "#475569", lineHeight: "1.6", margin: 0 }}>
-                    Proficient in Asp, .NET, VB, VC++. You ought to develop both windows and web applications according to clients requirement and meet tight deadlines.
+                  <p style={{ fontSize: "13.5px", color: "#475569", lineHeight: "1.6", margin: 0 }}>
+                    {selectedDriveCriteria.aboutCompany ||
+                      `${selectedDriveCriteria.company} is conducting placement recruitment for the ${selectedDriveCriteria.role || selectedDriveCriteria.jobTitle || "Software Engineer"} position. Please review the detailed job description, eligibility cutoffs, and selection workflow below.`}
                   </p>
                 </div>
 
                 {/* Section 2: 6 Attribute Cards Grid */}
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "14px", marginBottom: "28px" }}>
                   {[
-                    { icon: "", title: "Role", desc: selectedDriveCriteria.role || "Back end Developer" },
-                    { icon: "", title: "Employment Type", desc: "Internship, Full Time" },
-                    { icon: "", title: "Industry Type", desc: "Banking & IT Services" },
-                    { icon: "", title: "Role Category", desc: "Software Developer" },
-                    { icon: "", title: "Education", desc: "UG: B.Tech / B.E / MCA" },
-                    { icon: "", title: "Department", desc: "Engineering" }
+                    { icon: "💼", title: "Role", desc: selectedDriveCriteria.role || selectedDriveCriteria.jobTitle || "Developer" },
+                    { icon: "⏰", title: "Employment Type", desc: selectedDriveCriteria.jobType || "Full-Time (FTE)" },
+                    { icon: "📍", title: "Work Mode / Location", desc: `${selectedDriveCriteria.workMode || "On-site"}${selectedDriveCriteria.location ? ` • ${selectedDriveCriteria.location}` : ""}` },
+                    { icon: "💰", title: "Package (CTC)", desc: formatCtc(selectedDriveCriteria.ctc || selectedDriveCriteria.packageCtc) || "As per college norms" },
+                    { icon: "🎓", title: "Eligible Departments", desc: (Array.isArray(selectedDriveCriteria.eligibleBranches) && selectedDriveCriteria.eligibleBranches.length > 0) ? selectedDriveCriteria.eligibleBranches.join(", ") : (selectedDriveCriteria.department || selectedDriveCriteria.departments || "All Branches") },
+                    { icon: "📅", title: "Eligible Batch", desc: selectedDriveCriteria.batch || selectedDriveCriteria.gradYear ? `${selectedDriveCriteria.batch || selectedDriveCriteria.gradYear} Batch` : "All Batches" }
                   ].map((item, idx) => (
                     <div key={idx} style={{ backgroundColor: "#f8fafc", borderRadius: "12px", padding: "14px 16px", border: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: "12px" }}>
                       <div style={{ width: "36px", height: "36px", borderRadius: "10px", backgroundColor: "#eff6ff", color: "#2563eb", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "18px", flexShrink: 0 }}>
@@ -3502,20 +3710,77 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                   ))}
                 </div>
 
-                {/* Section 3: Key Responsibilities */}
+                {/* Section 3: Job Description */}
                 <div style={{ marginBottom: "28px" }}>
-                  <h4 style={{ fontSize: "16px", fontWeight: "800", color: "#0f172a", margin: "0 0 12px 0" }}>
-                    Key Responsibilities
+                  <h4 style={{ fontSize: "15px", fontWeight: "800", color: "#0f172a", margin: "0 0 10px 0", display: "flex", alignItems: "center", gap: "6px" }}>
+                    <span>Job Description & Responsibilities</span>
                   </h4>
-                  <ul style={{ margin: 0, paddingLeft: "20px", fontSize: "14px", color: "#475569", lineHeight: "1.8" }}>
-                    <li>Develop responsive web application using modern frontend frameworks</li>
-                    <li>Design and build RESTful API's and backend services</li>
-                    <li>Write clean, maintainable and efficient code</li>
-                    <li>Collaborate with UI/UX designers and product teams</li>
-                    <li>Optimize application performance and scalability</li>
-                    <li>Troubleshoot and fix bugs in production environments</li>
-                    <li>Participate in code reviews and technical discussions</li>
-                  </ul>
+                  {selectedDriveCriteria.jobDescription ? (
+                    <div style={{
+                      backgroundColor: "#f8fafc",
+                      border: "1px solid #e2e8f0",
+                      borderRadius: "12px",
+                      padding: "16px 18px",
+                      fontSize: "13.5px",
+                      color: "#334155",
+                      lineHeight: "1.75",
+                      whiteSpace: "pre-line"
+                    }}>
+                      {selectedDriveCriteria.jobDescription}
+                    </div>
+                  ) : selectedDriveCriteria.description ? (
+                    <div style={{
+                      backgroundColor: "#f8fafc",
+                      border: "1px solid #e2e8f0",
+                      borderRadius: "12px",
+                      padding: "16px 18px",
+                      fontSize: "13.5px",
+                      color: "#334155",
+                      lineHeight: "1.75",
+                      whiteSpace: "pre-line"
+                    }}>
+                      {selectedDriveCriteria.description}
+                    </div>
+                  ) : (
+                    <div style={{
+                      backgroundColor: "#f8fafc",
+                      border: "1px dashed #cbd5e1",
+                      borderRadius: "12px",
+                      padding: "14px 18px",
+                      fontSize: "13px",
+                      color: "#64748b",
+                      fontStyle: "italic"
+                    }}>
+                      Detailed job description and responsibilities will be briefed during the pre-placement orientation. Key focus areas include core engineering fundamentals, software problem solving, and team collaboration.
+                    </div>
+                  )}
+
+                  {/* Required Skills Badges */}
+                  {selectedDriveCriteria.requiredSkills && selectedDriveCriteria.requiredSkills.length > 0 && (
+                    <div style={{ marginTop: "14px" }}>
+                      <div style={{ fontSize: "12px", fontWeight: "700", color: "#64748b", marginBottom: "8px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                        Required Technical Skills:
+                      </div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                        {selectedDriveCriteria.requiredSkills.map((skill: string, sIdx: number) => (
+                          <span
+                            key={sIdx}
+                            style={{
+                              backgroundColor: "#eff6ff",
+                              color: "#1d4ed8",
+                              border: "1px solid #bfdbfe",
+                              padding: "4px 10px",
+                              borderRadius: "16px",
+                              fontSize: "12px",
+                              fontWeight: "700"
+                            }}
+                          >
+                            {skill}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Section 4: Eligibility Criteria */}
@@ -3524,56 +3789,79 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                     Eligibility Criteria
                   </h4>
                   <ul style={{ margin: 0, paddingLeft: "20px", fontSize: "14px", color: "#475569", lineHeight: "1.8" }}>
-                    <li>BE / BTech / MCA in Computer Science, IT and related fields</li>
-                    <li>2026 Pass-out Batch</li>
-                    <li>Minimum {selectedDriveCriteria.minCgpa || 7.0} CGPA or 70%</li>
-                    <li>Maximum {selectedDriveCriteria.maxBacklogs ?? 0} active backlogs allowed</li>
+                    <li>
+                      <strong>Eligible Department(s):</strong>{" "}
+                      {(Array.isArray(selectedDriveCriteria.eligibleBranches) && selectedDriveCriteria.eligibleBranches.length > 0)
+                        ? selectedDriveCriteria.eligibleBranches.join(", ")
+                        : (selectedDriveCriteria.department || selectedDriveCriteria.departments || "All Eligible Branches")}
+                    </li>
+                    <li>
+                      <strong>Eligible Batch:</strong>{" "}
+                      {selectedDriveCriteria.batch || selectedDriveCriteria.gradYear
+                        ? `${selectedDriveCriteria.batch || selectedDriveCriteria.gradYear} Pass-out Batch`
+                        : "All Batches"}
+                    </li>
+                    {selectedDriveCriteria.minCgpa !== undefined && selectedDriveCriteria.minCgpa !== null && (
+                      <li>
+                        <strong>Minimum CGPA:</strong> {selectedDriveCriteria.minCgpa} CGPA
+                      </li>
+                    )}
+                    {(selectedDriveCriteria.minTenth || selectedDriveCriteria.minTwelfth) && (
+                      <li>
+                        <strong>Academic Cutoffs:</strong>{" "}
+                        {selectedDriveCriteria.minTenth ? `Min ${selectedDriveCriteria.minTenth}% in 10th` : ""}
+                        {selectedDriveCriteria.minTenth && selectedDriveCriteria.minTwelfth ? " & " : ""}
+                        {selectedDriveCriteria.minTwelfth ? `Min ${selectedDriveCriteria.minTwelfth}% in 12th/Diploma` : ""}
+                      </li>
+                    )}
+                    <li>
+                      <strong>Backlogs Allowed:</strong>{" "}
+                      {selectedDriveCriteria.maxBacklogs !== undefined
+                        ? `Maximum ${selectedDriveCriteria.maxBacklogs} active backlogs allowed`
+                        : "No active backlog restrictions"}
+                    </li>
                   </ul>
                 </div>
 
-                {/* Section 5: Rounds (5) */}
+                {/* Section 5: Selection Rounds Workflow */}
                 <div style={{ marginBottom: "28px" }}>
                   <h4 style={{ fontSize: "16px", fontWeight: "800", color: "#0f172a", margin: "0 0 12px 0" }}>
-                    Rounds (5)
+                    Selection Rounds ({((selectedDriveCriteria.rounds && selectedDriveCriteria.rounds.length > 0) ? selectedDriveCriteria.rounds : (selectedDriveCriteria.roundsWorkflow || [])).length})
                   </h4>
-                  <ul style={{ margin: 0, paddingLeft: "20px", fontSize: "14px", color: "#475569", lineHeight: "1.8" }}>
-                    <li>1st Round - Aptitude</li>
-                    <li>2nd Round - Technical</li>
-                    <li>3rd Round - Coding</li>
-                    <li>4th Round - Group Discussion</li>
-                    <li>Final Round - HR</li>
-                  </ul>
+                  {((selectedDriveCriteria.rounds && selectedDriveCriteria.rounds.length > 0) ? selectedDriveCriteria.rounds : (selectedDriveCriteria.roundsWorkflow || [])).length > 0 ? (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                      {((selectedDriveCriteria.rounds && selectedDriveCriteria.rounds.length > 0) ? selectedDriveCriteria.rounds : (selectedDriveCriteria.roundsWorkflow || [])).map((rnd: any, rIdx: number) => (
+                        <div key={rIdx} style={{ backgroundColor: "#f8fafc", padding: "12px 14px", borderRadius: "10px", border: "1px solid #e2e8f0" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <span style={{ fontWeight: "800", color: "#1e293b", fontSize: "13.5px" }}>
+                              Round {rnd.roundNumber || rIdx + 1}: {rnd.roundName || rnd.name || `Round ${rIdx + 1}`}
+                            </span>
+                            <span style={{ fontSize: "11px", fontWeight: "700", color: "#2563eb", backgroundColor: "#eff6ff", padding: "3px 8px", borderRadius: "6px" }}>
+                              {rnd.mode || "Online"}
+                            </span>
+                          </div>
+                          {(rnd.date || rnd.time || rnd.venue) && (
+                            <div style={{ fontSize: "12px", color: "#64748b", marginTop: "6px", display: "flex", gap: "12px", flexWrap: "wrap" }}>
+                              {rnd.date && <span>📅 <strong>Date:</strong> {rnd.date}</span>}
+                              {rnd.time && <span>⏰ <strong>Time:</strong> {rnd.time}</span>}
+                              {rnd.venue && <span>📍 <strong>Venue:</strong> {rnd.venue}</span>}
+                            </div>
+                          )}
+                          {rnd.description && (
+                            <div style={{ fontSize: "12px", color: "#475569", marginTop: "5px", lineHeight: "1.4" }}>
+                              {rnd.description}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <ul style={{ margin: 0, paddingLeft: "20px", fontSize: "14px", color: "#475569", lineHeight: "1.8" }}>
+                      <li>Rounds to be announced by Placement Cell</li>
+                    </ul>
+                  )}
                 </div>
 
-                {/* Section 6: Required Skills */}
-                <div style={{ marginBottom: "28px" }}>
-                  <h4 style={{ fontSize: "16px", fontWeight: "800", color: "#0f172a", margin: "0 0 12px 0" }}>
-                    Required Skills
-                  </h4>
-                  <ul style={{ margin: 0, paddingLeft: "20px", fontSize: "14px", color: "#475569", lineHeight: "1.8" }}>
-                    <li>JavaScript / TypeScript</li>
-                    <li>React.js or Angular</li>
-                    <li>Node.js</li>
-                    <li>SQL / NoSQL Databases</li>
-                    <li>DSA</li>
-                    <li>Git and Version Control</li>
-                  </ul>
-                </div>
-
-                {/* Section 7: Benefits */}
-                <div style={{ marginBottom: "12px" }}>
-                  <h4 style={{ fontSize: "16px", fontWeight: "800", color: "#0f172a", margin: "0 0 12px 0" }}>
-                    Benefits
-                  </h4>
-                  <ul style={{ margin: 0, paddingLeft: "20px", fontSize: "14px", color: "#475569", lineHeight: "1.8" }}>
-                    <li>Health Insurance</li>
-                    <li>Flexible Work Environment</li>
-                    <li>Learning & Development Programs</li>
-                    <li>Free Meals & Transportation</li>
-                    <li>Employee Wellness Programs</li>
-                    <li>Career Growth Opportunities</li>
-                  </ul>
-                </div>
 
               </div>
             </div>
@@ -3589,7 +3877,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                 onClick={() => setShowOptInConfirmDrive(null)}
                 style={{ position: "absolute", top: "16px", right: "16px", background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: "18px", fontWeight: "800" }}
               >
-                
+
               </button>
 
               <h3 style={{ margin: "0 0 8px 0", fontSize: "20px", fontWeight: "800", color: "#0f172a" }}>
@@ -3650,7 +3938,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
           <div style={{ position: "fixed", top: "30px", left: "50%", transform: "translateX(-50%)", zIndex: 10000 }}>
             <div style={{ backgroundColor: "#ffffff", borderRadius: "16px", border: "1px solid #bbf7d0", padding: "16px 24px", display: "flex", alignItems: "center", gap: "16px", boxShadow: "0 20px 25px -5px rgba(0,0,0,0.18), 0 10px 10px -5px rgba(0,0,0,0.04)", minWidth: "380px" }}>
               <div style={{ width: "42px", height: "42px", borderRadius: "50%", backgroundColor: "#16a34a", color: "#ffffff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "20px", fontWeight: "800", flexShrink: 0 }}>
-                
+
               </div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: "17px", fontWeight: "800", color: "#0f172a", marginBottom: "2px" }}>
@@ -3665,7 +3953,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                 style={{ background: "none", border: "none", color: "#94a3b8", fontSize: "18px", fontWeight: "800", cursor: "pointer", marginLeft: "12px", padding: 0 }}
                 title="Close"
               >
-                
+
               </button>
             </div>
           </div>
@@ -3676,7 +3964,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
           <div style={{ position: "fixed", top: "30px", left: "50%", transform: "translateX(-50%)", zIndex: 10000 }}>
             <div style={{ backgroundColor: "#ffffff", borderRadius: "16px", border: "1px solid #fecaca", padding: "16px 24px", display: "flex", alignItems: "center", gap: "16px", boxShadow: "0 20px 25px -5px rgba(0,0,0,0.18), 0 10px 10px -5px rgba(0,0,0,0.04)", minWidth: "380px" }}>
               <div style={{ width: "42px", height: "42px", borderRadius: "50%", backgroundColor: "#dc2626", color: "#ffffff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "20px", fontWeight: "800", flexShrink: 0 }}>
-                
+
               </div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: "17px", fontWeight: "800", color: "#0f172a", marginBottom: "2px" }}>
@@ -3691,7 +3979,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                 style={{ background: "none", border: "none", color: "#94a3b8", fontSize: "18px", fontWeight: "800", cursor: "pointer", marginLeft: "12px", padding: 0 }}
                 title="Close"
               >
-                
+
               </button>
             </div>
           </div>
@@ -3744,7 +4032,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                   </div>
                 </div>
                 <button onClick={() => setSelectedApplicationModal(null)} style={{ width: "32px", height: "32px", borderRadius: "50%", backgroundColor: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.2)", color: "#ffffff", cursor: "pointer", fontSize: "16px", fontWeight: "800", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                  
+
                 </button>
               </div>
 
@@ -3758,6 +4046,18 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                   <div>Package (CTC): <strong style={{ color: "#16a34a" }}>{selectedApplicationModal.package}</strong></div>
                   <div>Current Status: <strong style={{ color: selectedApplicationModal.currentWorkflowStage === "Not Shortlisted" ? "#dc2626" : "#2563eb" }}>{selectedApplicationModal.currentWorkflowStage || "Under Review"}</strong></div>
                 </div>
+
+                {/* JOB DESCRIPTION (IF AVAILABLE) */}
+                {(selectedApplicationModal.driveObj?.jobDescription || selectedApplicationModal.jobDescription || selectedApplicationModal.driveObj?.description) && (
+                  <div style={{ marginBottom: "20px" }}>
+                    <div style={{ fontSize: "11px", fontWeight: "800", color: "#94a3b8", letterSpacing: "0.5px", textTransform: "uppercase", marginBottom: "8px" }}>
+                      JOB DESCRIPTION & RESPONSIBILITIES
+                    </div>
+                    <div style={{ backgroundColor: "#f8fafc", borderRadius: "10px", padding: "14px", border: "1px solid #f1f5f9", fontSize: "13px", color: "#334155", lineHeight: "1.6", whiteSpace: "pre-line" }}>
+                      {selectedApplicationModal.driveObj?.jobDescription || selectedApplicationModal.jobDescription || selectedApplicationModal.driveObj?.description}
+                    </div>
+                  </div>
+                )}
 
                 {/* ELIGIBILITY EVALUATION CHECKLIST */}
                 <div style={{ fontSize: "11px", fontWeight: "800", color: "#94a3b8", letterSpacing: "0.5px", textTransform: "uppercase", marginBottom: "8px" }}>ELIGIBILITY EVALUATION CHECKLIST</div>
@@ -3792,7 +4092,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                   return (
                     <div style={{ marginBottom: "20px" }}>
                       <div style={{ fontSize: "11px", fontWeight: "800", color: "#4F46E5", letterSpacing: "0.5px", textTransform: "uppercase", marginBottom: "8px", display: "flex", alignItems: "center", gap: "6px" }}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4F46E5" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4F46E5" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
                         <span>SCHEDULED INTERVIEW & ASSESSMENT DETAILS</span>
                       </div>
 
@@ -3887,7 +4187,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
               <div style={{ backgroundColor: "#0b1329", color: "#ffffff", padding: "18px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", position: "sticky", top: 0, zIndex: 10 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                   <div style={{ width: "36px", height: "36px", borderRadius: "8px", backgroundColor: "#ffffff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "800", color: "#0f172a", fontSize: "14px" }}>
-                    
+
                   </div>
                   <div>
                     <h3 style={{ margin: 0, fontSize: "17px", fontWeight: "800", color: "#ffffff" }}>{displayName}</h3>
@@ -4144,7 +4444,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                       boxSizing: "border-box"
                     }}
                   >
-                     Join Interview Platform
+                    Join Interview Platform
                   </a>
                 ) : null}
               </div>
@@ -4256,11 +4556,11 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
               }}
               aria-label="Close"
             >
-              
+
             </button>
             <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "14px" }}>
               <div style={{ width: "36px", height: "36px", borderRadius: "10px", backgroundColor: "#DCFCE7", color: "#16A34A", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "18px", fontWeight: "900" }}>
-                
+
               </div>
               <div>
                 <h3 style={{ fontSize: "18px", fontWeight: "800", color: "#0F172A", margin: 0 }}>
@@ -4323,7 +4623,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                   boxShadow: "0 2px 6px rgba(22, 163, 74, 0.25)",
                 }}
               >
-                 Confirm Opt-In
+                Confirm Opt-In
               </button>
             </div>
           </div>
@@ -4378,7 +4678,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
               }}
               aria-label="Close"
             >
-              
+
             </button>
             <h3 style={{ fontSize: "20px", fontWeight: "800", color: "#0f172a", margin: "0 0 8px 0" }}>
               Confirm Opt-Out
@@ -4458,85 +4758,12 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
         </div>
       )}
 
-      {/* MODAL 5: Live Notifications Panel (Matching User Screenshot) */}
+      {/* MODAL 5: Live Notifications Panel (Clean Real-Time Data) */}
       {showNotificationsModal && (() => {
-        const notificationsList = [
-          {
-            id: "1",
-            type: "Shortlists",
-            company: "Google",
-            title: "You've been shortlisted for Google",
-            desc: "Congratulations! Your application for Software Engineer at Google has moved to the Technical Round",
-            time: "• 20 mins ago",
-            isUnread: true,
-            logo: "G"
-          },
-          {
-            id: "2",
-            type: "Deadlines",
-            company: "Calibrant",
-            title: "Calibrant deadline closes in 2 days",
-            desc: "Don't miss out Opt -in takes one tap before May 12, 11:59 PM",
-            time: "• 1 hr ago",
-            isUnread: true,
-            logo: "G"
-          },
-          {
-            id: "3",
-            type: "Shortlists",
-            company: "Platform Science",
-            title: "Platform Science interview Scheduled",
-            desc: "Your face to face interview with HR sceduled for Jun 12, 10:30 AM at TPO Hall 2",
-            time: "• 2 days ago",
-            isUnread: false,
-            logo: "G"
-          },
-          {
-            id: "4",
-            type: "Shortlists",
-            company: "Google",
-            title: "You've been shortlisted for Google",
-            desc: "Congratulations! Your application for Software Engineer at Google has moved to the Technical Round",
-            time: "• 20 mins ago",
-            isUnread: false,
-            logo: "G"
-          },
-          {
-            id: "5",
-            type: "Shortlists",
-            company: "Platform Science",
-            title: "Platform Science interview Scheduled",
-            desc: "Your face to face interview with HR sceduled for Jun 12, 10:30 AM at TPO Hall 2",
-            time: "• 2 days ago",
-            isUnread: false,
-            logo: "G"
-          },
-          {
-            id: "6",
-            type: "Deadlines",
-            company: "Calibrant",
-            title: "Calibrant deadline closes in 2 days",
-            desc: "Don't miss out Opt -in takes one tap before May 12, 11:59 PM",
-            time: "• 1 hr ago",
-            isUnread: false,
-            logo: "G"
-          },
-          {
-            id: "7",
-            type: "Eligible",
-            company: "Zoho",
-            title: "New Drive Live: Zoho Corporation",
-            desc: "You are eligible for Software Developer role (12 LPA). Opt-in before deadline!",
-            time: "• 3 days ago",
-            isUnread: false,
-            logo: "ZOHO"
-          }
-        ];
-
-        const filterOptions = ["All", "Unread", "Deadlines", "Shortlists", "Eligible", "Not Eligible"];
-        const filteredNotifs = notificationsList.filter(n => {
+        const filterOptions = ["All", "Unread", "Deadlines", "Shortlists", "Eligible", "Drives"];
+        const filteredNotifs = liveNotifications.filter(n => {
           if (activeNotifFilter === "All") return true;
-          if (activeNotifFilter === "Unread") return n.isUnread;
+          if (activeNotifFilter === "Unread") return !n.isRead;
           return n.type === activeNotifFilter;
         });
 
@@ -4574,33 +4801,50 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
               }}
             >
               {/* Header */}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
-                <h3 style={{ margin: 0, fontSize: "26px", fontWeight: "800", color: "#0f172a" }}>
-                  Notifications
-                </h3>
-                <button
-                  onClick={() => setShowNotificationsModal(false)}
-                  style={{
-                    width: "34px",
-                    height: "34px",
-                    borderRadius: "50%",
-                    backgroundColor: "#f1f5f9",
-                    border: "none",
-                    color: "#64748b",
-                    cursor: "pointer",
-                    fontSize: "18px",
-                    fontWeight: "800",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center"
-                  }}
-                >
-                  
-                </button>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  <h3 style={{ margin: 0, fontSize: "24px", fontWeight: "800", color: "#0f172a" }}>
+                    Notifications
+                  </h3>
+                  {unreadNotifsCount > 0 && (
+                    <span style={{ fontSize: "11px", backgroundColor: "#EFF6FF", color: "#2563EB", padding: "3px 9px", borderRadius: "12px", fontWeight: 700 }}>
+                      {unreadNotifsCount} new
+                    </span>
+                  )}
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                  {unreadNotifsCount > 0 && (
+                    <button
+                      onClick={handleMarkAllStudentNotificationsRead}
+                      style={{ background: "none", border: "none", color: "#2563EB", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}
+                    >
+                      Mark all as read
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setShowNotificationsModal(false)}
+                    style={{
+                      width: "34px",
+                      height: "34px",
+                      borderRadius: "50%",
+                      backgroundColor: "#f1f5f9",
+                      border: "none",
+                      color: "#64748b",
+                      cursor: "pointer",
+                      fontSize: "18px",
+                      fontWeight: "800",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center"
+                    }}
+                  >
+
+                  </button>
+                </div>
               </div>
 
               {/* Filter Pills */}
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "20px" }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "18px" }}>
                 {filterOptions.map((f, fIdx) => {
                   const isActive = activeNotifFilter === f;
                   return (
@@ -4608,15 +4852,15 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                       key={fIdx}
                       onClick={() => setActiveNotifFilter(f)}
                       style={{
-                        backgroundColor: isActive ? "#8b5cf6" : "#ffffff",
+                        backgroundColor: isActive ? "#2563EB" : "#ffffff",
                         color: isActive ? "#ffffff" : "#475569",
                         border: isActive ? "none" : "1px solid #cbd5e1",
                         borderRadius: "20px",
-                        padding: "6px 18px",
-                        fontSize: "13px",
+                        padding: "6px 16px",
+                        fontSize: "12px",
                         fontWeight: "700",
                         cursor: "pointer",
-                        boxShadow: isActive ? "0 2px 6px rgba(139,92,246,0.3)" : "none",
+                        boxShadow: isActive ? "0 2px 6px rgba(37,99,235,0.25)" : "none",
                         transition: "all 0.15s ease"
                       }}
                     >
@@ -4630,66 +4874,80 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
               <div style={{
                 flex: 1,
                 overflowY: "auto",
-                borderRadius: "20px",
-                border: "1.5px solid #e0e7ff",
+                borderRadius: "16px",
+                border: "1.5px solid #e2e8f0",
                 backgroundColor: "#ffffff"
               }}>
                 {filteredNotifs.length === 0 ? (
-                  <div style={{ padding: "40px 20px", textAlign: "center", color: "#64748b", fontWeight: "600" }}>
-                    No notifications match the active filter.
+                  <div style={{ padding: "48px 20px", textAlign: "center", color: "#64748b" }}>
+                    <div style={{ fontSize: "36px", marginBottom: "10px" }}>🔔</div>
+                    <div style={{ fontSize: "15px", fontWeight: "700", color: "#1e293b" }}>No notifications right now</div>
+                    <div style={{ fontSize: "12.5px", color: "#94a3b8", marginTop: "4px" }}>
+                      {activeNotifFilter === "All"
+                        ? "You're completely up to date! Real updates for drives, selection rounds, and shortlists will appear here."
+                        : `No notifications matching the "${activeNotifFilter}" filter.`}
+                    </div>
                   </div>
                 ) : (
                   filteredNotifs.map((n, idx) => (
                     <div
-                      key={n.id || idx}
+                      key={n._id || n.id || idx}
+                      onClick={() => handleMarkSingleNotificationRead(n._id || n.id)}
                       style={{
-                        padding: "18px 20px",
+                        padding: "16px 18px",
                         borderBottom: idx === filteredNotifs.length - 1 ? "none" : "1px solid #e2e8f0",
                         display: "flex",
-                        alignItems: "center",
-                        gap: "16px",
-                        backgroundColor: n.isUnread ? "#fcfdff" : "#ffffff",
+                        alignItems: "flex-start",
+                        gap: "14px",
+                        backgroundColor: !n.isRead ? "#f0f7ff" : "#ffffff",
+                        cursor: "pointer",
                         transition: "background-color 0.15s ease"
                       }}
                     >
-                      {/* Company Logo Box */}
+                      {/* Company / Type Icon Box */}
                       <div style={{
-                        width: "52px",
-                        height: "52px",
-                        borderRadius: "14px",
-                        backgroundColor: "#f8fafc",
-                        border: "1px solid #e2e8f0",
+                        width: "44px",
+                        height: "44px",
+                        borderRadius: "12px",
+                        backgroundColor: !n.isRead ? "#dbeafe" : "#f1f5f9",
+                        border: "1px solid #cbd5e1",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
-                        fontSize: "22px",
+                        fontSize: "18px",
                         fontWeight: "800",
                         color: "#2563eb",
                         overflow: "hidden",
                         flexShrink: 0
                       }}>
-                        {n.company?.includes("Google") || n.logo === "G" ? (
-                          <span style={{ color: "#4285F4" }}>G</span>
-                        ) : n.company?.includes("Zoho") || n.logo === "ZOHO" ? (
-                          <span style={{ color: "#e11d48", fontSize: "11px", fontWeight: "900" }}>ZOHO</span>
-                        ) : (
-                          n.company?.charAt(0) || "C"
-                        )}
+                        {n.company ? n.company.charAt(0).toUpperCase() : "📢"}
                       </div>
 
                       {/* Content */}
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "10px", marginBottom: "4px" }}>
-                          <h4 style={{ margin: 0, fontSize: "16px", fontWeight: "800", color: "#0f172a" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "10px", marginBottom: "3px" }}>
+                          <h4 style={{ margin: 0, fontSize: "14.5px", fontWeight: !n.isRead ? "800" : "600", color: "#0f172a" }}>
                             {n.title}
                           </h4>
-                          <span style={{ fontSize: "11px", color: "#7c3aed", fontWeight: "700", whiteSpace: "nowrap", flexShrink: 0 }}>
-                            {n.time}
+                          <span style={{ fontSize: "10.5px", color: "#94a3b8", fontWeight: "600", whiteSpace: "nowrap", flexShrink: 0 }}>
+                            {n.createdAt ? new Date(n.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : (n.time || "Recent")}
                           </span>
                         </div>
-                        <p style={{ margin: 0, fontSize: "13px", color: "#64748b", lineHeight: "1.5", fontWeight: "500" }}>
-                          {n.desc}
+                        <p style={{ margin: 0, fontSize: "12.5px", color: "#475569", lineHeight: "1.5", fontWeight: "500" }}>
+                          {n.message || n.desc}
                         </p>
+                        {n.company && (
+                          <div style={{ marginTop: "4px", display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                            <span style={{ fontSize: "11px", fontWeight: 700, color: "#2563eb", backgroundColor: "#EFF6FF", padding: "1px 7px", borderRadius: "6px" }}>
+                              {n.company}
+                            </span>
+                            {n.type && (
+                              <span style={{ fontSize: "10.5px", color: "#64748B", fontWeight: 600 }}>
+                                • {n.type}
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))
@@ -4699,269 +4957,269 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
           </div>
         );
       })()}
-        {/* MODAL 1D: Filter Drawer Modal (Matching User Screenshot without Purple) */}
-        {showFilterModal && (() => {
-          const activeMatchCount = placementDrives.length;
-          return (
-            <div onClick={() => setShowFilterModal(false)} style={{ position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", backgroundColor: "rgba(15,23,42,0.65)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1150, padding: "16px" }}>
-              <div onClick={(e) => e.stopPropagation()} style={{ backgroundColor: "#ffffff", borderRadius: "20px", width: "min(520px, calc(100vw - 32px))", maxHeight: "90vh", overflowY: "auto", padding: "28px", boxShadow: "0 25px 50px -12px rgba(0,0,0,0.25)", position: "relative", boxSizing: "border-box" }}>
-                
-                {/* Header Row */}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px", borderBottom: "1px solid #f1f5f9", paddingBottom: "14px" }}>
-                  <h3 style={{ margin: 0, fontSize: "22px", fontWeight: "800", color: "#0f172a" }}>
-                    Filters
-                  </h3>
+      {/* MODAL 1D: Filter Drawer Modal (Matching User Screenshot without Purple) */}
+      {showFilterModal && (() => {
+        const activeMatchCount = placementDrives.length;
+        return (
+          <div onClick={() => setShowFilterModal(false)} style={{ position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", backgroundColor: "rgba(15,23,42,0.65)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1150, padding: "16px" }}>
+            <div onClick={(e) => e.stopPropagation()} style={{ backgroundColor: "#ffffff", borderRadius: "20px", width: "min(520px, calc(100vw - 32px))", maxHeight: "90vh", overflowY: "auto", padding: "28px", boxShadow: "0 25px 50px -12px rgba(0,0,0,0.25)", position: "relative", boxSizing: "border-box" }}>
+
+              {/* Header Row */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px", borderBottom: "1px solid #f1f5f9", paddingBottom: "14px" }}>
+                <h3 style={{ margin: 0, fontSize: "22px", fontWeight: "800", color: "#0f172a" }}>
+                  Filters
+                </h3>
+                <button
+                  onClick={resetAllFilterOptions}
+                  style={{ background: "none", border: "none", color: "#2563eb", fontWeight: "700", fontSize: "14px", cursor: "pointer", display: "flex", alignItems: "center", gap: "4px" }}
+                >
+                  <span>↺</span> Reset filters
+                </button>
+              </div>
+
+              {/* 1. Sort By */}
+              <div style={{ marginBottom: "24px" }}>
+                <div style={{ fontSize: "14px", fontWeight: "600", color: "#64748b", marginBottom: "10px" }}>
+                  Sort By
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "10px" }}>
+                  {["Package (High to Low)", "Deadline", "Applied drives"].map(opt => {
+                    const isSel = filterSortBy === opt;
+                    return (
+                      <button
+                        key={opt}
+                        onClick={() => setFilterSortBy(opt)}
+                        style={{
+                          backgroundColor: isSel ? "#eff6ff" : "#ffffff",
+                          color: isSel ? "#2563eb" : "#0f172a",
+                          border: isSel ? "1.5px solid #2563eb" : "1px solid #cbd5e1",
+                          borderRadius: "24px",
+                          padding: "8px 20px",
+                          fontSize: "13px",
+                          fontWeight: isSel ? "700" : "600",
+                          cursor: "pointer",
+                          transition: "all 0.15s ease"
+                        }}
+                      >
+                        {opt}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 2. Employment Type */}
+              <div style={{ marginBottom: "24px" }}>
+                <div style={{ fontSize: "14px", fontWeight: "600", color: "#64748b", marginBottom: "10px" }}>
+                  Employment Type
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "10px" }}>
+                  {["Full-time", "Internship"].map(opt => {
+                    const isSel = filterEmpType === opt;
+                    return (
+                      <button
+                        key={opt}
+                        onClick={() => setFilterEmpType(opt)}
+                        style={{
+                          backgroundColor: isSel ? "#eff6ff" : "#ffffff",
+                          color: isSel ? "#2563eb" : "#0f172a",
+                          border: isSel ? "1.5px solid #2563eb" : "1px solid #cbd5e1",
+                          borderRadius: "24px",
+                          padding: "8px 24px",
+                          fontSize: "13px",
+                          fontWeight: isSel ? "700" : "600",
+                          cursor: "pointer",
+                          transition: "all 0.15s ease"
+                        }}
+                      >
+                        {opt}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 3. Position Dropdown */}
+              <div style={{ marginBottom: "24px" }}>
+                <div style={{ fontSize: "14px", fontWeight: "600", color: "#64748b", marginBottom: "10px" }}>
+                  Position
+                </div>
+                <select
+                  value={filterPosition}
+                  onChange={(e) => setFilterPosition(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "12px 16px",
+                    borderRadius: "12px",
+                    border: "1.5px solid #cbd5e1",
+                    fontSize: "14px",
+                    color: filterPosition ? "#0f172a" : "#94a3b8",
+                    backgroundColor: "#ffffff",
+                    fontWeight: "600",
+                    outline: "none",
+                    cursor: "pointer"
+                  }}
+                >
+                  <option value="">Select Your Job Role</option>
+                  <option value="Software Developer">Software Developer</option>
+                  <option value="Frontend Developer">Frontend Developer</option>
+                  <option value="FullStack Developer">FullStack Developer</option>
+                  <option value="UIUX Designer">UIUX Designer</option>
+                  <option value="Programmer Analyst">Programmer Analyst</option>
+                  <option value="System Engineer">System Engineer</option>
+                </select>
+              </div>
+
+              {/* 4. Minimum Package Slider */}
+              <div style={{ marginBottom: "24px" }}>
+                <div style={{ fontSize: "14px", fontWeight: "600", color: "#64748b", marginBottom: "10px" }}>
+                  Minimum Package
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={40}
+                  step={10}
+                  value={filterMinPackage}
+                  onChange={(e) => setFilterMinPackage(Number(e.target.value))}
+                  style={{
+                    width: "100%",
+                    accentColor: "#2563eb",
+                    cursor: "pointer",
+                    marginBottom: "8px"
+                  }}
+                />
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "#64748b", fontWeight: "600" }}>
+                  <span style={{ color: filterMinPackage === 0 ? "#2563eb" : "#64748b", fontWeight: filterMinPackage === 0 ? "800" : "600" }}>Any</span>
+                  <span style={{ color: filterMinPackage === 10 ? "#2563eb" : "#64748b", fontWeight: filterMinPackage === 10 ? "800" : "600" }}>$10 LPA</span>
+                  <span style={{ color: filterMinPackage === 20 ? "#2563eb" : "#64748b", fontWeight: filterMinPackage === 20 ? "800" : "600" }}>$20 LPA</span>
+                  <span style={{ color: filterMinPackage === 30 ? "#2563eb" : "#64748b", fontWeight: filterMinPackage === 30 ? "800" : "600" }}>$30 LPA</span>
+                  <span style={{ color: filterMinPackage === 40 ? "#2563eb" : "#64748b", fontWeight: filterMinPackage === 40 ? "800" : "600" }}>$40+ LPA</span>
+                </div>
+              </div>
+
+              {/* 5. Work Mode */}
+              <div style={{ marginBottom: "24px" }}>
+                <div style={{ fontSize: "14px", fontWeight: "600", color: "#64748b", marginBottom: "10px" }}>
+                  Work Mode
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "10px" }}>
+                  {["Onsite", "Hybrid", "Remote"].map(opt => {
+                    const isSel = filterWorkMode === opt;
+                    return (
+                      <button
+                        key={opt}
+                        onClick={() => setFilterWorkMode(opt)}
+                        style={{
+                          backgroundColor: isSel ? "#eff6ff" : "#ffffff",
+                          color: isSel ? "#2563eb" : "#0f172a",
+                          border: isSel ? "1.5px solid #2563eb" : "1px solid #cbd5e1",
+                          borderRadius: "24px",
+                          padding: "8px 22px",
+                          fontSize: "13px",
+                          fontWeight: isSel ? "700" : "600",
+                          cursor: "pointer",
+                          transition: "all 0.15s ease"
+                        }}
+                      >
+                        {opt}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 6. Location */}
+              <div style={{ marginBottom: "28px" }}>
+                <div style={{ fontSize: "14px", fontWeight: "600", color: "#64748b", marginBottom: "10px" }}>
+                  Location
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "10px" }}>
+                  {["Chennai", "Bangalore", "Coimbatore"].map(opt => {
+                    const isSel = filterLocation === opt;
+                    return (
+                      <button
+                        key={opt}
+                        onClick={() => setFilterLocation(filterLocation === opt ? "" : opt)}
+                        style={{
+                          backgroundColor: isSel ? "#eff6ff" : "#ffffff",
+                          color: isSel ? "#2563eb" : "#0f172a",
+                          border: isSel ? "1.5px solid #2563eb" : "1px solid #cbd5e1",
+                          borderRadius: "24px",
+                          padding: "8px 22px",
+                          fontSize: "13px",
+                          fontWeight: isSel ? "700" : "600",
+                          cursor: "pointer",
+                          transition: "all 0.15s ease"
+                        }}
+                      >
+                        {opt}
+                      </button>
+                    );
+                  })}
                   <button
-                    onClick={resetAllFilterOptions}
-                    style={{ background: "none", border: "none", color: "#2563eb", fontWeight: "700", fontSize: "14px", cursor: "pointer", display: "flex", alignItems: "center", gap: "4px" }}
-                  >
-                    <span>↺</span> Reset filters
-                  </button>
-                </div>
-
-                {/* 1. Sort By */}
-                <div style={{ marginBottom: "24px" }}>
-                  <div style={{ fontSize: "14px", fontWeight: "600", color: "#64748b", marginBottom: "10px" }}>
-                    Sort By
-                  </div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: "10px" }}>
-                    {["Package (High to Low)", "Deadline", "Applied drives"].map(opt => {
-                      const isSel = filterSortBy === opt;
-                      return (
-                        <button
-                          key={opt}
-                          onClick={() => setFilterSortBy(opt)}
-                          style={{
-                            backgroundColor: isSel ? "#eff6ff" : "#ffffff",
-                            color: isSel ? "#2563eb" : "#0f172a",
-                            border: isSel ? "1.5px solid #2563eb" : "1px solid #cbd5e1",
-                            borderRadius: "24px",
-                            padding: "8px 20px",
-                            fontSize: "13px",
-                            fontWeight: isSel ? "700" : "600",
-                            cursor: "pointer",
-                            transition: "all 0.15s ease"
-                          }}
-                        >
-                          {opt}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* 2. Employment Type */}
-                <div style={{ marginBottom: "24px" }}>
-                  <div style={{ fontSize: "14px", fontWeight: "600", color: "#64748b", marginBottom: "10px" }}>
-                    Employment Type
-                  </div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: "10px" }}>
-                    {["Full-time", "Internship"].map(opt => {
-                      const isSel = filterEmpType === opt;
-                      return (
-                        <button
-                          key={opt}
-                          onClick={() => setFilterEmpType(opt)}
-                          style={{
-                            backgroundColor: isSel ? "#eff6ff" : "#ffffff",
-                            color: isSel ? "#2563eb" : "#0f172a",
-                            border: isSel ? "1.5px solid #2563eb" : "1px solid #cbd5e1",
-                            borderRadius: "24px",
-                            padding: "8px 24px",
-                            fontSize: "13px",
-                            fontWeight: isSel ? "700" : "600",
-                            cursor: "pointer",
-                            transition: "all 0.15s ease"
-                          }}
-                        >
-                          {opt}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* 3. Position Dropdown */}
-                <div style={{ marginBottom: "24px" }}>
-                  <div style={{ fontSize: "14px", fontWeight: "600", color: "#64748b", marginBottom: "10px" }}>
-                    Position
-                  </div>
-                  <select
-                    value={filterPosition}
-                    onChange={(e) => setFilterPosition(e.target.value)}
-                    style={{
-                      width: "100%",
-                      padding: "12px 16px",
-                      borderRadius: "12px",
-                      border: "1.5px solid #cbd5e1",
-                      fontSize: "14px",
-                      color: filterPosition ? "#0f172a" : "#94a3b8",
-                      backgroundColor: "#ffffff",
-                      fontWeight: "600",
-                      outline: "none",
-                      cursor: "pointer"
+                    onClick={() => {
+                      const newLoc = window.prompt("Enter new location filter:");
+                      if (newLoc && newLoc.trim()) setFilterLocation(newLoc.trim());
                     }}
-                  >
-                    <option value="">Select Your Job Role</option>
-                    <option value="Software Developer">Software Developer</option>
-                    <option value="Frontend Developer">Frontend Developer</option>
-                    <option value="FullStack Developer">FullStack Developer</option>
-                    <option value="UIUX Designer">UIUX Designer</option>
-                    <option value="Programmer Analyst">Programmer Analyst</option>
-                    <option value="System Engineer">System Engineer</option>
-                  </select>
-                </div>
-
-                {/* 4. Minimum Package Slider */}
-                <div style={{ marginBottom: "24px" }}>
-                  <div style={{ fontSize: "14px", fontWeight: "600", color: "#64748b", marginBottom: "10px" }}>
-                    Minimum Package
-                  </div>
-                  <input
-                    type="range"
-                    min={0}
-                    max={40}
-                    step={10}
-                    value={filterMinPackage}
-                    onChange={(e) => setFilterMinPackage(Number(e.target.value))}
                     style={{
-                      width: "100%",
-                      accentColor: "#2563eb",
-                      cursor: "pointer",
-                      marginBottom: "8px"
-                    }}
-                  />
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "#64748b", fontWeight: "600" }}>
-                    <span style={{ color: filterMinPackage === 0 ? "#2563eb" : "#64748b", fontWeight: filterMinPackage === 0 ? "800" : "600" }}>Any</span>
-                    <span style={{ color: filterMinPackage === 10 ? "#2563eb" : "#64748b", fontWeight: filterMinPackage === 10 ? "800" : "600" }}>$10 LPA</span>
-                    <span style={{ color: filterMinPackage === 20 ? "#2563eb" : "#64748b", fontWeight: filterMinPackage === 20 ? "800" : "600" }}>$20 LPA</span>
-                    <span style={{ color: filterMinPackage === 30 ? "#2563eb" : "#64748b", fontWeight: filterMinPackage === 30 ? "800" : "600" }}>$30 LPA</span>
-                    <span style={{ color: filterMinPackage === 40 ? "#2563eb" : "#64748b", fontWeight: filterMinPackage === 40 ? "800" : "600" }}>$40+ LPA</span>
-                  </div>
-                </div>
-
-                {/* 5. Work Mode */}
-                <div style={{ marginBottom: "24px" }}>
-                  <div style={{ fontSize: "14px", fontWeight: "600", color: "#64748b", marginBottom: "10px" }}>
-                    Work Mode
-                  </div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: "10px" }}>
-                    {["Onsite", "Hybrid", "Remote"].map(opt => {
-                      const isSel = filterWorkMode === opt;
-                      return (
-                        <button
-                          key={opt}
-                          onClick={() => setFilterWorkMode(opt)}
-                          style={{
-                            backgroundColor: isSel ? "#eff6ff" : "#ffffff",
-                            color: isSel ? "#2563eb" : "#0f172a",
-                            border: isSel ? "1.5px solid #2563eb" : "1px solid #cbd5e1",
-                            borderRadius: "24px",
-                            padding: "8px 22px",
-                            fontSize: "13px",
-                            fontWeight: isSel ? "700" : "600",
-                            cursor: "pointer",
-                            transition: "all 0.15s ease"
-                          }}
-                        >
-                          {opt}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* 6. Location */}
-                <div style={{ marginBottom: "28px" }}>
-                  <div style={{ fontSize: "14px", fontWeight: "600", color: "#64748b", marginBottom: "10px" }}>
-                    Location
-                  </div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: "10px" }}>
-                    {["Chennai", "Bangalore", "Coimbatore"].map(opt => {
-                      const isSel = filterLocation === opt;
-                      return (
-                        <button
-                          key={opt}
-                          onClick={() => setFilterLocation(filterLocation === opt ? "" : opt)}
-                          style={{
-                            backgroundColor: isSel ? "#eff6ff" : "#ffffff",
-                            color: isSel ? "#2563eb" : "#0f172a",
-                            border: isSel ? "1.5px solid #2563eb" : "1px solid #cbd5e1",
-                            borderRadius: "24px",
-                            padding: "8px 22px",
-                            fontSize: "13px",
-                            fontWeight: isSel ? "700" : "600",
-                            cursor: "pointer",
-                            transition: "all 0.15s ease"
-                          }}
-                        >
-                          {opt}
-                        </button>
-                      );
-                    })}
-                    <button
-                      onClick={() => {
-                        const newLoc = window.prompt("Enter new location filter:");
-                        if (newLoc && newLoc.trim()) setFilterLocation(newLoc.trim());
-                      }}
-                      style={{
-                        backgroundColor: "#f8fafc",
-                        color: "#334155",
-                        border: "1px solid #cbd5e1",
-                        borderRadius: "24px",
-                        padding: "8px 20px",
-                        fontSize: "13px",
-                        fontWeight: "700",
-                        cursor: "pointer"
-                      }}
-                    >
-                      + Add new
-                    </button>
-                  </div>
-                </div>
-
-                {/* Footer Action Buttons */}
-                <div style={{ display: "flex", justifyContent: "space-between", gap: "14px", borderTop: "1px solid #f1f5f9", paddingTop: "20px" }}>
-                  <button
-                    onClick={() => setShowFilterModal(false)}
-                    style={{
-                      flex: 1,
-                      backgroundColor: "#ffffff",
-                      color: "#2563eb",
-                      border: "1.5px solid #2563eb",
-                      borderRadius: "28px",
-                      padding: "12px 24px",
-                      fontSize: "15px",
+                      backgroundColor: "#f8fafc",
+                      color: "#334155",
+                      border: "1px solid #cbd5e1",
+                      borderRadius: "24px",
+                      padding: "8px 20px",
+                      fontSize: "13px",
                       fontWeight: "700",
                       cursor: "pointer"
                     }}
                   >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={() => setShowFilterModal(false)}
-                    style={{
-                      flex: 1,
-                      backgroundColor: "#2563eb",
-                      color: "#ffffff",
-                      border: "none",
-                      borderRadius: "28px",
-                      padding: "12px 24px",
-                      fontSize: "15px",
-                      fontWeight: "700",
-                      cursor: "pointer",
-                      boxShadow: "0 4px 12px rgba(37,99,235,0.3)"
-                    }}
-                  >
-                    Show {activeMatchCount} results
+                    + Add new
                   </button>
                 </div>
               </div>
+
+              {/* Footer Action Buttons */}
+              <div style={{ display: "flex", justifyContent: "space-between", gap: "14px", borderTop: "1px solid #f1f5f9", paddingTop: "20px" }}>
+                <button
+                  onClick={() => setShowFilterModal(false)}
+                  style={{
+                    flex: 1,
+                    backgroundColor: "#ffffff",
+                    color: "#2563eb",
+                    border: "1.5px solid #2563eb",
+                    borderRadius: "28px",
+                    padding: "12px 24px",
+                    fontSize: "15px",
+                    fontWeight: "700",
+                    cursor: "pointer"
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => setShowFilterModal(false)}
+                  style={{
+                    flex: 1,
+                    backgroundColor: "#2563eb",
+                    color: "#ffffff",
+                    border: "none",
+                    borderRadius: "28px",
+                    padding: "12px 24px",
+                    fontSize: "15px",
+                    fontWeight: "700",
+                    cursor: "pointer",
+                    boxShadow: "0 4px 12px rgba(37,99,235,0.3)"
+                  }}
+                >
+                  Show {activeMatchCount} results
+                </button>
+              </div>
             </div>
-          );
-        })()}
-      </div>
-    );
-  };
+          </div>
+        );
+      })()}
+    </div>
+  );
+};
 
 export default StudentDashboard;

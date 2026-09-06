@@ -55,7 +55,7 @@ const studentSchema = new mongoose.Schema(
 
         verificationStatus: {
             type: String,
-            enum: ["pending", "verified"],
+            enum: ["pending", "verified", "rejected"],
             default: "pending",
         },
 
@@ -69,6 +69,23 @@ const studentSchema = new mongoose.Schema(
         isProfileComplete: {
             type: Boolean,
             default: false,
+        },
+
+        // Flow 1/2: College scoping and verification
+        collegeId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "College",
+            default: null,
+        },
+
+        rejectionReason: {
+            type: String,
+            default: "",
+        },
+
+        pendingChanges: {
+            type: mongoose.Schema.Types.Mixed,
+            default: null,
         },
     },
 

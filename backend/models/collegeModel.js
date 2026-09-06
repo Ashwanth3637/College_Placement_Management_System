@@ -21,6 +21,11 @@ const collegeSchema = new mongoose.Schema(
         totalStudents: { type: Number, default: 0 },
         activeDrives: { type: Number, default: 0 },
         totalPlaced: { type: Number, default: 0 },
+
+        // Flow 1: Officer configurable settings
+        placementOfficerId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+        allowedEmailDomains: [{ type: String, trim: true, lowercase: true }],
+        departments: [{ type: String, trim: true }],
     },
     { timestamps: true }
 );

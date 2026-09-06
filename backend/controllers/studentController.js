@@ -157,13 +157,14 @@ const saveStudentProfile = async (req, res) => {
                     changedList.push({ field: "resume", label: "Resume File", oldVal: oldProfessional.resumeName || "No Resume", newVal: professionalData.resumeName });
                 }
 
-                // If no existing approved data, initialize directly
+                // If no existing approved data or student was previously rejected, update main profile directly
+                const wasRejected = student.verificationStatus === "rejected";
                 const hasExistingData = Boolean(oldPersonal.fullName || oldPersonal.department || oldAcademic.cgpa);
 
-                if (!hasExistingData) {
-                    student.personal = personalData;
-                    student.academic = academicData;
-                    student.professional = professionalData;
+                if (!hasExistingData || wasRejected) {
+                    student.personal = { ...oldPersonal, ...personalData };
+                    student.academic = { ...oldAcademic, ...academicData };
+                    student.professional = { ...oldProfessional, ...professionalData };
                     student.pendingChanges = null;
                 } else {
                     // PRESERVE APPROVED PROFILE AND STORE REQUESTED CHANGES IN pendingChanges

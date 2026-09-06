@@ -1,4 +1,6 @@
 const express = require("express");
+const multer = require("multer");
+const path = require("path");
 const {
     getDrives,
     createDrive,
@@ -19,8 +21,18 @@ const {
 
 const router = express.Router();
 
+// Multer for JD attachments
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => cb(null, "uploads/"),
+    filename: (req, file, cb) => {
+        const uniqueName = "jd_" + Date.now() + "-" + Math.round(Math.random() * 1E9) + path.extname(file.originalname);
+        cb(null, uniqueName);
+    },
+});
+const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } });
+
 router.get("/drives", getDrives);
-router.post("/drives", createDrive);
+router.post("/drives", upload.array("attachmentFiles", 5), createDrive);
 router.put("/drives/:id", updateDrive);
 router.put("/drives/:id/approve", approveDrive);
 router.put("/drives/:id/reject", rejectDrive);

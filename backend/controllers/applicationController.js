@@ -65,44 +65,84 @@ const createApplication = async (req, res) => {
         }
 
         const todayStr = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+
+        // Retrieve CompanyDrive to copy configured recruitment rounds
+        let drive = null;
+        try {
+            const CompanyDrive = require("../models/companyDriveModel");
+            if (body.driveId) {
+                drive = await CompanyDrive.findById(body.driveId);
+            }
+            if (!drive && body.companyName) {
+                const compPrefix = body.companyName.trim().split(" ")[0];
+                drive = await CompanyDrive.findOne({
+                    company: { $regex: new RegExp(compPrefix, "i") }
+                });
+            }
+        } catch (de) {}
+
+        const driveRounds = (drive && Array.isArray(drive.rounds) && drive.rounds.length > 0)
+            ? drive.rounds
+            : (Array.isArray(body.roundsWorkflow) && body.roundsWorkflow.length > 0 ? body.roundsWorkflow : []);
+
+        const initialRoundName = driveRounds.length > 0 ? driveRounds[0].roundName : "Round 1: Selection Assessment";
+        const totalRoundsCount = driveRounds.length > 0 ? driveRounds.length : 1;
+
         const payload = {
             studentId: body.studentId || "",
-            studentName: body.studentName || body.name || "Student Candidate",
-            regNo: body.regNo || body.registerNumber || "22CSR100",
-            department: body.department || body.branch || "CSE",
+            studentName: body.studentName || body.name || "",
+            regNo: body.regNo || body.registerNumber || "",
+            department: body.department || body.branch || "",
             email: body.email.toLowerCase().trim(),
             phone: body.phone || "",
-            cgpa: body.cgpa ? Number(body.cgpa) : 8.0,
+            cgpa: body.cgpa ? Number(body.cgpa) : 0,
             gradYear: body.gradYear ? Number(body.gradYear) : 2026,
             companyName: body.companyName,
             jobRole: body.jobRole,
+            driveId: drive ? drive._id.toString() : (body.driveId || ""),
             appliedDate: body.appliedDate || todayStr,
             status: "Applied",
             currentRound: 1,
+            totalRounds: totalRoundsCount,
             roundStatus: "In Progress",
-            roundName: "Round 1: Technical Assessment",
-            remarks: "Application submitted and verified by Placement Portal.",
+            roundName: initialRoundName,
+            roundsWorkflow: driveRounds,
+            remarks: "Application submitted and registered successfully.",
             history: [
                 {
                     date: todayStr,
                     title: "Application Submitted",
-                    desc: `Applied for ${body.companyName} - ${body.jobRole} drive`,
-                    status: "Passed ✓",
+                    desc: `Opted in for ${body.companyName} - ${body.jobRole} drive`,
+                    status: "Registered",
                     roundNumber: 1
                 }
             ],
             interviewSchedule: {
-                date: body.interviewDate || "28 Aug 2026",
-                time: body.interviewTime || "10:00 AM IST",
-                location: "College Main Auditorium & Online",
-                mode: "Online",
-                interviewer: `${body.companyName} Hiring Team`,
+                date: body.interviewDate || drive?.deadline || "",
+                time: body.interviewTime || "",
+                location: drive?.location || "",
+                mode: driveRounds[0]?.mode || "Online",
+                interviewer: `${body.companyName} Recruitment Team`,
                 status: "Scheduled"
             }
         };
 
         const newApp = new Application(payload);
         await newApp.save();
+
+        // Trigger notification for student
+        try {
+            const Notification = require("../models/notificationModel");
+            await Notification.create({
+                recipientId: newApp.studentId || "students",
+                recipientEmail: newApp.email,
+                title: `Application Confirmed: ${newApp.companyName}`,
+                message: `Your application for ${newApp.jobRole} has been received. Initial stage: ${initialRoundName}.`,
+                type: "Eligible",
+                company: newApp.companyName,
+                link: "/student/applications"
+            });
+        } catch (ne) {}
 
         res.status(201).json({ message: "Application submitted successfully in MongoDB", application: newApp });
     } catch (error) {
@@ -342,6 +382,251 @@ const deleteApplication = async (req, res) => {
     }
 };
 
+// =====================================================
+// Flow 4: Opt-In for a Drive
+// =====================================================
+const optInDrive = async (req, res) => {
+    try {
+        const { userId, driveId, studentName, regNo, department, email, phone, cgpa, tenthPercentage, twelfthPercentage, backlogs, gradYear, companyName, jobRole } = req.body;
+
+        if (!driveId || !email) {
+            return res.status(400).json({ message: "Drive ID and student email are required." });
+        }
+
+        const CompanyDrive = require("../models/companyDriveModel");
+        const drive = await CompanyDrive.findById(driveId);
+        if (!drive) {
+            return res.status(404).json({ message: "Drive not found." });
+        }
+
+        if (drive.optInOutDeadline && new Date() > new Date(drive.optInOutDeadline)) {
+            return res.status(400).json({ message: "The opt-in/opt-out deadline for this drive has passed." });
+        }
+
+        const existing = await Application.findOne({
+            email: email.toLowerCase().trim(),
+            driveId: String(driveId),
+            isActive: true,
+        });
+
+        if (existing) {
+            existing.status = "Opted-In";
+            existing.optInOutStatus = "opted-in";
+            existing.optInOutDeadline = drive.optInOutDeadline;
+            await existing.save();
+            return res.status(200).json({ message: "Successfully opted in for this drive!", application: existing });
+        }
+
+        const app = await Application.create({
+            studentId: userId || "",
+            studentName: studentName || "Student",
+            regNo: regNo || "",
+            department: department || "",
+            email: (email || "").toLowerCase().trim(),
+            phone: phone || "",
+            cgpa: cgpa || 0,
+            tenthPercentage: tenthPercentage || 0,
+            twelfthPercentage: twelfthPercentage || 0,
+            backlogs: backlogs || 0,
+            gradYear: gradYear || 2026,
+            driveId: String(driveId),
+            companyName: companyName || drive.company || "",
+            jobRole: jobRole || drive.role || drive.jobTitle || "",
+            status: "Opted-In",
+            optInOutStatus: "opted-in",
+            optInOutDeadline: drive.optInOutDeadline,
+            appliedDate: new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
+            history: [{ date: new Date().toISOString(), title: "Opted In", desc: `Student opted in for ${drive.company}`, status: "Opted-In" }],
+        });
+
+        res.status(201).json({ message: "Successfully opted in for this drive!", application: app });
+    } catch (error) {
+        console.error("Opt-In Error:", error);
+        res.status(500).json({ message: "Failed to opt in", error: error.message });
+    }
+};
+
+// =====================================================
+// Flow 4: Opt-Out from a Drive
+// =====================================================
+const optOutDrive = async (req, res) => {
+    try {
+        const { driveId, email } = req.body;
+
+        if (!driveId || !email) {
+            return res.status(400).json({ message: "Drive ID and email are required." });
+        }
+
+        const CompanyDrive = require("../models/companyDriveModel");
+        const drive = await CompanyDrive.findById(driveId);
+
+        if (drive && drive.optInOutDeadline && new Date() > new Date(drive.optInOutDeadline)) {
+            return res.status(400).json({ message: "The opt-in/opt-out deadline for this drive has passed." });
+        }
+
+        const existing = await Application.findOne({
+            email: email.toLowerCase().trim(),
+            driveId: String(driveId),
+            isActive: true,
+        });
+
+        if (existing) {
+            existing.status = "Opted-Out";
+            existing.optInOutStatus = "opted-out";
+            await existing.save();
+            return res.status(200).json({ message: "Successfully opted out from this drive.", application: existing });
+        }
+
+        const app = await Application.create({
+            studentId: req.body.userId || "",
+            studentName: req.body.studentName || "Student",
+            regNo: req.body.regNo || "",
+            department: req.body.department || "",
+            email: email.toLowerCase().trim(),
+            driveId: String(driveId),
+            companyName: drive ? drive.company : "",
+            jobRole: drive ? (drive.role || drive.jobTitle) : "",
+            status: "Opted-Out",
+            optInOutStatus: "opted-out",
+            optInOutDeadline: drive ? drive.optInOutDeadline : null,
+        });
+
+        res.status(200).json({ message: "Successfully opted out from this drive.", application: app });
+    } catch (error) {
+        console.error("Opt-Out Error:", error);
+        res.status(500).json({ message: "Failed to opt out", error: error.message });
+    }
+};
+
+// =====================================================
+// Flow 4: Get Eligible Drives for a Student
+// =====================================================
+const getEligibleDrives = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const mongoose = require("mongoose");
+        const Student = require("../models/studentModel");
+        const User = require("../models/user");
+        const CompanyDrive = require("../models/companyDriveModel");
+
+        let student = null;
+        if (mongoose.Types.ObjectId.isValid(userId)) {
+            student = await Student.findOne({ user: userId }).lean();
+            if (!student) student = await Student.findById(userId).lean();
+        }
+        if (!student) {
+            const queryEmail = (req.query.email || "").toLowerCase().trim();
+            if (queryEmail) {
+                const userDoc = await User.findOne({ email: queryEmail });
+                if (userDoc) student = await Student.findOne({ user: userDoc._id }).lean();
+            }
+        }
+
+        if (!student) {
+            return res.status(404).json({ message: "Student profile not found." });
+        }
+
+        let userDoc = null;
+        if (student.user) {
+            userDoc = await User.findById(student.user).lean();
+        }
+        if (userDoc && userDoc.isFrozen) {
+            return res.status(200).json({
+                eligible: [],
+                ineligible: [],
+                isFrozen: true,
+                frozenAt: userDoc.frozenAt,
+                message: "Your account has been frozen due to missing opt-in/opt-out deadlines. Please contact the Placement Officer.",
+            });
+        }
+
+        const drives = await CompanyDrive.find({
+            isActive: true,
+            status: { $in: ["Approved", "Active", "Upcoming", "Ongoing", "Pending Approval"] },
+        }).sort({ createdAt: -1 }).lean();
+
+        const studentEmail = (student.personal?.email || userDoc?.email || "").toLowerCase().trim();
+        const existingApps = await Application.find({ email: studentEmail, isActive: true }).lean();
+        const appMap = {};
+        for (const app of existingApps) { appMap[app.driveId] = app; }
+
+        const eligible = [];
+        const ineligible = [];
+
+        const sCgpa = parseFloat(student.academic?.cgpa) || 0;
+        const sTenth = parseFloat(student.academic?.tenthPercentage) || 0;
+        const sTwelfth = parseFloat(student.academic?.twelfthPercentage) || 0;
+        const sBacklogs = parseInt(student.academic?.backlogs) || 0;
+        const sGradYear = parseInt(student.academic?.graduationYear) || 2026;
+        const sDept = (student.personal?.department || "").toLowerCase().trim();
+
+        for (const drive of drives) {
+            const driveId = String(drive._id);
+            const reasons = [];
+
+            if (drive.minCgpa && sCgpa < drive.minCgpa) {
+                reasons.push(`CGPA ${sCgpa} is below required ${drive.minCgpa}`);
+            }
+            if (drive.minTenth && sTenth < drive.minTenth) {
+                reasons.push(`10th percentage ${sTenth}% is below required ${drive.minTenth}%`);
+            }
+            if (drive.minTwelfth && sTwelfth < drive.minTwelfth) {
+                reasons.push(`12th percentage ${sTwelfth}% is below required ${drive.minTwelfth}%`);
+            }
+            if (drive.maxBacklogs !== undefined && drive.maxBacklogs !== null && sBacklogs > drive.maxBacklogs) {
+                reasons.push(`Active backlogs (${sBacklogs}) exceed maximum allowed (${drive.maxBacklogs})`);
+            }
+            if (drive.gradYear && sGradYear !== drive.gradYear) {
+                reasons.push(`Graduation year ${sGradYear} does not match required ${drive.gradYear}`);
+            }
+            if (drive.eligibleBranches && drive.eligibleBranches.length > 0) {
+                const bl = drive.eligibleBranches.map(b => b.toLowerCase().trim());
+                const aliases = [sDept];
+                if (sDept.includes("computer") || sDept.includes("cse")) aliases.push("cse", "computer science", "cs");
+                if (sDept.includes("information") || sDept.includes("it")) aliases.push("it", "information technology");
+                if (sDept.includes("electronics") || sDept.includes("ece")) aliases.push("ece", "electronics");
+                if (sDept.includes("mechanical") || sDept.includes("mech")) aliases.push("mech", "mechanical");
+                if (sDept.includes("electrical") || sDept.includes("eee")) aliases.push("eee", "electrical");
+                if (sDept.includes("civil")) aliases.push("civil");
+                const match = aliases.some(a => bl.some(b => b.includes(a) || a.includes(b)));
+                if (!match) {
+                    reasons.push(`Department "${student.personal?.department || "N/A"}" is not in eligible branches: ${drive.eligibleBranches.join(", ")}`);
+                }
+            }
+
+            const existingApp = appMap[driveId];
+            const driveData = { ...drive, existingApplication: existingApp || null, optInOutStatus: existingApp?.optInOutStatus || "pending" };
+
+            if (reasons.length === 0) {
+                eligible.push(driveData);
+            } else {
+                ineligible.push({ ...driveData, ineligibilityReasons: reasons });
+            }
+        }
+
+        // Freeze check
+        const now = new Date();
+        let shouldFreeze = false;
+        for (const drive of eligible) {
+            if (drive.optInOutDeadline && new Date(drive.optInOutDeadline) < now) {
+                const app = appMap[String(drive._id)];
+                if (!app || app.optInOutStatus === "pending") { shouldFreeze = true; break; }
+            }
+        }
+        if (shouldFreeze && userDoc && !userDoc.isFrozen) {
+            await User.findByIdAndUpdate(userDoc._id, { isFrozen: true, frozenAt: now });
+        }
+
+        res.status(200).json({
+            eligible, ineligible, isFrozen: shouldFreeze,
+            studentProfile: { cgpa: sCgpa, tenth: sTenth, twelfth: sTwelfth, backlogs: sBacklogs, gradYear: sGradYear, department: student.personal?.department || "" },
+        });
+    } catch (error) {
+        console.error("Get Eligible Drives Error:", error);
+        res.status(500).json({ message: "Failed to fetch eligible drives", error: error.message });
+    }
+};
+
 module.exports = {
     getAllApplications,
     getApplicationById,
@@ -350,5 +635,8 @@ module.exports = {
     submitRoundResult,
     verifyRoundResult,
     releaseOfferLetter,
-    deleteApplication
+    deleteApplication,
+    optInDrive,
+    optOutDrive,
+    getEligibleDrives,
 };

@@ -152,7 +152,7 @@ const SeasonManagement: React.FC = () => {
           <p style={{ color: "#64748B", fontSize: "13px" }}>Initialize your first placement season cycle using the button above.</p>
         </div>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(360px, 1fr))", gap: "16px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 300px), 1fr))", gap: "16px" }}>
           {seasons.map((season) => (
             <div
               key={season._id || season.code}

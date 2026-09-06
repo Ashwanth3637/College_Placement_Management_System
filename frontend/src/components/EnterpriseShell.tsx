@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { CommandPalette } from './CommandPalette';
+import { API_BASE_URL } from '../config/api';
 
 export interface NavItem {
  id: string;
@@ -89,11 +90,53 @@ export const EnterpriseShell: React.FC<EnterpriseShellProps> = ({
   return () => window.removeEventListener('keydown', handleKeyDown);
  }, []);
 
- const notificationsList = [
-  { id: '1', title: 'Amazon SDE-1 Drive', desc: 'Round 2 Technical Interview scheduled for Sep 5, 10:30 AM', time: '10m ago', unread: true },
-  { id: '2', title: 'TCS Pre-Placement Talk', desc: 'Mandatory session at Main Auditorium on Sep 3', time: '1h ago', unread: true },
-  { id: '3', title: 'Profile Verification', desc: 'Academic records verified by Placement Cell', time: '1d ago', unread: false },
- ];
+ const [notifications, setNotifications] = useState<any[]>([]);
+
+ const fetchNotifications = async () => {
+  try {
+   const email = (user?.email || '').toLowerCase().trim();
+   const userId = user?.id || user?._id || '';
+   const res = await fetch(`${API_BASE_URL}/api/notifications?email=${encodeURIComponent(email)}&userId=${encodeURIComponent(userId)}&role=${encodeURIComponent(role)}`);
+   if (res.ok) {
+    const data = await res.json();
+    if (Array.isArray(data)) {
+     setNotifications(data);
+    }
+   }
+  } catch (err) {}
+ };
+
+ useEffect(() => {
+  fetchNotifications();
+  const interval = setInterval(fetchNotifications, 10000);
+  window.addEventListener('cpms_new_notification', fetchNotifications);
+  window.addEventListener('storage', fetchNotifications);
+  return () => {
+   clearInterval(interval);
+   window.removeEventListener('cpms_new_notification', fetchNotifications);
+   window.removeEventListener('storage', fetchNotifications);
+  };
+ }, [user?.email, role]);
+
+ const handleMarkAllRead = async () => {
+  try {
+   await fetch(`${API_BASE_URL}/api/notifications/mark-all-read`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId: user?.id || user?._id, email: user?.email })
+   });
+   setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+  } catch (err) {}
+ };
+
+ const handleMarkSingleRead = async (id: string) => {
+  try {
+   await fetch(`${API_BASE_URL}/api/notifications/${id}/read`, { method: 'PUT' });
+   setNotifications(prev => prev.map(n => (n._id === id || n.id === id) ? { ...n, isRead: true } : n));
+  } catch (err) {}
+ };
+
+ const unreadCount = notifications.filter(n => !n.isRead).length;
 
  return (
   <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', backgroundColor: '#F8FAFC', fontFamily: 'Inter, sans-serif' }}>
@@ -328,18 +371,29 @@ export const EnterpriseShell: React.FC<EnterpriseShellProps> = ({
        }}
       >
        
-       <span
-        style={{
-         position: 'absolute',
-         top: '4px',
-         right: '4px',
-         width: '8px',
-         height: '8px',
-         backgroundColor: '#F59E0B',
-         borderRadius: '50%',
-         border: '1.5px solid #0B3D91',
-        }}
-       />
+       {unreadCount > 0 && (
+        <span
+         style={{
+          position: 'absolute',
+          top: '2px',
+          right: '2px',
+          minWidth: '16px',
+          height: '16px',
+          backgroundColor: '#EF4444',
+          color: '#FFFFFF',
+          borderRadius: '8px',
+          border: '1.5px solid #0B3D91',
+          fontSize: '9.5px',
+          fontWeight: 700,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '0 3px',
+         }}
+        >
+         {unreadCount > 9 ? '9+' : unreadCount}
+        </span>
+       )}
       </button>
 
       {showNotifications && (
@@ -348,7 +402,7 @@ export const EnterpriseShell: React.FC<EnterpriseShellProps> = ({
          position: 'absolute',
          top: '110%',
          right: 0,
-         width: '340px',
+         width: '360px',
          backgroundColor: '#FFFFFF',
          borderRadius: '12px',
          boxShadow: '0 15px 35px rgba(0,0,0,0.18)',
@@ -358,28 +412,54 @@ export const EnterpriseShell: React.FC<EnterpriseShellProps> = ({
          color: '#1E293B',
         }}
        >
-        <div style={{ padding: '12px 16px', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-         <span style={{ fontWeight: 700, fontSize: '13.5px', color: '#0F172A' }}>Notifications</span>
-         <span style={{ fontSize: '11px', color: '#1E5FCC', fontWeight: 600, cursor: 'pointer' }}>Mark all read</span>
+        <div style={{ padding: '12px 16px', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#F8FAFC' }}>
+         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontWeight: 700, fontSize: '13.5px', color: '#0F172A' }}>Notifications</span>
+          {unreadCount > 0 && (
+           <span style={{ fontSize: '10.5px', backgroundColor: '#EFF6FF', color: '#1D4ED8', padding: '2px 7px', borderRadius: '10px', fontWeight: 700 }}>
+            {unreadCount} new
+           </span>
+          )}
+         </div>
+         {unreadCount > 0 && (
+          <span onClick={handleMarkAllRead} style={{ fontSize: '11px', color: '#1E5FCC', fontWeight: 600, cursor: 'pointer' }}>Mark all read</span>
+         )}
         </div>
-        <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
-         {notificationsList.map(item => (
-          <div
-           key={item.id}
-           style={{
-            padding: '12px 16px',
-            borderBottom: '1px solid #F1F5F9',
-            backgroundColor: item.unread ? '#F0F5FD' : '#FFFFFF',
-            cursor: 'pointer',
-           }}
-          >
-           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
-            <strong style={{ fontSize: '12.5px', color: '#0F172A' }}>{item.title}</strong>
-            <span style={{ fontSize: '10.5px', color: '#64748B' }}>{item.time}</span>
-           </div>
-           <p style={{ margin: 0, fontSize: '12px', color: '#475569', lineHeight: 1.4 }}>{item.desc}</p>
+        <div style={{ maxHeight: '320px', overflowY: 'auto' }}>
+         {notifications.length === 0 ? (
+          <div style={{ padding: '36px 16px', textAlign: 'center', color: '#64748B', fontSize: '13px' }}>
+           <div style={{ fontSize: '28px', marginBottom: '8px' }}>🔔</div>
+           <div style={{ fontWeight: 600, color: '#334155' }}>No notifications yet</div>
+           <div style={{ fontSize: '11.5px', color: '#94A3B8', marginTop: '4px' }}>Updates regarding drives, shortlists, and rounds will appear here.</div>
           </div>
-         ))}
+         ) : (
+          notifications.map(item => (
+           <div
+            key={item._id || item.id}
+            onClick={() => handleMarkSingleRead(item._id || item.id)}
+            style={{
+             padding: '12px 16px',
+             borderBottom: '1px solid #F1F5F9',
+             backgroundColor: !item.isRead ? '#F0F5FD' : '#FFFFFF',
+             cursor: 'pointer',
+             transition: 'background-color 0.15s ease',
+            }}
+           >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '3px', gap: '8px' }}>
+             <strong style={{ fontSize: '12.5px', color: '#0F172A', fontWeight: !item.isRead ? 700 : 600 }}>{item.title}</strong>
+             <span style={{ fontSize: '10px', color: '#94A3B8', whiteSpace: 'nowrap' }}>
+              {item.createdAt ? new Date(item.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'Recent'}
+             </span>
+            </div>
+            <p style={{ margin: 0, fontSize: '12px', color: '#475569', lineHeight: 1.4 }}>{item.message || item.desc}</p>
+            {item.company && (
+             <span style={{ display: 'inline-block', marginTop: '4px', fontSize: '10.5px', color: '#2563EB', fontWeight: 600 }}>
+              {item.company}
+             </span>
+            )}
+           </div>
+          ))
+         )}
         </div>
         <div style={{ padding: '10px', textAlign: 'center', backgroundColor: '#F8FAFC', borderTop: '1px solid #E2E8F0' }}>
          <button

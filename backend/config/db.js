@@ -73,9 +73,27 @@ const autoSeed = async () => {
                 driveDate: "05 Sep 2026",
                 status: "Approved",
                 approvedBy: "Placement Officer",
-                openings: 10
+                openings: 10,
+                jobDescription: "As a Software Development Engineer (SDE-1) at Amazon, you will work on core AWS cloud infrastructure and distributed microservices. You will participate in the full software development lifecycle, including technical design, coding, code reviews, unit testing, and deployment. Ideal candidates possess strong foundation in data structures, algorithms, object-oriented design, and problem solving.",
+                requiredSkills: ["Data Structures", "Algorithms", "Java / Python", "System Design", "AWS"]
             });
+        } else if (!existingDrive.jobDescription) {
+            existingDrive.jobDescription = "As a Software Development Engineer (SDE-1) at Amazon, you will work on core AWS cloud infrastructure and distributed microservices. You will participate in the full software development lifecycle, including technical design, coding, code reviews, unit testing, and deployment. Ideal candidates possess strong foundation in data structures, algorithms, object-oriented design, and problem solving.";
+            if (!existingDrive.requiredSkills || existingDrive.requiredSkills.length === 0) {
+                existingDrive.requiredSkills = ["Data Structures", "Algorithms", "Java / Python", "System Design", "AWS"];
+            }
+            await existingDrive.save();
         }
+
+        // Backfill any legacy drives that might be missing jobDescription
+        await CompanyDrive.updateMany(
+            { $or: [{ jobDescription: { $exists: false } }, { jobDescription: "" }, { jobDescription: null }] },
+            {
+                $set: {
+                    jobDescription: "Responsible for designing, building, and deploying scalable software applications. Collaborate with agile development teams, conduct code reviews, implement secure REST APIs, and optimize database queries."
+                }
+            }
+        );
 
         // 4. Seed Applications
         const existingApp = await Application.findOne({ regNo: "1CS22CS014" });

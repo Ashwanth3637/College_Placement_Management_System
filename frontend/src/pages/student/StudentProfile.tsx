@@ -33,7 +33,7 @@ const StudentProfile: React.FC<StudentProfileProps> = ({
       if (savedStr) {
         return JSON.parse(savedStr);
       }
-    } catch (e) {}
+    } catch (e) { }
     return null;
   };
 
@@ -45,7 +45,7 @@ const StudentProfile: React.FC<StudentProfileProps> = ({
     if (user?.name) return user.name;
     const saved = localStorage.getItem(`cpms_student_fullname_${userId}`) || localStorage.getItem(`cpms_student_fullname_${userEmailKey}`) || localStorage.getItem("cpms_student_fullname");
     if (saved && saved.trim()) return saved.trim();
-    return "Ashwanth";
+    return "";
   })();
 
   // Main Form & Profile State
@@ -89,7 +89,7 @@ const StudentProfile: React.FC<StudentProfileProps> = ({
           localStorage.setItem(`cpms_student_avatar_${userEmailKey}`, result);
           window.dispatchEvent(new Event("cpms_profile_updated"));
           window.dispatchEvent(new Event("storage"));
-        } catch (err) {}
+        } catch (err) { }
         setAlert({ type: "success", text: " Profile photo updated successfully!" });
       };
       reader.readAsDataURL(file);
@@ -103,15 +103,15 @@ const StudentProfile: React.FC<StudentProfileProps> = ({
       localStorage.removeItem(`cpms_student_avatar_${userEmailKey}`);
       window.dispatchEvent(new Event("cpms_profile_updated"));
       window.dispatchEvent(new Event("storage"));
-    } catch (err) {}
+    } catch (err) { }
     setAlert({ type: "success", text: "Profile photo removed." });
   };
 
   const [fullName, setFullName] = useState<string>(() => {
-    return cachedProfileData?.personal?.fullName || initialName || "Ashwanth";
+    return cachedProfileData?.personal?.fullName || initialName || "";
   });
   const [email, setEmail] = useState<string>(() => {
-    return cachedProfileData?.personal?.email || cachedProfileData?.user?.email || "ashwanths.22cse@kongu.edu";
+    return cachedProfileData?.personal?.email || cachedProfileData?.user?.email || user?.email || "";
   });
   const [phone, setPhone] = useState(cachedProfileData?.personal?.phone || "");
   const [department, setDepartment] = useState(cachedProfileData?.personal?.department || "");
@@ -392,6 +392,12 @@ const StudentProfile: React.FC<StudentProfileProps> = ({
           }
 
           baseProfileRef.current = student;
+          const dbStatus = student.verificationStatus || (student.isVerified ? "verified" : "pending");
+          const dbReason = student.rejectionReason || "";
+          setVerificationStatus(dbStatus);
+          if (dbReason || dbStatus === "rejected") {
+            setRejectionReason(dbReason);
+          }
 
           // Save complete merged profile to cache so initial render on next refresh is 100% accurate
           const syncedPayload = {
@@ -417,12 +423,18 @@ const StudentProfile: React.FC<StudentProfileProps> = ({
           if (userId) {
             localStorage.setItem(`cpms_profile_${userId}`, JSON.stringify(syncedPayload));
             localStorage.setItem(`cpms_pending_profile_${userId}`, JSON.stringify(syncedPayload));
+            localStorage.setItem(`cpms_verification_status_${userId}`, dbStatus);
+            if (dbReason) localStorage.setItem(`cpms_rejection_reason_${userId}`, dbReason);
           }
           if (uKey) {
             localStorage.setItem(`cpms_profile_${uKey}`, JSON.stringify(syncedPayload));
             localStorage.setItem(`cpms_pending_profile_${uKey}`, JSON.stringify(syncedPayload));
+            localStorage.setItem(`cpms_verification_status_${uKey}`, dbStatus);
+            if (dbReason) localStorage.setItem(`cpms_rejection_reason_${uKey}`, dbReason);
           }
           localStorage.setItem("cpms_profile_global", JSON.stringify(syncedPayload));
+          localStorage.setItem("cpms_verification_status_global", dbStatus);
+          if (dbReason) localStorage.setItem("cpms_rejection_reason_global", dbReason);
         }
       } catch (err) {
         console.error("Fetch profile error:", err);
@@ -443,20 +455,28 @@ const StudentProfile: React.FC<StudentProfileProps> = ({
             const isVer = Boolean(
               data.isVerified === true &&
               data.verificationStatus !== "pending" &&
+              data.verificationStatus !== "rejected" &&
               (data.verificationStatus === "verified" || data.verificationStatus === "Approved" || data.verificationStatus === "Verified")
             );
+            const statusStr = isVer ? "verified" : (data.verificationStatus || "pending");
+            const reasonStr = data.rejectionReason || "";
             setIsProfileVerified(isVer);
-            setVerificationStatus(isVer ? "verified" : (data.verificationStatus || "pending"));
+            setVerificationStatus(statusStr);
+            if (reasonStr || statusStr === "rejected") {
+              setRejectionReason(reasonStr);
+            }
             const uKey = (user?.email || userId || "").toLowerCase().trim();
             try {
               localStorage.setItem(`cpms_profile_verified_${uKey}`, String(isVer));
-              localStorage.setItem(`cpms_verification_status_${uKey}`, isVer ? "verified" : (data.verificationStatus || "pending"));
+              localStorage.setItem(`cpms_verification_status_${uKey}`, statusStr);
+              if (reasonStr) localStorage.setItem(`cpms_rejection_reason_${uKey}`, reasonStr);
               localStorage.setItem(`cpms_profile_verified_global`, String(isVer));
-              localStorage.setItem(`cpms_verification_status_global`, isVer ? "verified" : (data.verificationStatus || "pending"));
-            } catch (e) {}
+              localStorage.setItem(`cpms_verification_status_global`, statusStr);
+              if (reasonStr) localStorage.setItem(`cpms_rejection_reason_global`, reasonStr);
+            } catch (e) { }
           }
         }
-      } catch (e) {}
+      } catch (e) { }
     };
 
     const interval = setInterval(checkVerificationOnly, 2000);
@@ -481,7 +501,7 @@ const StudentProfile: React.FC<StudentProfileProps> = ({
           handleSync();
         }
       };
-    } catch (e) {}
+    } catch (e) { }
 
     window.addEventListener("cpms_verification_updated", handleSync);
     window.addEventListener("cpms_profile_updated", handleSync);
@@ -574,6 +594,29 @@ const StudentProfile: React.FC<StudentProfileProps> = ({
       }
     }
 
+    if (showEditProfileModal) {
+      if (!fullName || !fullName.trim()) {
+        setAlert({ type: "error", text: "Full Name is mandatory." });
+        return;
+      }
+      if (!department || !department.trim()) {
+        setAlert({ type: "error", text: "Department is a mandatory field." });
+        return;
+      }
+      if (!registerNumber || !registerNumber.trim()) {
+        setAlert({ type: "error", text: "Register Number is a mandatory field." });
+        return;
+      }
+      if (!email || !email.trim()) {
+        setAlert({ type: "error", text: "Email is a mandatory field." });
+        return;
+      }
+      if (!phone || !phone.trim()) {
+        setAlert({ type: "error", text: "Phone number is a mandatory field." });
+        return;
+      }
+    }
+
     if (showUpdateCourseModal && activeAcademicSubtab === "ug") {
       if (!ugInstitution || !ugInstitution.trim()) {
         setAlert({ type: "error", text: "UG Institution is a mandatory field." });
@@ -581,6 +624,10 @@ const StudentProfile: React.FC<StudentProfileProps> = ({
       }
       if (!appNumber || !appNumber.trim()) {
         setAlert({ type: "error", text: "Application number is a mandatory field." });
+        return;
+      }
+      if (!department || !department.trim()) {
+        setAlert({ type: "error", text: "Department is a mandatory field." });
         return;
       }
       if (!registerNumber || !registerNumber.trim()) {
@@ -777,6 +824,7 @@ const StudentProfile: React.FC<StudentProfileProps> = ({
         localStorage.setItem(`cpms_pending_diff_${userId}`, JSON.stringify(changedList));
         localStorage.setItem(`cpms_profile_verified_${userId}`, "false");
         localStorage.setItem(`cpms_verification_status_${userId}`, "pending");
+        localStorage.removeItem(`cpms_rejection_reason_${userId}`);
         localStorage.removeItem(`cpms_verified_student_${userId}`);
         localStorage.setItem(`cpms_student_fullname_${userId}`, fullName.trim());
       }
@@ -787,6 +835,7 @@ const StudentProfile: React.FC<StudentProfileProps> = ({
         localStorage.setItem(`cpms_pending_diff_${userKey}`, JSON.stringify(changedList));
         localStorage.setItem(`cpms_profile_verified_${userKey}`, "false");
         localStorage.setItem(`cpms_verification_status_${userKey}`, "pending");
+        localStorage.removeItem(`cpms_rejection_reason_${userKey}`);
         localStorage.removeItem(`cpms_verified_student_${userKey}`);
         localStorage.setItem(`cpms_student_fullname_${userKey}`, fullName.trim());
       }
@@ -795,6 +844,7 @@ const StudentProfile: React.FC<StudentProfileProps> = ({
       localStorage.setItem("cpms_pending_diff_global", JSON.stringify(changedList));
       localStorage.setItem("cpms_profile_verified_global", "false");
       localStorage.setItem("cpms_verification_status_global", "pending");
+      localStorage.removeItem("cpms_rejection_reason_global");
       localStorage.setItem("cpms_student_fullname", fullName.trim());
 
       try {
@@ -812,15 +862,15 @@ const StudentProfile: React.FC<StudentProfileProps> = ({
         console.warn("Backend save notice:", err);
       }
 
-      setAlert({ type: "success", text: " Student profile updated successfully!" });
+      setAlert({ type: "success", text: " Student profile updated successfully! Submitted for Placement Officer approval." });
       setShowUpdateCourseModal(false);
       setShowEditProfileModal(false);
       if (onProfileSaved) onProfileSaved();
       try {
         const channel = new BroadcastChannel("cpms_profile_channel");
-        channel.postMessage({ type: "PROFILE_UPDATED", isVerified: false, studentId: userId, studentEmail: userKey, verificationStatus: "pending" });
+        channel.postMessage({ type: "PROFILE_UPDATED", isVerified: false, studentId: userId, studentEmail: userKey, verificationStatus: "pending", rejectionReason: "" });
         channel.close();
-      } catch (e) {}
+      } catch (e) { }
       window.dispatchEvent(new CustomEvent("cpms_verification_updated", { detail: { isVerified: false } }));
       window.dispatchEvent(new Event("cpms_profile_updated"));
       window.dispatchEvent(new Event("storage"));
@@ -861,7 +911,7 @@ const StudentProfile: React.FC<StudentProfileProps> = ({
             title="Dismiss"
             aria-label="Dismiss Alert"
           >
-            
+
           </button>
         </div>
       )}
@@ -895,7 +945,7 @@ const StudentProfile: React.FC<StudentProfileProps> = ({
                 </div>
               )}
               <div style={{ position: "absolute", bottom: "2px", right: "2px", width: "26px", height: "26px", borderRadius: "50%", backgroundColor: "#FFFFFF", border: "2px solid #4F46E5", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", boxShadow: "0 2px 4px rgba(0,0,0,0.15)" }} title="Upload photo">
-                
+
               </div>
             </label>
           </div>
@@ -905,7 +955,7 @@ const StudentProfile: React.FC<StudentProfileProps> = ({
             {/* Row 1: Name + Verified Pill */}
             <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
               <h2 style={{ fontSize: "24px", fontWeight: "800", color: "#0F172A", margin: 0, letterSpacing: "-0.3px", whiteSpace: "nowrap" }}>
-                {fullName || "Ashwanth S"}
+                {fullName || user?.name || "Student Profile"}
               </h2>
               {isProfileVerified ? (
                 <span style={{
@@ -922,6 +972,22 @@ const StudentProfile: React.FC<StudentProfileProps> = ({
                 }}>
                   <span style={{ width: "6px", height: "6px", borderRadius: "50%", backgroundColor: "#16A34A" }}></span>
                   Approved by Officer
+                </span>
+              ) : verificationStatus === "rejected" ? (
+                <span style={{
+                  backgroundColor: "#FEE2E2",
+                  color: "#DC2626",
+                  padding: "4px 12px",
+                  borderRadius: "20px",
+                  fontSize: "11.5px",
+                  fontWeight: "700",
+                  border: "1px solid #FCA5A5",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px"
+                }}>
+                  <span style={{ width: "6px", height: "6px", borderRadius: "50%", backgroundColor: "#DC2626" }}></span>
+                  Profile Rejected
                 </span>
               ) : (
                 <span style={{
@@ -944,38 +1010,38 @@ const StudentProfile: React.FC<StudentProfileProps> = ({
 
             {/* Row 2: Reg No & Department */}
             <div style={{ fontSize: "13.5px", color: "#334155", display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap", fontWeight: 600 }}>
-              <span> Reg No: <strong style={{ color: "#0F172A" }}>{registerNumber || "717822P101"}</strong></span>
+              <span> Reg No: <strong style={{ color: "#0F172A" }}>{registerNumber || "Not specified"}</strong></span>
               <span style={{ color: "#CBD5E1" }}>•</span>
-              <span>️ Dept: <strong style={{ color: "#0F172A" }}>{department || "Computer Science and Engineering"}</strong></span>
+              <span>️ Dept: <strong style={{ color: "#0F172A" }}>{department || "Not specified"}</strong></span>
             </div>
 
             {/* Row 3: Personal & Contact Info Line */}
             <div style={{ display: "flex", alignItems: "center", gap: "14px", flexWrap: "wrap", fontSize: "12.5px", color: "#64748B", paddingTop: "4px" }}>
               <div style={{ display: "inline-flex", alignItems: "center", gap: "5px" }}>
-                <span>️</span>
+                <span>✉️</span>
                 <span style={{ color: "#0F172A", fontWeight: 500 }}>
-                  {email && !email.includes("admin") ? email : "ashwanths.22cse@kongu.edu"}
+                  {email || user?.email || "Not specified"}
                 </span>
               </div>
               <span>•</span>
               <div style={{ display: "inline-flex", alignItems: "center", gap: "5px" }}>
-                <span></span>
-                <span style={{ color: "#0F172A", fontWeight: 500 }}>{phone || "9345271959"}</span>
+                <span>📞</span>
+                <span style={{ color: "#0F172A", fontWeight: 500 }}>{phone || "Not specified"}</span>
               </div>
               <span>•</span>
               <div style={{ display: "inline-flex", alignItems: "center", gap: "5px" }}>
-                <span></span>
-                <span style={{ color: "#0F172A", fontWeight: 500 }}>{location || "Erode"}</span>
+                <span>📍</span>
+                <span style={{ color: "#0F172A", fontWeight: 500 }}>{location || "Not specified"}</span>
               </div>
               <span>•</span>
               <div style={{ display: "inline-flex", alignItems: "center", gap: "5px" }}>
-                <span></span>
-                <span style={{ color: "#0F172A", fontWeight: 500 }}>{dob || "04-12-2004"}</span>
+                <span>🎂</span>
+                <span style={{ color: "#0F172A", fontWeight: 500 }}>{dob || "Not specified"}</span>
               </div>
               <span>•</span>
               <div style={{ display: "inline-flex", alignItems: "center", gap: "5px" }}>
-                <span></span>
-                <span style={{ color: "#0F172A", fontWeight: 500 }}>{gender || "Male"}</span>
+                <span>👤</span>
+                <span style={{ color: "#0F172A", fontWeight: 500 }}>{gender || "Not specified"}</span>
               </div>
             </div>
           </div>
@@ -1004,27 +1070,27 @@ const StudentProfile: React.FC<StudentProfileProps> = ({
           <button
             onClick={() => setShowEditProfileModal(true)}
             style={{
-              padding: "9px 16px",
-              backgroundColor: "#4F46E5",
+              padding: "10px 18px",
+              backgroundColor: verificationStatus === "rejected" ? "#DC2626" : "#4F46E5",
               color: "#FFFFFF",
               border: "none",
-              borderRadius: "8px",
+              borderRadius: "10px",
               fontSize: "13px",
-              fontWeight: 700,
+              fontWeight: "700",
               cursor: "pointer",
               display: "flex",
               alignItems: "center",
-              justifyContent: "center",
               gap: "8px",
+              boxShadow: verificationStatus === "rejected" ? "0 4px 12px rgba(220, 38, 38, 0.3)" : "0 4px 12px rgba(79, 70, 229, 0.25)",
               transition: "all 0.15s ease",
-              boxShadow: "0 2px 6px rgba(11, 61, 145, 0.2)"
+              alignSelf: "center",
             }}
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
               <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
             </svg>
-            Edit Profile Info
+            {verificationStatus === "rejected" ? "Update Incorrect Details" : "Edit Profile Info"}
           </button>
         </div>
       </div>
@@ -1034,42 +1100,105 @@ const StudentProfile: React.FC<StudentProfileProps> = ({
         <div style={{
           backgroundColor: "#F0FDF4",
           border: "1px solid #BBF7D0",
-          borderRadius: "10px",
-          padding: "12px 18px",
+          borderRadius: "12px",
+          padding: "14px 20px",
           color: "#15803D",
           fontSize: "13px",
           display: "flex",
           alignItems: "center",
-          gap: "10px",
+          gap: "12px",
           fontWeight: "600",
           marginTop: "4px",
           boxShadow: "0 1px 3px rgba(22, 163, 74, 0.08)"
         }}>
-          <span style={{ fontSize: "18px", color: "#16A34A" }}>✓</span>
+          <span style={{ fontSize: "20px", color: "#16A34A" }}>✓</span>
           <div>
             <strong style={{ color: "#166534" }}>Profile Approved & Verified:</strong>{" "}
             <span style={{ color: "#15803D" }}>Your profile credentials have been verified by the Placement Officer. You are approved for campus recruitment drives.</span>
+          </div>
+        </div>
+      ) : verificationStatus === "rejected" ? (
+        <div style={{
+          backgroundColor: "#FEF2F2",
+          border: "1.5px solid #F87171",
+          borderRadius: "14px",
+          padding: "18px 22px",
+          color: "#991B1B",
+          marginTop: "4px",
+          boxShadow: "0 4px 15px rgba(239, 68, 68, 0.12)",
+          display: "flex",
+          flexDirection: "column",
+          gap: "12px",
+        }}>
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <span style={{ fontSize: "24px" }}>⚠️</span>
+              <div>
+                <h4 style={{ margin: 0, fontSize: "16px", fontWeight: "800", color: "#B91C1C" }}>
+                  Profile Rejected by Placement Officer
+                </h4>
+                <p style={{ margin: "2px 0 0 0", fontSize: "12.5px", color: "#7F1D1D" }}>
+                  The placement officer reviewed your profile and found incorrect details. Please correct them below.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowEditProfileModal(true)}
+              style={{
+                backgroundColor: "#DC2626",
+                color: "#FFFFFF",
+                border: "none",
+                borderRadius: "8px",
+                padding: "8px 16px",
+                fontSize: "12.5px",
+                fontWeight: "700",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                boxShadow: "0 2px 6px rgba(220, 38, 38, 0.25)"
+              }}
+            >
+              ✏️ Fix Details Now
+            </button>
+          </div>
+
+          <div style={{
+            backgroundColor: "#FFFFFF",
+            border: "1.5px solid #FECACA",
+            borderRadius: "10px",
+            padding: "12px 16px",
+            fontSize: "13.5px",
+          }}>
+            <strong style={{ color: "#7F1D1D" }}>Reason for Rejection:</strong>{" "}
+            <span style={{ color: "#991B1B", fontWeight: 600 }}>
+              "{rejectionReason || "Academic criteria verification failed. Please review your marksheets and details."}"
+            </span>
+          </div>
+
+          <div style={{ fontSize: "12.5px", color: "#7F1D1D", lineHeight: 1.5 }}>
+            👉 <strong>Next Steps:</strong> Review the reason above, update your incorrect fields using the <em>Edit Profile Info</em> button, and save your profile. Your updated profile will automatically be sent back to the Placement Officer for re-verification and approval.
           </div>
         </div>
       ) : (
         <div style={{
           backgroundColor: "#FFFBEB",
           border: "1px solid #FDE68A",
-          borderRadius: "10px",
-          padding: "12px 18px",
+          borderRadius: "12px",
+          padding: "14px 20px",
           color: "#B45309",
           fontSize: "13px",
           display: "flex",
           alignItems: "center",
-          gap: "10px",
+          gap: "12px",
           fontWeight: "600",
           marginTop: "4px",
           boxShadow: "0 1px 3px rgba(180, 83, 9, 0.08)"
         }}>
-          <span style={{ fontSize: "18px" }}>⏳</span>
+          <span style={{ fontSize: "20px" }}>⏳</span>
           <div>
             <strong style={{ color: "#92400E" }}>Pending Officer Verification:</strong>{" "}
-            <span style={{ color: "#B45309" }}>Your recent profile updates are under review by the Placement Officer.</span>
+            <span style={{ color: "#B45309" }}>Your recent profile details were submitted and are currently waiting for Placement Officer approval.</span>
           </div>
         </div>
       )}
@@ -1174,14 +1303,14 @@ const StudentProfile: React.FC<StudentProfileProps> = ({
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "18px" }}>
                 <div>
                   <h3 style={{ margin: 0, fontSize: "17px", fontWeight: 800, color: "#0F172A" }}>
-                    {ugInstitution || "College of Engineering and Technology"}
+                    {ugInstitution || "Not specified"}
                   </h3>
                   <div style={{ fontSize: "13px", color: "#2563EB", fontWeight: 700, marginTop: "2px" }}>
-                    {ugProgram || "Bachelor of Engineering (B.E)"} — {ugSpecialization || "Computer Science and Engineering"}
+                    {ugProgram ? `${ugProgram} — ` : ""}{ugSpecialization || department || "Not specified"}
                   </div>
                 </div>
                 <span style={{ backgroundColor: "#EFF6FF", color: "#1D4ED8", padding: "4px 12px", borderRadius: "12px", fontSize: "12px", fontWeight: 700, border: "1px solid #BFDBFE" }}>
-                  Batch: 2022 – {graduationYear || "2026"}
+                  {graduationYear ? `Class of ${graduationYear}` : "Class year not specified"}
                 </span>
               </div>
 
@@ -1190,25 +1319,25 @@ const StudentProfile: React.FC<StudentProfileProps> = ({
                 <div style={{ backgroundColor: "#F8FAFC", padding: "14px", borderRadius: "10px", border: "1px solid #E2E8F0" }}>
                   <div style={{ fontSize: "12px", color: "#64748B", fontWeight: 600 }}>Cumulative CGPA</div>
                   <div style={{ fontSize: "20px", fontWeight: 900, color: "#16A34A", marginTop: "4px" }}>
-                    {cgpa ? `${cgpa} / 10.0` : "8.42 / 10.0"}
+                    {cgpa !== "" && cgpa !== undefined ? `${cgpa} / 10.0` : "Not specified"}
                   </div>
                 </div>
                 <div style={{ backgroundColor: "#F8FAFC", padding: "14px", borderRadius: "10px", border: "1px solid #E2E8F0" }}>
                   <div style={{ fontSize: "12px", color: "#64748B", fontWeight: 600 }}>Current Semester</div>
                   <div style={{ fontSize: "18px", fontWeight: 800, color: "#0F172A", marginTop: "4px" }}>
-                    {currentSemester || "Semester 8"}
+                    {currentSemester || "Not specified"}
                   </div>
                 </div>
                 <div style={{ backgroundColor: "#F8FAFC", padding: "14px", borderRadius: "10px", border: "1px solid #E2E8F0" }}>
                   <div style={{ fontSize: "12px", color: "#64748B", fontWeight: 600 }}>Standing Backlogs</div>
                   <div style={{ fontSize: "18px", fontWeight: 800, color: Number(backlogs) === 0 ? "#16A34A" : "#DC2626", marginTop: "4px" }}>
-                    {backlogs || 0} Active
+                    {backlogs !== undefined && backlogs !== null ? `${backlogs} Active` : "0 Active"}
                   </div>
                 </div>
                 <div style={{ backgroundColor: "#F8FAFC", padding: "14px", borderRadius: "10px", border: "1px solid #E2E8F0" }}>
                   <div style={{ fontSize: "12px", color: "#64748B", fontWeight: 600 }}>History of Backlogs</div>
                   <div style={{ fontSize: "18px", fontWeight: 800, color: Number(backlogHistory) === 0 ? "#16A34A" : "#EA580C", marginTop: "4px" }}>
-                    {backlogHistory || 0} Total
+                    {backlogHistory !== undefined && backlogHistory !== null ? `${backlogHistory} Total` : "0 Total"}
                   </div>
                 </div>
               </div>
@@ -1217,18 +1346,18 @@ const StudentProfile: React.FC<StudentProfileProps> = ({
 
           {/* Schools & Diploma View */}
           {activeAcademicSubtab === "schools" && (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "18px" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 280px), 1fr))", gap: "18px" }}>
               {/* Higher Secondary 12th */}
               <div style={{ backgroundColor: "#FFFFFF", borderRadius: "14px", border: "1px solid #E2E8F0", padding: "20px", boxShadow: "0 1px 4px rgba(0,0,0,0.02)" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
                   <div style={{ fontSize: "15px", fontWeight: 800, color: "#0F172A" }}>Higher Secondary (12th / HSC)</div>
                   <span style={{ backgroundColor: "#F0FDF4", color: "#16A34A", padding: "3px 10px", borderRadius: "8px", fontSize: "13px", fontWeight: 800 }}>
-                    {twelfthPercentage ? `${twelfthPercentage}%` : "88.0%"}
+                    {twelfthPercentage !== "" && twelfthPercentage !== undefined ? `${twelfthPercentage}%` : "Not specified"}
                   </span>
                 </div>
                 <div style={{ fontSize: "13px", color: "#475569" }}>
-                  <div><strong>Institution:</strong> {schoolName || "KNMHSS Senior Secondary School"}</div>
-                  <div style={{ marginTop: "4px" }}><strong>Board:</strong> State Board • Tamil Nadu</div>
+                  <div><strong>Institution:</strong> {schoolName || "Not specified"}</div>
+                  {diplomaInstitution && <div style={{ marginTop: "4px" }}><strong>Diploma:</strong> {diplomaInstitution} {diplomaSpecialization ? `(${diplomaSpecialization})` : ""}</div>}
                 </div>
               </div>
 
@@ -1237,12 +1366,11 @@ const StudentProfile: React.FC<StudentProfileProps> = ({
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
                   <div style={{ fontSize: "15px", fontWeight: 800, color: "#0F172A" }}>Secondary School (10th / SSLC)</div>
                   <span style={{ backgroundColor: "#F0FDF4", color: "#16A34A", padding: "3px 10px", borderRadius: "8px", fontSize: "13px", fontWeight: 800 }}>
-                    {tenthPercentage ? `${tenthPercentage}%` : "90.0%"}
+                    {tenthPercentage !== "" && tenthPercentage !== undefined ? `${tenthPercentage}%` : "Not specified"}
                   </span>
                 </div>
                 <div style={{ fontSize: "13px", color: "#475569" }}>
-                  <div><strong>Institution:</strong> {schoolName || "KNMHSS High School"}</div>
-                  <div style={{ marginTop: "4px" }}><strong>Board:</strong> State Board • Tamil Nadu</div>
+                  <div><strong>Institution:</strong> {schoolName || "Not specified"}</div>
                 </div>
               </div>
             </div>
@@ -1253,7 +1381,7 @@ const StudentProfile: React.FC<StudentProfileProps> = ({
             <div style={{ backgroundColor: "#FFFFFF", borderRadius: "14px", border: "1px solid #E2E8F0", padding: "24px", boxShadow: "0 1px 4px rgba(0,0,0,0.02)" }}>
               <h3 style={{ margin: "0 0 12px 0", fontSize: "16px", fontWeight: 800, color: "#0F172A" }}>Postgraduate Studies</h3>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "12px", fontSize: "13.5px", color: "#334155" }}>
-                <div><strong>Institution:</strong> {pgInstitution || "N/A (Pursuing UG)"}</div>
+                <div><strong>Institution:</strong> {pgInstitution || "Not specified"}</div>
                 <div><strong>Program:</strong> {pgProgram || "—"}</div>
                 <div><strong>Specialization:</strong> {pgSpecialization || "—"}</div>
                 <div><strong>PG Mark / CGPA:</strong> {pgCgpa || "—"}</div>
@@ -1282,7 +1410,7 @@ const StudentProfile: React.FC<StudentProfileProps> = ({
             <div style={{ backgroundColor: "#F8FAFC", borderRadius: "12px", border: "1px solid #E2E8F0", padding: "18px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "14px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
                 <div style={{ width: "44px", height: "44px", borderRadius: "10px", backgroundColor: "#EFF6FF", border: "1px solid #DBEAFE", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "22px" }}>
-                  
+
                 </div>
                 <div>
                   <div style={{ fontSize: "14.5px", fontWeight: 800, color: "#0F172A" }}>{resumeName}</div>
@@ -1360,7 +1488,7 @@ const StudentProfile: React.FC<StudentProfileProps> = ({
             {/* 1. Eligible */}
             <div className="drive-stat-card" style={{ backgroundColor: "#e6f4ea" }}>
               <div style={{ width: "26px", height: "26px", borderRadius: "50%", backgroundColor: "#0d652d", color: "#ffffff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "800", fontSize: "13px" }}>
-                
+
               </div>
               <div>
                 <div style={{ fontSize: "32px", fontWeight: "800", color: "#0d652d", lineHeight: "1" }}>57</div>
@@ -1384,7 +1512,7 @@ const StudentProfile: React.FC<StudentProfileProps> = ({
             {/* 3. Opted-Out */}
             <div className="drive-stat-card" style={{ backgroundColor: "#fce8e6" }}>
               <div style={{ width: "24px", height: "24px", borderRadius: "50%", backgroundColor: "#7c0a0a", color: "#ffffff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "800", fontSize: "12px" }}>
-                
+
               </div>
               <div>
                 <div style={{ fontSize: "32px", fontWeight: "800", color: "#7c0a0a", lineHeight: "1" }}>8</div>
@@ -1396,7 +1524,7 @@ const StudentProfile: React.FC<StudentProfileProps> = ({
             <div className="drive-stat-card" style={{ backgroundColor: "#e6f4ea" }}>
               <div style={{ color: "#0d652d", display: "flex", alignItems: "center" }}>
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v1c0 2.55 1.92 4.63 4.39 4.94A5.01 5.01 0 0011 15.9V18H9v2h6v-2h-2v-2.1c1.95-.37 3.49-1.92 3.61-3.96C19.08 11.63 21 9.55 21 7V6c0-1.1-.9-2-2-2zM5 8V7h2v3.82C5.84 10.4 5 9.3 5 8zm14 0c0 1.3-.84 2.4-2 2.82V7h2v1z"/>
+                  <path d="M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v1c0 2.55 1.92 4.63 4.39 4.94A5.01 5.01 0 0011 15.9V18H9v2h6v-2h-2v-2.1c1.95-.37 3.49-1.92 3.61-3.96C19.08 11.63 21 9.55 21 7V6c0-1.1-.9-2-2-2zM5 8V7h2v3.82C5.84 10.4 5 9.3 5 8zm14 0c0 1.3-.84 2.4-2 2.82V7h2v1z" />
                 </svg>
               </div>
               <div>
@@ -1408,7 +1536,7 @@ const StudentProfile: React.FC<StudentProfileProps> = ({
             {/* 5. Not Applied */}
             <div className="drive-stat-card" style={{ backgroundColor: "#fef08a" }}>
               <div style={{ width: "24px", height: "24px", borderRadius: "50%", backgroundColor: "#78350f", color: "#ffffff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "800", fontSize: "12px" }}>
-                
+
               </div>
               <div>
                 <div style={{ fontSize: "32px", fontWeight: "800", color: "#78350f", lineHeight: "1" }}>2</div>
@@ -1517,6 +1645,12 @@ const StudentProfile: React.FC<StudentProfileProps> = ({
                       <option value="B.Sc">B.Sc</option>
                       <option value="BCA">BCA</option>
                     </select>
+                  </div>
+                  <div style={styles.formGroup}>
+                    <label style={styles.formLabel}>
+                      Department <span style={{ color: "#dc2626", fontWeight: "800" }}>*</span>
+                    </label>
+                    <input type="text" required value={department} onChange={(e) => { setDepartment(e.target.value); if (!ugSpecialization) setUgSpecialization(e.target.value); }} style={styles.formInput} placeholder="e.g. Computer Science and Engineering" />
                   </div>
                   <div style={styles.formGroup}>
                     <label style={styles.formLabel}>
@@ -1696,7 +1830,7 @@ const StudentProfile: React.FC<StudentProfileProps> = ({
                 </div>
                 <div style={{ display: "flex", gap: "10px" }}>
                   <label style={{ padding: "8px 16px", backgroundColor: "#2563eb", color: "#ffffff", borderRadius: "6px", fontSize: "13px", fontWeight: "600", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "6px" }}>
-                     Upload Photo
+                    Upload Photo
                     <input type="file" accept="image/*" onChange={handleProfileImageUpload} style={{ display: "none" }} />
                   </label>
                   {profileImage && (
@@ -1709,24 +1843,33 @@ const StudentProfile: React.FC<StudentProfileProps> = ({
 
               <div style={styles.formGrid}>
                 <div style={styles.formGroup}>
-                  <label style={styles.formLabel}>Full Name</label>
-                  <input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} style={styles.formInput} />
+                  <label style={styles.formLabel}>Full Name <span style={{ color: "#dc2626" }}>*</span></label>
+                  <input type="text" required placeholder="e.g. John Doe" value={fullName} onChange={(e) => setFullName(e.target.value)} style={styles.formInput} />
                 </div>
                 <div style={styles.formGroup}>
-                  <label style={styles.formLabel}>Email</label>
-                  <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} style={styles.formInput} />
+                  <label style={styles.formLabel}>Department <span style={{ color: "#dc2626" }}>*</span></label>
+                  <input type="text" required placeholder="e.g. Computer Science and Engineering" value={department} onChange={(e) => setDepartment(e.target.value)} style={styles.formInput} />
                 </div>
                 <div style={styles.formGroup}>
-                  <label style={styles.formLabel}>Phone</label>
-                  <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} style={styles.formInput} />
+                  <label style={styles.formLabel}>Register Number <span style={{ color: "#dc2626" }}>*</span></label>
+                  <input type="text" required placeholder="e.g. 717822P101" value={registerNumber} onChange={(e) => setRegisterNumber(e.target.value)} style={styles.formInput} />
+                </div>
+                <div style={styles.formGroup}>
+                  <label style={styles.formLabel}>Email <span style={{ color: "#dc2626" }}>*</span></label>
+                  <input type="email" required placeholder="student@college.edu" value={email} onChange={(e) => setEmail(e.target.value)} style={styles.formInput} />
+                </div>
+                <div style={styles.formGroup}>
+                  <label style={styles.formLabel}>Phone <span style={{ color: "#dc2626" }}>*</span></label>
+                  <input type="tel" required placeholder="+91 9876543210" value={phone} onChange={(e) => setPhone(e.target.value)} style={styles.formInput} />
                 </div>
                 <div style={styles.formGroup}>
                   <label style={styles.formLabel}>Location</label>
-                  <input type="text" value={location} onChange={(e) => setLocation(e.target.value)} style={styles.formInput} />
+                  <input type="text" placeholder="e.g. Chennai, Bangalore" value={location} onChange={(e) => setLocation(e.target.value)} style={styles.formInput} />
                 </div>
                 <div style={styles.formGroup}>
                   <label style={styles.formLabel}>Gender</label>
                   <select value={gender} onChange={(e) => setGender(e.target.value)} style={styles.formSelect}>
+                    <option value="">Select Gender</option>
                     <option value="Female">Female</option>
                     <option value="Male">Male</option>
                     <option value="Other">Other</option>
@@ -1734,7 +1877,7 @@ const StudentProfile: React.FC<StudentProfileProps> = ({
                 </div>
                 <div style={styles.formGroup}>
                   <label style={styles.formLabel}>Date of Birth</label>
-                  <input type="text" value={dob} onChange={(e) => setDob(e.target.value)} style={styles.formInput} />
+                  <input type="text" placeholder="DD-MM-YYYY" value={dob} onChange={(e) => setDob(e.target.value)} style={styles.formInput} />
                 </div>
               </div>
               <div style={styles.formActions}>
@@ -1817,7 +1960,7 @@ const StudentProfile: React.FC<StudentProfileProps> = ({
               }}
               aria-label="Close"
             >
-              
+
             </button>
             <h3 style={{ fontSize: "20px", fontWeight: "800", color: "#0f172a", margin: "0 0 12px 0" }}>
               Delete Resume
@@ -1884,7 +2027,7 @@ const styles: { [key: string]: React.CSSProperties } = {
 
   headerGrid: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+    gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 280px), 1fr))",
     gap: "20px",
     alignItems: "stretch",
   },
@@ -2333,7 +2476,7 @@ const styles: { [key: string]: React.CSSProperties } = {
 
   statsCardsGrid: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+    gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 240px), 1fr))",
     gap: "16px",
   },
 
@@ -2418,7 +2561,7 @@ const styles: { [key: string]: React.CSSProperties } = {
 
   formGrid: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+    gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 220px), 1fr))",
     gap: "16px",
   },
 

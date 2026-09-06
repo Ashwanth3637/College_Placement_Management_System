@@ -40,9 +40,9 @@ const CompanyManagement: React.FC = () => {
       if (profStr) savedRecProfile = JSON.parse(profStr);
     } catch (e) { }
 
-    const defaultRecName = savedRecProfile?.contactPersonName || "Arya (Placement Lead)";
-    const defaultRecEmail = savedRecProfile?.contactEmail || "arya@amazon.com";
-    const defaultRecPhone = savedRecProfile?.contactPhone || "+91 98765 12345";
+    const defaultRecName = savedRecProfile?.contactPersonName || "";
+    const defaultRecEmail = savedRecProfile?.contactEmail || "";
+    const defaultRecPhone = savedRecProfile?.contactPhone || "";
 
     let combined: any[] = [];
     try {
@@ -78,14 +78,14 @@ const CompanyManagement: React.FC = () => {
           remoteDrives.forEach((rd: any) => {
             const rId = String(rd._id || rd.id);
             if (["comp_amazon", "comp_zoho", "comp_jac", "comp_cognizant"].includes(rId) || deletedIds.includes(rId)) return;
-            const rdComp = rd.company || rd.companyName || "Amazon Development Center";
-            const rdRole = rd.jobTitle || rd.role || rd.jobRole || "Software Developer";
+            const rdComp = rd.company || rd.companyName || "";
+            const rdRole = rd.jobTitle || rd.role || rd.jobRole || "";
             const exists = combined.some(c =>
               (c.id && (String(c.id) === rId || String(c._id) === rId)) ||
               ((c.companyName || "").toLowerCase().trim() === rdComp.toLowerCase().trim() &&
                 (c.jobRole || "").toLowerCase().trim() === rdRole.toLowerCase().trim())
             );
-            if (!exists) {
+            if (!exists && rdComp) {
               combined.push({
                 id: rId,
                 companyName: rdComp,
@@ -93,24 +93,24 @@ const CompanyManagement: React.FC = () => {
                 recruiterEmail: (rd.recruiterEmail && rd.recruiterEmail !== "recruiter@company.com") ? rd.recruiterEmail : defaultRecEmail,
                 recruiterPhone: (rd.recruiterPhone && rd.recruiterPhone !== "+91 98765 43210") ? rd.recruiterPhone : defaultRecPhone,
                 jobRole: rdRole,
-                salaryPackage: rd.packageCtc || rd.ctc || "₹18.0 LPA",
-                driveDate: rd.driveDate || rd.deadline || "28 Aug 2026",
+                salaryPackage: rd.packageCtc || rd.ctc || "",
+                driveDate: rd.driveDate || rd.deadline || "",
                 applications: rd.appliedStudents ? rd.appliedStudents.length : 0,
                 shortlisted: rd.shortlistedStudents ? rd.shortlistedStudents.length : 0,
                 registrationStatus: rd.status || "Pending Officer Approval",
                 status: rd.status || "Pending Officer Approval",
-                logoUrl: rd.logo || "https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg",
-                industry: "Technology",
+                logoUrl: rd.logo || "",
+                industry: rd.industry || "Technology",
                 jobType: rd.jobType || "Full-Time",
                 rounds: rd.rounds || rd.roundsWorkflow,
                 selectionProcess: rd.selectionProcess,
                 eligibility: rd.eligibility || {
-                  departments: Array.isArray(rd.eligibleBranches) ? rd.eligibleBranches.join(", ") : (rd.eligibleBranches || "CSE, IT"),
-                  minCgpa: rd.minCgpa !== undefined ? String(rd.minCgpa) : "7.0",
-                  tenthCutoff: rd.minTenth ? `${rd.minTenth}%+` : "65%+",
-                  twelfthCutoff: rd.minTwelfth ? `${rd.minTwelfth}%+` : "65%+",
-                  maxBacklogs: rd.maxBacklogs !== undefined ? String(rd.maxBacklogs) : "0",
-                  gradYear: rd.gradYear ? String(rd.gradYear) : "2026"
+                  departments: Array.isArray(rd.eligibleBranches) ? rd.eligibleBranches.join(", ") : (rd.eligibleBranches || ""),
+                  minCgpa: rd.minCgpa !== undefined ? String(rd.minCgpa) : "",
+                  tenthCutoff: rd.minTenth ? `${rd.minTenth}%+` : "",
+                  twelfthCutoff: rd.minTwelfth ? `${rd.minTwelfth}%+` : "",
+                  maxBacklogs: rd.maxBacklogs !== undefined ? String(rd.maxBacklogs) : "",
+                  gradYear: rd.gradYear ? String(rd.gradYear) : ""
                 }
               });
             }
@@ -128,8 +128,8 @@ const CompanyManagement: React.FC = () => {
           parsedDrives.forEach((pd: any) => {
             const pId = String(pd.id || pd._id);
             if (["comp_amazon", "comp_zoho", "comp_jac", "comp_cognizant"].includes(pId) || deletedIds.includes(pId)) return;
-            const pdComp = pd.companyName || pd.company || "Amazon Development Center";
-            const pdRole = pd.jobRole || pd.jobTitle || pd.role || "Software Developer";
+            const pdComp = pd.companyName || pd.company || "";
+            const pdRole = pd.jobRole || pd.jobTitle || pd.role || "";
             const existingIndex = combined.findIndex(c =>
               (c.id && (String(c.id) === pId || String(c._id) === pId)) ||
               ((c.companyName || "").toLowerCase().trim() === pdComp.toLowerCase().trim() &&
@@ -142,24 +142,24 @@ const CompanyManagement: React.FC = () => {
               recruiterEmail: (pd.recruiterEmail && pd.recruiterEmail !== "recruiter@company.com") ? pd.recruiterEmail : defaultRecEmail,
               recruiterPhone: (pd.recruiterPhone && pd.recruiterPhone !== "+91 98765 43210") ? pd.recruiterPhone : defaultRecPhone,
               jobRole: pdRole,
-              salaryPackage: pd.salaryPackage || pd.packageCtc || pd.ctc || "₹18.0 LPA",
-              driveDate: pd.driveDate || pd.deadline || "28 Aug 2026",
+              salaryPackage: pd.salaryPackage || pd.packageCtc || pd.ctc || "",
+              driveDate: pd.driveDate || pd.deadline || "",
               applications: pd.applications !== undefined ? pd.applications : (pd.appliedCount || 0),
               shortlisted: pd.shortlisted !== undefined ? pd.shortlisted : 0,
               registrationStatus: pd.status || pd.registrationStatus || "Pending Officer Approval",
               status: pd.status || pd.registrationStatus || "Pending Officer Approval",
-              logoUrl: pd.logoUrl || pd.logo || "https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg",
-              industry: "Technology",
+              logoUrl: pd.logoUrl || pd.logo || "",
+              industry: pd.industry || "Technology",
               jobType: pd.jobType || "Full-Time",
               rounds: pd.rounds || pd.roundsWorkflow,
               selectionProcess: pd.selectionProcess,
               eligibility: pd.eligibility || {
-                departments: Array.isArray(pd.eligibleBranches) ? pd.eligibleBranches.join(", ") : (pd.eligibleBranches || "CSE, IT"),
-                minCgpa: pd.minCgpa !== undefined ? String(pd.minCgpa) : "7.0",
-                tenthCutoff: pd.minTenth ? `${pd.minTenth}%+` : "65%+",
-                twelfthCutoff: pd.minTwelfth ? `${pd.minTwelfth}%+` : "65%+",
-                maxBacklogs: pd.maxBacklogs !== undefined ? String(pd.maxBacklogs) : "0",
-                gradYear: pd.gradYear ? String(pd.gradYear) : "2026"
+                departments: Array.isArray(pd.eligibleBranches) ? pd.eligibleBranches.join(", ") : (pd.eligibleBranches || ""),
+                minCgpa: pd.minCgpa !== undefined ? String(pd.minCgpa) : "",
+                tenthCutoff: pd.minTenth ? `${pd.minTenth}%+` : "",
+                twelfthCutoff: pd.minTwelfth ? `${pd.minTwelfth}%+` : "",
+                maxBacklogs: pd.maxBacklogs !== undefined ? String(pd.maxBacklogs) : "",
+                gradYear: pd.gradYear ? String(pd.gradYear) : ""
               }
             };
 
@@ -525,14 +525,14 @@ const CompanyManagement: React.FC = () => {
   const handleStartEdit = (company: any) => {
     setEditFormData({
       ...company,
-      requiredSkills: Array.isArray(company.requiredSkills) ? company.requiredSkills.join(", ") : company.requiredSkills,
+      requiredSkills: Array.isArray(company.requiredSkills) ? company.requiredSkills.join(", ") : (company.requiredSkills || ""),
       eligibility: company.eligibility || {
-        departments: "CSE, IT",
-        minCgpa: "7.0",
-        tenthCutoff: "65%+",
-        twelfthCutoff: "65%+",
-        maxBacklogs: "0",
-        gradYear: "2026"
+        departments: "",
+        minCgpa: "",
+        tenthCutoff: "",
+        twelfthCutoff: "",
+        maxBacklogs: "",
+        gradYear: ""
       }
     });
     setIsEditing(true);
@@ -548,7 +548,7 @@ const CompanyManagement: React.FC = () => {
     setIsEditing(false);
   };
 
-  const handleCreateCompany = (e: React.FormEvent) => {
+  const handleCreateCompany = async (e: React.FormEvent) => {
     e.preventDefault();
     const createdObj = {
       id: `comp_${Date.now()}`,
@@ -567,6 +567,31 @@ const CompanyManagement: React.FC = () => {
     setIndustryFilter("All");
     setJobTypeFilter("All");
     setShowAddNewModal(false);
+
+    try {
+      await fetch(`${API_BASE_URL}/api/company/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          companyName: newCompany.companyName,
+          industry: newCompany.industry,
+          website: newCompany.website,
+          location: newCompany.location,
+          contactPersonName: newCompany.recruiterName,
+          contactEmail: newCompany.recruiterEmail,
+          contactPhone: newCompany.recruiterPhone,
+          jobRole: newCompany.jobRole,
+          salaryPackage: newCompany.salaryPackage,
+          jobType: newCompany.jobType,
+          requiredSkills: createdObj.requiredSkills,
+          eligibility: newCompany.eligibility,
+          logo: newCompany.logoUrl
+        })
+      });
+    } catch (err) {
+      console.error("Failed to register company in API", err);
+    }
+
     setNewCompany({
       companyName: "",
       industry: "IT & Technology",
@@ -860,12 +885,12 @@ const CompanyManagement: React.FC = () => {
 
                   {/* Job Role */}
                   <td style={{ padding: "14px 16px", color: "#334155", fontWeight: "700", fontSize: "13px" }}>
-                    {c.jobRole || c.role || "Software Developer"}
+                    {c.jobRole || c.role || "—"}
                   </td>
 
                   {/* Drive Date */}
                   <td style={{ padding: "14px 16px", color: "#64748b", fontSize: "13px" }}>
-                    {c.driveDate || c.applicationDeadline || "28 Aug 2026"}
+                    {c.driveDate || c.applicationDeadline || "—"}
                   </td>
 
                   {/* Status */}
@@ -988,7 +1013,7 @@ const CompanyManagement: React.FC = () => {
                               transition: "all 0.15s ease"
                             }}
                           >
-                            
+
                           </button>
                           <button
                             type="button"
@@ -1012,7 +1037,7 @@ const CompanyManagement: React.FC = () => {
                               transition: "all 0.15s ease"
                             }}
                           >
-                            
+
                           </button>
                         </>
                       )}
@@ -1066,7 +1091,7 @@ const CompanyManagement: React.FC = () => {
                 }}
                 title="Close Modal (Esc)"
               >
-                
+
               </button>
             </div>
 
@@ -1127,7 +1152,7 @@ const CompanyManagement: React.FC = () => {
                         />
                         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                           <label style={{ padding: "4px 10px", backgroundColor: "#2563eb", color: "#ffffff", borderRadius: "5px", fontSize: "10px", fontWeight: "700", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "3px" }}>
-                             Choose Image File
+                            Choose Image File
                             <input
                               type="file"
                               accept="image/*"
@@ -1159,10 +1184,10 @@ const CompanyManagement: React.FC = () => {
                   <div style={{ backgroundColor: "#f8fafc", padding: "12px 16px", borderRadius: "10px", border: "1px solid #eaedf0" }}>
                     <h4 style={{ margin: "0 0 8px 0", fontSize: "11px", fontWeight: "800", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px" }}>1. Company Information</h4>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 20px", fontSize: "12px", color: "#334155" }}>
-                      <div style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}><strong>Company Name:</strong> {selectedCompany.companyName}</div>
-                      <div style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}><strong>Industry:</strong> {selectedCompany.industry || "Technology"}</div>
-                      <div style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}><strong>Website:</strong> <a href={selectedCompany.website ? (selectedCompany.website.startsWith("http") ? selectedCompany.website : `https://${selectedCompany.website}`) : "https://amazon.com"} target="_blank" rel="noreferrer" style={{ color: "#2563eb", fontWeight: "600" }}>{selectedCompany.website || "https://amazon.com"}</a></div>
-                      <div style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}><strong>Location:</strong> {selectedCompany.location || "Bangalore, India"}</div>
+                      <div style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}><strong>Company Name:</strong> {selectedCompany.companyName || "Not specified"}</div>
+                      <div style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}><strong>Industry:</strong> {selectedCompany.industry || "Not specified"}</div>
+                      <div style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}><strong>Website:</strong> {selectedCompany.website ? (<a href={selectedCompany.website.startsWith("http") ? selectedCompany.website : `https://${selectedCompany.website}`} target="_blank" rel="noreferrer" style={{ color: "#2563eb", fontWeight: "600" }}>{selectedCompany.website}</a>) : "Not provided"}</div>
+                      <div style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}><strong>Location:</strong> {selectedCompany.location || "Not specified"}</div>
                     </div>
                   </div>
 
@@ -1170,9 +1195,9 @@ const CompanyManagement: React.FC = () => {
                   <div style={{ backgroundColor: "#f8fafc", padding: "12px 16px", borderRadius: "10px", border: "1px solid #eaedf0" }}>
                     <h4 style={{ margin: "0 0 8px 0", fontSize: "11px", fontWeight: "800", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px" }}>2. Recruiter Contact Details</h4>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 20px", fontSize: "12px", color: "#334155" }}>
-                      <div style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}><strong>Recruiter Name:</strong> {(!selectedCompany.recruiterName || selectedCompany.recruiterName === selectedCompany.companyName) ? (selectedCompany.createdBy || "Arya (Placement Lead)") : selectedCompany.recruiterName}</div>
-                      <div style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}><strong>Recruiter Phone:</strong> {(!selectedCompany.recruiterPhone || selectedCompany.recruiterPhone === "+91 98765 43210") ? "+91 98765 12345" : selectedCompany.recruiterPhone}</div>
-                      <div style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", gridColumn: "span 2" }}><strong>Recruiter Email:</strong> {(!selectedCompany.recruiterEmail || selectedCompany.recruiterEmail === "recruiter@company.com") ? "arya@amazon.com" : selectedCompany.recruiterEmail}</div>
+                      <div style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}><strong>Recruiter Name:</strong> {selectedCompany.recruiterName || selectedCompany.createdBy || "Not provided"}</div>
+                      <div style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}><strong>Recruiter Phone:</strong> {selectedCompany.recruiterPhone || "Not provided"}</div>
+                      <div style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", gridColumn: "span 2" }}><strong>Recruiter Email:</strong> {selectedCompany.recruiterEmail || "Not provided"}</div>
                     </div>
                   </div>
 
@@ -1180,10 +1205,10 @@ const CompanyManagement: React.FC = () => {
                   <div style={{ backgroundColor: "#f8fafc", padding: "12px 16px", borderRadius: "10px", border: "1px solid #eaedf0" }}>
                     <h4 style={{ margin: "0 0 8px 0", fontSize: "11px", fontWeight: "800", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px" }}>3. Job Details & Package</h4>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 20px", fontSize: "12px", color: "#334155" }}>
-                      <div style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}><strong>Job Role:</strong> {selectedCompany.jobRole}</div>
-                      <div style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}><strong>Salary Package:</strong> <strong style={{ color: "#16a34a" }}>{selectedCompany.salaryPackage}</strong></div>
-                      <div style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}><strong>Job Type:</strong> {selectedCompany.jobType || "Full-Time (FTE)"}</div>
-                      <div style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}><strong>Required Skills:</strong> {(Array.isArray(selectedCompany.requiredSkills) ? selectedCompany.requiredSkills.join(", ") : selectedCompany.requiredSkills) || "Java, Python, DSA"}</div>
+                      <div style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}><strong>Job Role:</strong> {selectedCompany.jobRole || "Not specified"}</div>
+                      <div style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}><strong>Salary Package:</strong> <strong style={{ color: "#16a34a" }}>{selectedCompany.salaryPackage || "Not specified"}</strong></div>
+                      <div style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}><strong>Job Type:</strong> {selectedCompany.jobType || "Full-Time"}</div>
+                      <div style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}><strong>Required Skills:</strong> {(Array.isArray(selectedCompany.requiredSkills) ? selectedCompany.requiredSkills.join(", ") : selectedCompany.requiredSkills) || "Not specified"}</div>
                     </div>
                   </div>
 
@@ -1191,19 +1216,19 @@ const CompanyManagement: React.FC = () => {
                   <div style={{ backgroundColor: "#f8fafc", padding: "12px 16px", borderRadius: "10px", border: "1px solid #eaedf0" }}>
                     <h4 style={{ margin: "0 0 8px 0", fontSize: "11px", fontWeight: "800", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px" }}>4. Student Eligibility Requirements</h4>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px 16px", fontSize: "12px", color: "#334155" }}>
-                      <div style={{ whiteSpace: "nowrap" }}><strong>Depts:</strong> {selectedCompany.eligibility?.departments || "CSE, IT, ECE"}</div>
-                      <div style={{ whiteSpace: "nowrap" }}><strong>Min CGPA:</strong> {selectedCompany.eligibility?.minCgpa || "7.0"}</div>
-                      <div style={{ whiteSpace: "nowrap" }}><strong>Graduation Year:</strong> {selectedCompany.eligibility?.gradYear || "2026"}</div>
-                      <div style={{ whiteSpace: "nowrap" }}><strong>10th Cutoff:</strong> {selectedCompany.eligibility?.tenthCutoff || "60%+"}</div>
-                      <div style={{ whiteSpace: "nowrap" }}><strong>12th Cutoff:</strong> {selectedCompany.eligibility?.twelfthCutoff || "60%+"}</div>
-                      <div style={{ whiteSpace: "nowrap" }}><strong>Max Backlogs:</strong> {selectedCompany.eligibility?.maxBacklogs || "0"}</div>
+                      <div style={{ whiteSpace: "nowrap" }}><strong>Depts:</strong> {selectedCompany.eligibility?.departments || "All"}</div>
+                      <div style={{ whiteSpace: "nowrap" }}><strong>Min CGPA:</strong> {selectedCompany.eligibility?.minCgpa || "N/A"}</div>
+                      <div style={{ whiteSpace: "nowrap" }}><strong>Graduation Year:</strong> {selectedCompany.eligibility?.gradYear || "N/A"}</div>
+                      <div style={{ whiteSpace: "nowrap" }}><strong>10th Cutoff:</strong> {selectedCompany.eligibility?.tenthCutoff || "N/A"}</div>
+                      <div style={{ whiteSpace: "nowrap" }}><strong>12th Cutoff:</strong> {selectedCompany.eligibility?.twelfthCutoff || "N/A"}</div>
+                      <div style={{ whiteSpace: "nowrap" }}><strong>Max Backlogs:</strong> {selectedCompany.eligibility?.maxBacklogs !== undefined && selectedCompany.eligibility?.maxBacklogs !== "" ? selectedCompany.eligibility.maxBacklogs : "0"}</div>
                     </div>
                   </div>
 
                   {/* Section 5: Selection Rounds Workflow */}
                   <div style={{ backgroundColor: "#f8fafc", padding: "10px 14px", borderRadius: "10px", border: "1px solid #eaedf0" }}>
                     <h4 style={{ margin: "0 0 8px 0", fontSize: "11px", fontWeight: "800", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                       5. Selection Rounds Workflow
+                      5. Selection Rounds Workflow
                     </h4>
 
                     <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
@@ -1211,34 +1236,39 @@ const CompanyManagement: React.FC = () => {
                         ? selectedCompany.rounds
                         : (selectedCompany.roundsWorkflow && selectedCompany.roundsWorkflow.length > 0)
                           ? selectedCompany.roundsWorkflow
-                          : [
-                            { roundNumber: 1, roundName: "Round 1: Online Coding & Aptitude Assessment", mode: "Online", date: selectedCompany.driveDate || "05 Sep 2026", description: "Online coding test and quantitative aptitude" },
-                            { roundNumber: 2, roundName: "Round 2: Technical Interview (DSA & Core)", mode: "Online", date: "07 Sep 2026", description: "Data structures, problem solving, system design" },
-                            { roundNumber: 3, roundName: "Round 3: HR & Management Discussion", mode: "Online", date: "09 Sep 2026", description: "Behavioral assessment and culture fit" }
-                          ]
-                      ).map((round: any, rIdx: number) => (
-                        <div key={rIdx} style={{ backgroundColor: "#ffffff", padding: "8px 12px", borderRadius: "8px", border: "1px solid #cbd5e1" }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
-                            <span style={{ fontSize: "11px", fontWeight: "800", color: "#2563eb", backgroundColor: "#dbeafe", padding: "2px 8px", borderRadius: "10px" }}>
-                              Round {round.roundNumber || rIdx + 1}
-                            </span>
-                            <div style={{ display: "flex", gap: "12px", fontSize: "11px", color: "#475569" }}>
-                              <span><strong>Mode:</strong> {round.mode || "Online"}</span>
-                              {(round.date || selectedCompany.driveDate) && (
-                                <span><strong>Date:</strong> {round.date || selectedCompany.driveDate}</span>
-                              )}
-                            </div>
-                          </div>
-                          <div style={{ fontSize: "12.5px", fontWeight: "700", color: "#0f172a" }}>
-                            {round.roundName || round.name || `Round ${rIdx + 1}`}
-                          </div>
-                          {round.description && (
-                            <div style={{ fontSize: "11px", color: "#64748b", marginTop: "2px", lineHeight: "1.3" }}>
-                              {round.description}
-                            </div>
-                          )}
+                          : []
+                      ).length === 0 ? (
+                        <div style={{ padding: "14px", textAlign: "center", color: "#64748b", fontSize: "12px", fontStyle: "italic", backgroundColor: "#ffffff", borderRadius: "8px", border: "1px dashed #cbd5e1" }}>
+                          No recruitment rounds configured yet.
                         </div>
-                      ))}
+                      ) : (
+                        ((selectedCompany.rounds && selectedCompany.rounds.length > 0)
+                          ? selectedCompany.rounds
+                          : selectedCompany.roundsWorkflow
+                        ).map((round: any, rIdx: number) => (
+                          <div key={rIdx} style={{ backgroundColor: "#ffffff", padding: "8px 12px", borderRadius: "8px", border: "1px solid #cbd5e1" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
+                              <span style={{ fontSize: "11px", fontWeight: "800", color: "#2563eb", backgroundColor: "#dbeafe", padding: "2px 8px", borderRadius: "10px" }}>
+                                Round {round.roundNumber || rIdx + 1}
+                              </span>
+                              <div style={{ display: "flex", gap: "12px", fontSize: "11px", color: "#475569" }}>
+                                <span><strong>Mode:</strong> {round.mode || "Online"}</span>
+                                {(round.date || selectedCompany.driveDate) && (
+                                  <span><strong>Date:</strong> {round.date || selectedCompany.driveDate}</span>
+                                )}
+                              </div>
+                            </div>
+                            <div style={{ fontSize: "12.5px", fontWeight: "700", color: "#0f172a" }}>
+                              {round.roundName || round.name || `Round ${rIdx + 1}`}
+                            </div>
+                            {round.description && (
+                              <div style={{ fontSize: "11px", color: "#64748b", marginTop: "2px", lineHeight: "1.3" }}>
+                                {round.description}
+                              </div>
+                            )}
+                          </div>
+                        ))
+                      )}
                     </div>
                   </div>
 
@@ -1309,7 +1339,7 @@ const CompanyManagement: React.FC = () => {
                 }}
                 title="Close Modal (Esc)"
               >
-                
+
               </button>
             </div>
             <form onSubmit={handleCreateCompany} style={{ padding: "24px", display: "flex", flexDirection: "column", gap: "14px", maxHeight: "80vh", overflowY: "auto" }}>
@@ -1383,7 +1413,7 @@ const CompanyManagement: React.FC = () => {
                     />
                     <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                       <label style={{ padding: "5px 12px", backgroundColor: "#2563eb", color: "#ffffff", borderRadius: "6px", fontSize: "11px", fontWeight: "700", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                         Choose Logo Image File
+                        Choose Logo Image File
                         <input
                           type="file"
                           accept="image/*"
