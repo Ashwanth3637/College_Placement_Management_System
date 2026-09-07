@@ -127,7 +127,7 @@ const CollegeSettings: React.FC<CollegeSettingsProps> = ({ user }) => {
       {/* Header */}
       <div style={{ marginBottom: 28 }}>
         <h2 style={{ fontSize: 22, fontWeight: 700, color: "#1E293B", margin: 0, display: "flex", alignItems: "center", gap: 10 }}>
-          <span style={{ fontSize: 24 }}>🏫</span> College Settings
+          College Settings
         </h2>
         <p style={{ fontSize: 13, color: "#64748B", marginTop: 6 }}>
           Configure which students can register and which departments are available.
@@ -138,18 +138,17 @@ const CollegeSettings: React.FC<CollegeSettingsProps> = ({ user }) => {
       {/* Success / Error Messages */}
       {successMsg && (
         <div style={{ padding: "12px 18px", borderRadius: 10, background: "#ECFDF5", border: "1px solid #A7F3D0", color: "#065F46", fontSize: 13, fontWeight: 600, marginBottom: 18, display: "flex", alignItems: "center", gap: 8 }}>
-          <span>✅</span> {successMsg}
+          {successMsg}
         </div>
       )}
       {errorMsg && (
         <div style={{ padding: "12px 18px", borderRadius: 10, background: "#FEF2F2", border: "1px solid #FECACA", color: "#991B1B", fontSize: 13, fontWeight: 600, marginBottom: 18, display: "flex", alignItems: "center", gap: 8 }}>
-          <span>⚠️</span> {errorMsg}
+          {errorMsg}
         </div>
       )}
 
       {!college && (
         <div style={{ padding: "40px", textAlign: "center", background: "#F8FAFC", borderRadius: 12, border: "1px dashed #CBD5E1" }}>
-          <div style={{ fontSize: 48, marginBottom: 12 }}>🏫</div>
           <h3 style={{ fontSize: 16, color: "#475569", fontWeight: 600, margin: "0 0 8px" }}>No College Linked</h3>
           <p style={{ fontSize: 13, color: "#94A3B8" }}>Your account is not linked to a college yet. Contact the Super Admin to link your account.</p>
         </div>
@@ -173,7 +172,7 @@ const CollegeSettings: React.FC<CollegeSettingsProps> = ({ user }) => {
           {/* Allowed Email Domains */}
           <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #E2E8F0", padding: "22px 26px", boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
             <h3 style={{ fontSize: 15, fontWeight: 700, color: "#1E293B", margin: "0 0 6px", display: "flex", alignItems: "center", gap: 8 }}>
-              <span>📧</span> Allowed Email Domains
+              Allowed Email Domains
             </h3>
             <p style={{ fontSize: 12, color: "#64748B", margin: "0 0 16px" }}>
               Only students with email addresses ending in these domains can sign up to the portal.
@@ -211,7 +210,7 @@ const CollegeSettings: React.FC<CollegeSettingsProps> = ({ user }) => {
           {/* Departments */}
           <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #E2E8F0", padding: "22px 26px", boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
             <h3 style={{ fontSize: 15, fontWeight: 700, color: "#1E293B", margin: "0 0 6px", display: "flex", alignItems: "center", gap: 8 }}>
-              <span>🏢</span> Departments
+              Departments
             </h3>
             <p style={{ fontSize: 12, color: "#64748B", margin: "0 0 16px" }}>
               Departments available in your college. Students will select from these during registration.
@@ -282,7 +281,7 @@ const CollegeSettings: React.FC<CollegeSettingsProps> = ({ user }) => {
                 boxShadow: "0 4px 14px rgba(79, 70, 229, 0.3)", transition: "all 0.2s",
               }}
             >
-              {saving ? "Saving..." : "💾 Save Settings"}
+              {saving ? "Saving..." : "Save Settings"}
             </button>
           </div>
         </div>

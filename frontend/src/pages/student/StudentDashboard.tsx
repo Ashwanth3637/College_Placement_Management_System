@@ -4,6 +4,7 @@ import StudentProfile from "./StudentProfile";
 import { formatCleanRoundName, getPureRoundTitle } from "../../utils/roundUtils";
 import ClearDataButton from "../../components/ClearDataButton";
 import { API_BASE_URL } from "../../config/api";
+import { Eye, Building2, MapPin, Calendar, CheckCircle2, XCircle, Search, Filter, Award, FileText, Download, ChevronRight, Menu, X, Bell, User } from "lucide-react";
 
 interface User {
   id?: string;
@@ -562,7 +563,15 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
   const [studentDepartment, setStudentDepartment] = useState<string>(() => localProfile?.personal?.department || "Computer Science & Engineering");
   const [studentTenth, setStudentTenth] = useState<number>(() => Number(localProfile?.academic?.tenthPercentage) || 85.0);
   const [studentTwelfth, setStudentTwelfth] = useState<number>(() => Number(localProfile?.academic?.twelfthPercentage) || 85.0);
-  const [studentGradYear, setStudentGradYear] = useState<number>(() => Number(localProfile?.academic?.graduationYear) || 2026);
+  const [studentGradYear, setStudentGradYear] = useState<number>(() => {
+    const gy =
+      localProfile?.academic?.graduationYear ??
+      localProfile?.personal?.batch ??
+      localProfile?.academic?.batch ??
+      localProfile?.batch ??
+      localProfile?.gradYear;
+    return gy ? Number(gy) : 2026;
+  });
   const [studentRegNo, setStudentRegNo] = useState<string>("");
   const [studentPhone, setStudentPhone] = useState<string>("");
   const [studentResumeName, setStudentResumeName] = useState<string>("");
@@ -683,7 +692,13 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
             if (student.academic.backlogs !== undefined && student.academic.backlogs !== null) setStudentBacklogs(Number(student.academic.backlogs));
             if (student.academic.tenthPercentage !== undefined && student.academic.tenthPercentage !== null) setStudentTenth(Number(student.academic.tenthPercentage));
             if (student.academic.twelfthPercentage !== undefined && student.academic.twelfthPercentage !== null) setStudentTwelfth(Number(student.academic.twelfthPercentage));
-            if (student.academic.graduationYear !== undefined && student.academic.graduationYear !== null) setStudentGradYear(Number(student.academic.graduationYear));
+            const gy =
+              student.academic?.graduationYear ??
+              student.academic?.batch ??
+              student.personal?.batch ??
+              student.batch ??
+              student.gradYear;
+            if (gy) setStudentGradYear(Number(gy));
           }
           if (student.professional?.skills) {
             setStudentSkills(Array.isArray(student.professional.skills) ? student.professional.skills : []);
@@ -843,32 +858,44 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
       pd.createdExplicitlyByOfficer === true ||
       creator.includes("officer") ||
       creator === "placement officer" ||
+      st === "published" ||
       st === "approved" ||
       st === "active" ||
+      st === "in progress" ||
+      st === "completed" ||
       st === "upcoming" ||
       st === "ongoing";
   };
 
   const isDeptMatch = (branch: string, studentDept: string) => {
-    if (!branch || !studentDept) return true;
+    if (!branch) return true;
     const b = branch.toLowerCase().trim();
+    if (b === "all" || b === "all departments" || b === "all branches" || b === "*" || b === "") return true;
+    if (!studentDept) return false;
     const d = studentDept.toLowerCase().trim();
-    if (b === "all" || b === "all departments" || b === "" || d === "") return true;
-    if (b === d || b.includes(d) || d.includes(b)) return true;
+    if (d === "") return false;
+    if (b === d) return true;
 
     const aliasMap: Record<string, string[]> = {
-      cse: ["computer science", "cse"],
-      it: ["information technology", "it"],
-      ece: ["electronics & communication", "electronics and communication", "ece"],
-      eee: ["electrical & electronics", "electrical and electronics", "eee"],
-      mech: ["mechanical", "mechanical engineering", "mech"]
+      cse: ["computer science", "cse", "cs", "computer science and engineering", "computer science & engineering", "b.e cse", "b.tech cse"],
+      it: ["information technology", "it", "infotech", "b.tech it"],
+      ece: ["electronics & communication", "electronics and communication", "ece", "electronics", "b.e ece"],
+      eee: ["electrical & electronics", "electrical and electronics", "eee", "electrical", "b.e eee"],
+      aids: ["artificial intelligence", "data science", "aids", "ai & ds", "ai and ds", "ai-ds", "ai/ds"],
+      aiml: ["machine learning", "aiml", "ai & ml", "ai and ml", "ai-ml", "ai/ml"],
+      mech: ["mechanical", "mechanical engineering", "mech", "me", "b.e mech"],
+      civil: ["civil", "civil engineering", "ce", "b.e civil"],
+      csbs: ["computer science and business systems", "csbs", "business systems"],
+      cyber: ["cyber security", "cybersecurity", "cyber", "information security"]
     };
 
-    for (const aliases of Object.values(aliasMap)) {
-      const matchesBranch = aliases.some(a => b.includes(a) || a.includes(b));
-      const matchesDept = aliases.some(a => d.includes(a) || a.includes(d));
+    for (const [key, aliases] of Object.entries(aliasMap)) {
+      const matchesBranch = key === b || aliases.some(a => b === a || b.includes(a) || a.includes(b));
+      const matchesDept = key === d || aliases.some(a => d === a || d.includes(a) || a.includes(d));
       if (matchesBranch && matchesDept) return true;
     }
+
+    if (b.includes(d) || d.includes(b)) return true;
     return false;
   };
 
@@ -972,19 +999,22 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
           const minTenthVal = Number(pd.minTenth ?? pd.eligibility?.minTenth ?? pd.eligibility?.tenthCutoff) || 60;
           const minTwelfthVal = Number(pd.minTwelfth ?? pd.eligibility?.minTwelfth ?? pd.eligibility?.twelfthCutoff) || 60;
           const maxBacklogsVal = Number(pd.maxBacklogs ?? pd.eligibility?.maxBacklogs) ?? 1;
-          const reqGradYear = Number(pd.gradYear ?? pd.eligibility?.gradYear) || 2026;
 
           let eligibleBranches: string[] = [];
           if (Array.isArray(pd.eligibleBranches) && pd.eligibleBranches.length > 0) {
             eligibleBranches = pd.eligibleBranches;
           } else if (Array.isArray(pd.departments) && pd.departments.length > 0) {
             eligibleBranches = pd.departments;
+          } else if (typeof pd.department === "string" && pd.department.trim().length > 0) {
+            eligibleBranches = pd.department.split(",").map((s: string) => s.trim()).filter(Boolean);
+          } else if (typeof pd.departments === "string" && (pd.departments as any).trim().length > 0) {
+            eligibleBranches = (pd.departments as any).split(",").map((s: string) => s.trim()).filter(Boolean);
           } else if (pd.eligibility?.departments) {
             eligibleBranches = typeof pd.eligibility.departments === "string"
               ? pd.eligibility.departments.split(",").map((s: string) => s.trim()).filter(Boolean)
               : pd.eligibility.departments;
           } else {
-            eligibleBranches = ["CSE", "IT", "ECE"];
+            eligibleBranches = ["All Departments"];
           }
 
           const effCgpa = studentCgpa > 0 ? studentCgpa : 8.5;
@@ -995,7 +1025,9 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
           const tenthOk = effTenth >= minTenthVal;
           const twelfthOk = effTwelfth >= minTwelfthVal;
           const backlogsOk = studentBacklogs <= maxBacklogsVal;
-          const gradYearOk = !studentGradYear || studentGradYear === reqGradYear;
+          const reqGradYear = Number(pd.gradYear ?? pd.batch ?? pd.eligibility?.gradYear ?? pd.eligibility?.batch) || 0;
+          const isAllBatches = String(pd.batch || pd.gradYear || "").toLowerCase().includes("all");
+          const gradYearOk = !reqGradYear || !studentGradYear || isAllBatches || studentGradYear === reqGradYear;
           const deptOk = eligibleBranches.length === 0 || eligibleBranches.some(b => isDeptMatch(b, studentDepartment));
 
           const isEligible = cgpaOk && tenthOk && twelfthOk && backlogsOk && gradYearOk && deptOk;
@@ -1005,7 +1037,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
           if (!tenthOk) ineligibilityReasons.push(`Min 10th: ${minTenthVal}% (Your 10th: ${studentTenth}%)`);
           if (!twelfthOk) ineligibilityReasons.push(`Min 12th: ${minTwelfthVal}% (Your 12th: ${studentTwelfth}%)`);
           if (!backlogsOk) ineligibilityReasons.push(`Max Backlogs: ${maxBacklogsVal} (Your Backlogs: ${studentBacklogs})`);
-          if (!gradYearOk) ineligibilityReasons.push(`Graduation Year: ${reqGradYear} (Your Year: ${studentGradYear})`);
+          if (!gradYearOk) ineligibilityReasons.push(`Eligible Batch: ${reqGradYear} (Your Batch: ${studentGradYear || "N/A"})`);
           if (!deptOk) ineligibilityReasons.push(`Eligible Depts: ${eligibleBranches.join(", ")} (Your Dept: ${studentDepartment || "N/A"})`);
 
           const roleStr = (pd.jobRole || pd.jobTitle || pd.role || "").toLowerCase().trim();
@@ -1038,7 +1070,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
             description: pd.description || pd.jobDescription || "",
             aboutCompany: pd.aboutCompany || "",
             rounds: pd.rounds || pd.roundsWorkflow || [],
-            statusTag: isOptedIn ? "Opted-In" : (isOptedOut ? "Opted-Out" : (isEligible ? "Eligible" : "Not Eligible")),
+            statusTag: (st === "completed" || st === "closed") ? "Completed" : (isOptedIn ? "Opted-In" : (isOptedOut ? "Opted-Out" : (isEligible ? "Eligible" : "Not Eligible"))),
             isEligible,
             ineligibilityReason: ineligibilityReasons.join(" • ")
           } as any);
@@ -1061,15 +1093,50 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
         }
       });
 
-      setPlacementDrives(Array.from(map.values()));
+      const getDriveTimestamp = (item: any) => {
+        if (item.createdAt) {
+          const t = new Date(item.createdAt).getTime();
+          if (!isNaN(t) && t > 0) return t;
+        }
+        if (item.publishDate) {
+          const t = new Date(item.publishDate).getTime();
+          if (!isNaN(t) && t > 0) return t;
+        }
+        if (item.updatedAt) {
+          const t = new Date(item.updatedAt).getTime();
+          if (!isNaN(t) && t > 0) return t;
+        }
+        const idStr = String(item._id || item.id || "");
+        const match = idStr.match(/\d{10,13}/);
+        if (match) return parseInt(match[0], 10);
+        return 0;
+      };
+
+      const sortedDrives = Array.from(map.values()).sort((a: any, b: any) => {
+        const timeA = getDriveTimestamp(a);
+        const timeB = getDriveTimestamp(b);
+        if (timeA !== timeB) return timeB - timeA;
+
+        const isOfficerA = a.isOfficerPublished || a.isCreatedByOfficer ? 1 : 0;
+        const isOfficerB = b.isOfficerPublished || b.isCreatedByOfficer ? 1 : 0;
+        return isOfficerB - isOfficerA;
+      });
+
+      setPlacementDrives(sortedDrives);
+    };
+
+    const handleDrivesUpdated = () => {
+      setCampusDrivesPage(1);
+      setRecentDrivesPage(1);
+      syncApprovedDrives();
     };
 
     syncApprovedDrives();
-    window.addEventListener("storage", syncApprovedDrives);
-    window.addEventListener("cpms_drives_updated", syncApprovedDrives);
+    window.addEventListener("storage", handleDrivesUpdated);
+    window.addEventListener("cpms_drives_updated", handleDrivesUpdated);
     return () => {
-      window.removeEventListener("storage", syncApprovedDrives);
-      window.removeEventListener("cpms_drives_updated", syncApprovedDrives);
+      window.removeEventListener("storage", handleDrivesUpdated);
+      window.removeEventListener("cpms_drives_updated", handleDrivesUpdated);
     };
   }, [studentCgpa, studentTenth, studentTwelfth, studentBacklogs, studentDepartment, appliedDrives, optedOutDrives]);
 
@@ -1124,7 +1191,10 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
       const currentStatus = savedAppRecord?.status || "Opted-In";
       const isNotShortlisted = currentStatus === "Not Shortlisted" || savedAppRecord?.roundStatus === "Not Shortlisted";
       const isSelected = currentStatus === "Selected";
-
+      const isDriveCompleted = (d.status || (d as any).driveStatus || d.statusTag || "").toLowerCase() === "completed" ||
+        (d.status || "").toLowerCase() === "closed" ||
+        (savedAppRecord?.status || "").toLowerCase() === "completed" ||
+        (savedAppRecord?.driveStatus || "").toLowerCase() === "completed";
 
       // Fetch Drive Recruitment Rounds
       let driveRoundsList: any[] = [];
@@ -1162,18 +1232,19 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
 
         if (isSelected) {
           roundBadgeText = "Cleared ";
+        } else if (isDriveCompleted) {
+          roundBadgeText = "Concluded";
         } else if (rNum < activeRoundIdx) {
           roundBadgeText = "Cleared ";
         } else if (rNum === activeRoundIdx) {
           if (isNotShortlisted) {
             roundBadgeText = "Not Shortlisted ";
           } else {
-            roundBadgeText = "In Progress ⏳";
+            roundBadgeText = "In Progress";
           }
         } else {
           roundBadgeText = "Locked ";
         }
-
 
         return {
           round: `Round ${rNum}`,
@@ -1194,13 +1265,15 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
       } else if (isNotShortlisted) {
         currentStageText = "Not Shortlisted";
         activeRoundTitle = `Not Shortlisted in Round ${activeRoundIdx}`;
+      } else if (isDriveCompleted) {
+        currentStageText = "Completed";
+        activeRoundTitle = "Drive Completed - Recruitment Ended";
       } else {
         const currentRoundObj = driveRoundsList[activeRoundIdx - 1] || driveRoundsList[0];
         const pureTitle = getPureRoundTitle(currentRoundObj?.roundName, "Selection Round");
         activeRoundTitle = formatCleanRoundName(activeRoundIdx, pureTitle);
         currentStageText = `Round ${activeRoundIdx}`;
       }
-
 
       return {
         company: d.company,
@@ -1209,6 +1282,8 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
         activeRoundType: activeRoundTitle,
         currentWorkflowStage: currentStageText,
         statusBadge: currentStageText,
+        status: isDriveCompleted ? "Completed" : currentStatus,
+        isDriveCompleted,
         dept: Array.isArray(d.departments) ? d.departments.join(", ") : "CSE, IT, ECE",
         minCgpa: d.minCgpa !== undefined ? `${d.minCgpa}` : "6.5",
         tenth: d.minTenth !== undefined ? `${d.minTenth}%` : "60%",
@@ -2034,8 +2109,13 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
           });
 
           const inProgressDrivesList = (applicationsData || []).filter((app: any) => {
-            const st = (app.currentStatus || app.status || "").toLowerCase();
-            return st !== "rejected" && st !== "selected";
+            const st = (app.currentStatus || app.status || app.currentWorkflowStage || app.statusBadge || "").toLowerCase();
+            const isDriveCompleted = app.isDriveCompleted ||
+              (app.driveObj?.status || "").toLowerCase() === "completed" ||
+              (app.driveObj?.status || "").toLowerCase() === "closed" ||
+              st === "completed" ||
+              st.includes("completed");
+            return st !== "rejected" && st !== "selected" && !isDriveCompleted;
           });
 
           const upcomingDrivesList = (placementDrives || []).filter((d: any) => {
@@ -2258,13 +2338,11 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                     }}
                     onMouseEnter={(e) => {
                       e.currentTarget.style.transform = "translateY(-3px)";
-                      e.currentTarget.style.boxShadow = "0 8px 18px rgba(0,0,0,0.07)";
-                      e.currentTarget.style.borderColor = "#CBD5E1";
+                      e.currentTarget.style.boxShadow = "0 8px 18px rgba(0,0,0,0.08)";
                     }}
                     onMouseLeave={(e) => {
                       e.currentTarget.style.transform = "translateY(0)";
                       e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.02)";
-                      e.currentTarget.style.borderColor = "#E2E8F0";
                     }}
                     title={`Click to view ${kpi.label}`}
                   >
@@ -2485,20 +2563,12 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                               </div>
 
                               <button
+                                type="button"
                                 onClick={() => { setDriveFilter("Eligible"); setCurrentTab("companies"); }}
-                                style={{
-                                  padding: "5px 10px",
-                                  backgroundColor: "#F8FAFC",
-                                  color: "#4F46E5",
-                                  border: "1px solid #CBD5E1",
-                                  borderRadius: "6px",
-                                  fontSize: "11.5px",
-                                  fontWeight: 700,
-                                  cursor: "pointer",
-                                  whiteSpace: "nowrap"
-                                }}
+                                className="btn-action-view"
+                                title="View Drive Details"
                               >
-                                Details →
+                                <Eye size={15} />
                               </button>
                             </div>
                           );
@@ -2546,13 +2616,40 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
             return true;
           });
 
-          if (filterSortBy === "Package (High to Low)") {
-            filteredCampusDrives = [...filteredCampusDrives].sort((a, b) => {
+          filteredCampusDrives = [...filteredCampusDrives].sort((a: any, b: any) => {
+            if (filterSortBy === "Package (High to Low)") {
               const numA = parseFloat(String(a.ctc || "0").replace(/[^0-9.]/g, "")) || 0;
               const numB = parseFloat(String(b.ctc || "0").replace(/[^0-9.]/g, "")) || 0;
               return numB - numA;
-            });
-          }
+            }
+
+            const getDriveTimestamp = (item: any) => {
+              if (item.createdAt) {
+                const t = new Date(item.createdAt).getTime();
+                if (!isNaN(t) && t > 0) return t;
+              }
+              if (item.publishDate) {
+                const t = new Date(item.publishDate).getTime();
+                if (!isNaN(t) && t > 0) return t;
+              }
+              if (item.updatedAt) {
+                const t = new Date(item.updatedAt).getTime();
+                if (!isNaN(t) && t > 0) return t;
+              }
+              const idStr = String(item._id || item.id || "");
+              const match = idStr.match(/\d{10,13}/);
+              if (match) return parseInt(match[0], 10);
+              return 0;
+            };
+
+            const timeA = getDriveTimestamp(a);
+            const timeB = getDriveTimestamp(b);
+            if (timeA !== timeB) return timeB - timeA;
+
+            const isOfficerA = a.isOfficerPublished || a.isCreatedByOfficer ? 1 : 0;
+            const isOfficerB = b.isOfficerPublished || b.isCreatedByOfficer ? 1 : 0;
+            return isOfficerB - isOfficerA;
+          });
 
           const pageSize = 6;
           const startIndex = (campusDrivesPage - 1) * pageSize;
@@ -2686,8 +2783,27 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                                     {drive.company?.charAt(0) || "C"}
                                   </div>
                                   <div>
-                                    <div style={{ fontWeight: 800, color: "#0F172A", fontSize: "13px" }}>
-                                      {drive.company}
+                                    <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                                      <span style={{ fontWeight: 800, color: "#0F172A", fontSize: "13px" }}>
+                                        {drive.company}
+                                      </span>
+                                      {(drive.isOfficerPublished || drive.isCreatedByOfficer || (drive.createdAt && (Date.now() - new Date(drive.createdAt).getTime()) < 14 * 24 * 60 * 60 * 1000)) && (
+                                        <span style={{
+                                          backgroundColor: "#FEF3C7",
+                                          color: "#B45309",
+                                          border: "1px solid #FCD34D",
+                                          fontSize: "10px",
+                                          fontWeight: 800,
+                                          padding: "1px 6px",
+                                          borderRadius: "6px",
+                                          display: "inline-flex",
+                                          alignItems: "center",
+                                          gap: "3px",
+                                          letterSpacing: "0.2px"
+                                        }}>
+                                          NEW
+                                        </span>
+                                      )}
                                     </div>
                                     <div style={{ fontSize: "11px", color: "#64748B", marginTop: "1px", display: "flex", alignItems: "center", gap: "3px" }}>
                                       {drive.location || "Bangalore, India"}
@@ -2720,24 +2836,15 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                               </td>
                               <td style={{ padding: "11px 16px", textAlign: "right" }}>
                                 <button
+                                  type="button"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setSelectedDriveCriteria(drive);
                                   }}
-                                  style={{
-                                    padding: "5px 12px",
-                                    backgroundColor: "#4F46E5",
-                                    color: "#FFFFFF",
-                                    border: "none",
-                                    borderRadius: "6px",
-                                    fontSize: "11.5px",
-                                    fontWeight: 700,
-                                    cursor: "pointer",
-                                    whiteSpace: "nowrap",
-                                    transition: "all 0.15s ease"
-                                  }}
+                                  className="btn-action-view"
+                                  title="View Details"
                                 >
-                                  View Details →
+                                  <Eye size={15} />
                                 </button>
                               </td>
                             </tr>
@@ -2810,27 +2917,48 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
         {/* TAB 3: MY APPLICATIONS (Application Tracker 100% MongoDB) */}
         {currentTab === "applications" && (() => {
           const rawMapped = (applicationsData || []).map((app: any) => {
+            const isDriveCompleted = Boolean(
+              app.isDriveCompleted ||
+              (app.driveObj?.status || "").toLowerCase() === "completed" ||
+              (app.driveObj?.status || "").toLowerCase() === "closed" ||
+              (app.status || "").toLowerCase() === "completed" ||
+              (app.currentWorkflowStage || "").toLowerCase() === "completed" ||
+              (app.statusTag || "").toLowerCase() === "completed"
+            );
             const st = app.currentWorkflowStage || app.status || "Applied";
             const isSel = st.toLowerCase().includes("select") || st.toLowerCase().includes("placed");
             const isRej = st.toLowerCase().includes("reject") || st.toLowerCase().includes("not shortlisted");
 
             const defaultRounds = [
               { stepName: "Round 1", name: "Aptitude Assessment", state: "passed" },
-              { stepName: "Round 2", name: "Technical Interview", state: isSel ? "passed" : (isRej ? "failed" : "active") },
-              { stepName: "Round 3", name: "Management / HR", state: isSel ? "passed" : (isRej ? "upcoming" : "upcoming") }
+              { stepName: "Round 2", name: "Technical Interview", state: isSel ? "passed" : (isRej ? "failed" : (isDriveCompleted ? "passed" : "active")) },
+              { stepName: "Round 3", name: "Management / HR", state: isSel ? "passed" : (isRej ? "upcoming" : (isDriveCompleted ? "passed" : "upcoming")) }
             ];
+
+            let statusTag = "Processing";
+            if (isSel) statusTag = "Selected";
+            else if (isRej) statusTag = "Rejected";
+            else if (isDriveCompleted) statusTag = "Completed";
+
+            let subMessage = `Next Round: ${app.roundName || "In Progress"}`;
+            if (isSel) {
+              subMessage = "Congratulations! You have been selected.";
+            } else if (isRej) {
+              subMessage = "Application evaluated. Check other placement opportunities.";
+            } else if (isDriveCompleted) {
+              subMessage = "Drive Completed - Placement recruitment has ended.";
+            }
 
             return {
               ...app,
               company: app.companyName || app.company,
               role: app.jobRole || app.role || "Software Trainee",
-              statusTag: isSel ? "Selected" : (isRej ? "Rejected" : "Processing"),
+              statusTag,
+              isDriveCompleted,
               appliedDate: app.appliedDate || (app.createdAt ? new Date(app.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "Recently"),
               location: app.location || "On-Campus / Virtual",
               ctc: formatCtc(app.package || app.ctc || app.packageCtc || "₹7.5 LPA"),
-              subMessage: isSel
-                ? "Congratulations! You have been selected."
-                : (isRej ? "Application evaluated. Check other placement opportunities." : `Next Round: ${app.roundName || "In Progress"}`),
+              subMessage,
               rounds: Array.isArray(app.rounds) && app.rounds.length > 0 ? app.rounds : defaultRounds
             };
           });
@@ -2839,7 +2967,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
 
           const normalizedApps = rawMapped.map((app: any) => {
             const st = (app.statusTag || app.currentWorkflowStage || "").toLowerCase();
-            const isCompleted = st.includes("select") || st.includes("reject") || st.includes("complete") || st.includes("offer");
+            const isCompleted = app.isDriveCompleted || st.includes("select") || st.includes("reject") || st.includes("complete") || st.includes("offer") || st.includes("closed");
             const isSelected = st.includes("select") || st.includes("offer");
             const isRejected = st.includes("reject");
 
@@ -2849,7 +2977,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
               isSelected,
               isRejected,
               statusCategory: isCompleted ? "completed" : "in_progress",
-              statusDisplay: isCompleted ? (isSelected ? "Completed • Selected" : "Completed") : "In Progress"
+              statusDisplay: isCompleted ? (isSelected ? "Completed • Selected" : (isRejected ? "Completed • Not Selected" : "Completed")) : "In Progress"
             };
           });
 
@@ -2947,6 +3075,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                           const isInProgress = app.statusCategory === "in_progress";
                           const isSelected = app.isSelected;
                           const isRejected = app.isRejected;
+                          const isCompleted = app.statusCategory === "completed";
 
                           return (
                             <tr
@@ -3030,7 +3159,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                                   }}>
                                     Selected
                                   </span>
-                                ) : (
+                                ) : isRejected ? (
                                   <span style={{
                                     backgroundColor: "#FEE2E2",
                                     color: "#B91C1C",
@@ -3041,30 +3170,34 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                                     fontWeight: 700,
                                     whiteSpace: "nowrap"
                                   }}>
-                                    Completed
+                                    Not Selected
+                                  </span>
+                                ) : (
+                                  <span style={{
+                                    backgroundColor: "#F1F5F9",
+                                    color: "#334155",
+                                    border: "1px solid #CBD5E1",
+                                    borderRadius: "12px",
+                                    padding: "3px 8px",
+                                    fontSize: "11px",
+                                    fontWeight: 700,
+                                    whiteSpace: "nowrap"
+                                  }}>
+                                    ● Completed
                                   </span>
                                 )}
                               </td>
                               <td style={{ padding: "11px 16px", textAlign: "right" }}>
                                 <button
+                                  type="button"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setSelectedApplicationModal(app);
                                   }}
-                                  style={{
-                                    padding: "5px 12px",
-                                    backgroundColor: "#4F46E5",
-                                    color: "#FFFFFF",
-                                    border: "none",
-                                    borderRadius: "6px",
-                                    fontSize: "11.5px",
-                                    fontWeight: 700,
-                                    cursor: "pointer",
-                                    whiteSpace: "nowrap",
-                                    transition: "all 0.15s ease"
-                                  }}
+                                  className="btn-action-view"
+                                  title="Track Status"
                                 >
-                                  Track Status →
+                                  <Eye size={15} />
                                 </button>
                               </td>
                             </tr>
@@ -3251,7 +3384,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                                   const isPassed = rawStatus.includes("passed") || rawStatus.includes("cleared") || rawStatus.includes("selected");
                                   const isFailed = rawStatus.includes("rejected") || rawStatus.includes("not shortlisted") || rawStatus.includes("failed") || rawStatus.includes("not selected");
 
-                                  let statusLabel = "In Progress ⏳";
+                                  let statusLabel = "In Progress";
                                   let statusColor = "#2563eb";
 
                                   if (isPassed) {
@@ -3581,11 +3714,33 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
 
                   {/* Sub Metadata Row */}
                   <div style={{ display: "flex", flexWrap: "wrap", gap: "18px", fontSize: "13px", color: "#475569", fontWeight: "600", marginBottom: "16px" }}>
-                    <div> {selectedDriveCriteria.location || "Bangalore, India"}</div>
-                    <div> {formatCtc(selectedDriveCriteria.ctc)}</div>
-                    <div> Full Time</div>
+                    <div>📍 {selectedDriveCriteria.location || "Bangalore, India"}</div>
+                    <div>💰 {formatCtc(selectedDriveCriteria.ctc)}</div>
+                    <div>💼 Full Time</div>
                     <div style={{ color: "#dc2626", fontWeight: "700" }}>⏰ Deadline {selectedDriveCriteria.deadline || "May 30, 2026"}</div>
                   </div>
+
+                  {isIneligible && (
+                    <div style={{
+                      backgroundColor: "#FEF2F2",
+                      border: "1px solid #FECACA",
+                      borderRadius: "10px",
+                      padding: "10px 14px",
+                      color: "#991B1B",
+                      fontSize: "12.5px",
+                      fontWeight: "700",
+                      marginBottom: "14px",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px"
+                    }}>
+                      <span>⛔</span>
+                      <span>
+                        <strong>Not Eligible for this Drive:</strong>{" "}
+                        {(selectedDriveCriteria as any).ineligibilityReason || "Your department / academic profile does not meet the criteria specified by the Placement Officer."}
+                      </span>
+                    </div>
+                  )}
 
                   <div style={{ borderTop: "1px solid #f1f5f9", paddingTop: "14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <div style={{ fontSize: "12px", color: "#64748b", fontWeight: "600" }}>
@@ -3623,6 +3778,23 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                         >
                           Opted-Out
                         </button>
+                      ) : isIneligible ? (
+                        <div
+                          style={{
+                            backgroundColor: "#FEF2F2",
+                            color: "#DC2626",
+                            border: "1px solid #FECACA",
+                            borderRadius: "10px",
+                            padding: "8px 16px",
+                            fontWeight: "700",
+                            fontSize: "12.5px",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "6px"
+                          }}
+                        >
+                          ⛔ Ineligible (Application Disabled)
+                        </div>
                       ) : (
                         <>
                           <button
@@ -4157,23 +4329,51 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
 
                 {/* OFFICER STATUS & ROUND EVALUATION LOG */}
                 <div style={{ fontSize: "11px", fontWeight: "800", color: "#94a3b8", letterSpacing: "0.5px", textTransform: "uppercase", marginBottom: "10px" }}>️ PLACEMENT OFFICER EVALUATION & REAL-TIME STATUS</div>
-                <div style={{ backgroundColor: "#F0FDF4", borderRadius: "12px", border: "1px solid #BBF7D0", padding: "16px", marginBottom: "20px" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                    <div style={{ fontSize: "14px", fontWeight: 800, color: "#166534" }}>
-                      Workflow Status: {selectedApplicationModal.statusDisplay || selectedApplicationModal.statusTag || "In Progress"}
+                {(() => {
+                  const isCompleted = Boolean(
+                    selectedApplicationModal.isDriveCompleted ||
+                    (selectedApplicationModal.statusTag || "").toLowerCase() === "completed" ||
+                    (selectedApplicationModal.currentWorkflowStage || "").toLowerCase() === "completed" ||
+                    (selectedApplicationModal.statusDisplay || "").toLowerCase().includes("completed")
+                  );
+                  const isSelected = selectedApplicationModal.isSelected;
+                  const isRejected = selectedApplicationModal.isRejected;
+
+                  const cardBg = isSelected ? "#F0FDF4" : (isRejected ? "#FEF2F2" : (isCompleted ? "#F8FAFC" : "#EFF6FF"));
+                  const cardBorder = isSelected ? "#BBF7D0" : (isRejected ? "#FECACA" : (isCompleted ? "#CBD5E1" : "#BFDBFE"));
+                  const titleColor = isSelected ? "#166534" : (isRejected ? "#991B1B" : (isCompleted ? "#1E293B" : "#1E40AF"));
+                  const badgeBg = isSelected ? "#DCFCE7" : (isRejected ? "#FEE2E2" : (isCompleted ? "#E2E8F0" : "#DBEAFE"));
+                  const badgeColor = isSelected ? "#15803D" : (isRejected ? "#B91C1C" : (isCompleted ? "#475569" : "#1D4ED8"));
+                  const badgeBorder = isSelected ? "#86EFAC" : (isRejected ? "#FCA5A5" : (isCompleted ? "#94A3B8" : "#93C5FD"));
+
+                  return (
+                    <div style={{ backgroundColor: cardBg, borderRadius: "12px", border: `1px solid ${cardBorder}`, padding: "16px", marginBottom: "20px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                        <div style={{ fontSize: "14px", fontWeight: 800, color: titleColor }}>
+                          Workflow Status: {selectedApplicationModal.statusDisplay || selectedApplicationModal.statusTag || (isCompleted ? "Completed" : "In Progress")}
+                        </div>
+                        <span style={{ fontSize: "11px", backgroundColor: badgeBg, color: badgeColor, padding: "3px 10px", borderRadius: "20px", fontWeight: 700, border: `1px solid ${badgeBorder}` }}>
+                          {isCompleted ? "Drive Concluded" : "Verified by TPO"}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: "13px", color: "#334155", lineHeight: 1.5 }}>
+                        {selectedApplicationModal.subMessage || (
+                          isSelected
+                            ? " Selection Confirmed. Official placement appointment issued."
+                            : (isRejected
+                              ? "Application evaluated. Check other placement opportunities."
+                              : (isCompleted
+                                ? "Placement recruitment drive for this company has been officially marked as Completed by the Placement Cell."
+                                : "Your application is currently active and being evaluated by the placement coordinator & company panel."))
+                        )}
+                      </div>
+                      <div style={{ marginTop: "12px", paddingTop: "10px", borderTop: `1px dashed ${cardBorder}`, display: "flex", justifyContent: "space-between", fontSize: "12px", color: "#64748B" }}>
+                        <span>Selection Round: <strong style={{ color: "#0F172A" }}>{selectedApplicationModal.activeRoundType || (isCompleted ? "Recruitment Concluded" : "Round 1 Assessment")}</strong></span>
+                        <span>Package: <strong style={{ color: "#16A34A" }}>{formatCtc(selectedApplicationModal.ctc || selectedApplicationModal.package)}</strong></span>
+                      </div>
                     </div>
-                    <span style={{ fontSize: "11px", backgroundColor: "#DCFCE7", color: "#15803D", padding: "3px 10px", borderRadius: "20px", fontWeight: 700, border: "1px solid #86EFAC" }}>
-                      Verified by TPO
-                    </span>
-                  </div>
-                  <div style={{ fontSize: "13px", color: "#334155", lineHeight: 1.5 }}>
-                    {selectedApplicationModal.subMessage || (selectedApplicationModal.isSelected ? " Selection Confirmed. Official placement appointment issued." : "Your application is currently active and being evaluated by the placement coordinator & company panel.")}
-                  </div>
-                  <div style={{ marginTop: "12px", paddingTop: "10px", borderTop: "1px dashed #86EFAC", display: "flex", justifyContent: "space-between", fontSize: "12px", color: "#64748B" }}>
-                    <span>Selection Round: <strong style={{ color: "#0F172A" }}>{selectedApplicationModal.activeRoundType || "Round 1 Assessment"}</strong></span>
-                    <span>Package: <strong style={{ color: "#16A34A" }}>{formatCtc(selectedApplicationModal.ctc || selectedApplicationModal.package)}</strong></span>
-                  </div>
-                </div>
+                  );
+                })()}
               </div>
             </div>
           </div>

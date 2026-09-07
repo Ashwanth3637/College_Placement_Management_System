@@ -144,6 +144,168 @@ h4 { font-size: 0.95rem; line-height: 1.4; }
   font-size: 14px !important;
 }
 
+/* ==========================================================================
+   UNIFIED ACTION BUTTON DESIGN SYSTEM ACROSS ALL MODULES (Admin, Officer, Student)
+   ========================================================================== */
+.btn-action-view {
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 8px !important;
+  background-color: #EEF2FF !important;
+  color: #4F46E5 !important;
+  border: 1px solid #C7D2FE !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+  box-shadow: 0 1px 2px rgba(79, 70, 229, 0.08) !important;
+  padding: 0 !important;
+  flex-shrink: 0 !important;
+}
+.btn-action-view:hover {
+  background-color: #E0E7FF !important;
+  border-color: #818CF8 !important;
+  color: #3730A3 !important;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 5px rgba(79, 70, 229, 0.15) !important;
+}
+
+.btn-action-edit {
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 8px !important;
+  background-color: #F8FAFC !important;
+  color: #334155 !important;
+  border: 1px solid #CBD5E1 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04) !important;
+  padding: 0 !important;
+  flex-shrink: 0 !important;
+}
+.btn-action-edit:hover {
+  background-color: #F1F5F9 !important;
+  border-color: #94A3B8 !important;
+  color: #0F172A !important;
+  transform: translateY(-1px);
+}
+
+.btn-action-delete {
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 8px !important;
+  background-color: #FEF2F2 !important;
+  color: #DC2626 !important;
+  border: 1px solid #FECACA !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+  box-shadow: 0 1px 2px rgba(220, 38, 38, 0.08) !important;
+  padding: 0 !important;
+  flex-shrink: 0 !important;
+}
+.btn-action-delete:hover {
+  background-color: #FEE2E2 !important;
+  border-color: #EF4444 !important;
+  color: #991B1B !important;
+  transform: translateY(-1px);
+}
+
+.btn-action-power {
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 8px !important;
+  background-color: #F0FDF4 !important;
+  color: #16A34A !important;
+  border: 1px solid #BBF7D0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+  box-shadow: 0 1px 2px rgba(22, 163, 74, 0.08) !important;
+  padding: 0 !important;
+  flex-shrink: 0 !important;
+}
+.btn-action-power:hover {
+  background-color: #DCFCE7 !important;
+  border-color: #86EFAC !important;
+  color: #15803D !important;
+  transform: translateY(-1px);
+}
+
+.btn-action-pay {
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 8px !important;
+  background-color: #059669 !important;
+  color: #FFFFFF !important;
+  border: 1px solid #047857 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+  box-shadow: 0 1px 2px rgba(5, 150, 105, 0.15) !important;
+  padding: 0 !important;
+  flex-shrink: 0 !important;
+}
+.btn-action-pay:hover {
+  background-color: #047857 !important;
+  border-color: #065F46 !important;
+  transform: translateY(-1px);
+}
+
+.btn-action-approve {
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 8px !important;
+  background-color: #16A34A !important;
+  color: #FFFFFF !important;
+  border: 1px solid #15803D !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+  box-shadow: 0 1px 2px rgba(22, 163, 74, 0.15) !important;
+  padding: 0 !important;
+  flex-shrink: 0 !important;
+}
+.btn-action-approve:hover {
+  background-color: #15803D !important;
+  border-color: #166534 !important;
+  transform: translateY(-1px);
+}
+
+.btn-action-reject {
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 8px !important;
+  background-color: #DC2626 !important;
+  color: #FFFFFF !important;
+  border: 1px solid #B91C1C !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+  box-shadow: 0 1px 2px rgba(220, 38, 38, 0.15) !important;
+  padding: 0 !important;
+  flex-shrink: 0 !important;
+}
+.btn-action-reject:hover {
+  background-color: #B91C1C !important;
+  border-color: #991B1B !important;
+  transform: translateY(-1px);
+}
+
 /* Application Stepper Component */
 .app-timeline-stepper {
   display: flex;
@@ -1335,9 +1497,11 @@ td strong,
 @media (max-width: 768px) {
   /* Prevent fixed modals from overflowing device viewports */
   div[style*="position: fixed"] > div[style*="border-radius"],
-  div[style*="position: fixed"] > div[style*="borderRadius"] {
-    width: min(94vw, 680px) !important;
-    max-width: 94vw !important;
+  div[style*="position: fixed"] > div[style*="borderRadius"],
+  div[style*="position: fixed"] > div[style*="border-radius: 16px"],
+  div[style*="position: fixed"] > div[style*="border-radius: 20px"] {
+    width: min(95vw, 680px) !important;
+    max-width: 95vw !important;
     max-height: 90vh !important;
     max-height: 90dvh !important;
     overflow-y: auto !important;
@@ -1364,7 +1528,10 @@ td strong,
   /* Multi-column grid collapses */
   div[style*="grid-template-columns: 1fr 1fr"],
   div[style*="gridTemplateColumns: \"1fr 1fr\""],
-  div[style*="gridTemplateColumns: '1fr 1fr'"] {
+  div[style*="gridTemplateColumns: '1fr 1fr'"],
+  div[style*="grid-template-columns: repeat(2, 1fr)"],
+  div[style*="grid-template-columns: repeat(3, 1fr)"],
+  div[style*="grid-template-columns: repeat(4, 1fr)"] {
     grid-template-columns: 1fr !important;
   }
 
@@ -1382,12 +1549,171 @@ td strong,
   }
 }
 
-/* 5. Fluid Grid minmax protection on extra small devices */
-@media (max-width: 440px) {
+/* 5. Enterprise Shell & Sidebar Responsive Rules */
+@media (max-width: 1024px) {
+  .enterprise-sidebar-aside {
+    position: fixed !important;
+    left: -290px !important;
+    top: 64px !important;
+    bottom: 0 !important;
+    width: 270px !important;
+    max-width: 85vw !important;
+    z-index: 1050 !important;
+    box-shadow: 6px 0 24px rgba(15, 23, 42, 0.25) !important;
+    transition: left 0.25s cubic-bezier(0.33, 1, 0.68, 1) !important;
+    background-color: #FFFFFF !important;
+  }
+
+  .enterprise-sidebar-aside.mobile-open {
+    left: 0 !important;
+  }
+
+  .enterprise-main-content {
+    margin-left: 0 !important;
+    padding: 16px 12px 60px !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+    box-sizing: border-box !important;
+  }
+
+  .enterprise-search-wrapper {
+    display: none !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .enterprise-brand-text {
+    max-width: 170px !important;
+  }
+
+  .enterprise-role-switcher {
+    display: none !important;
+  }
+
+  /* ==========================================================================
+     MOBILE VERTICAL CARD TABLE TRANSFORMATION (Kella Varanum)
+     Transforms wide horizontal tables into sleek, stacked vertical cards on mobile
+     ========================================================================== */
+  .responsive-table-wrapper,
+  div[style*="overflowX: auto"],
+  div[style*="overflow-x: auto"] {
+    display: block !important;
+    width: 100% !important;
+    overflow-x: visible !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  table,
+  .responsive-table-wrapper table,
+  table.responsive-card-table {
+    display: block !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    border-collapse: separate !important;
+    border-spacing: 0 12px !important;
+    background: transparent !important;
+    border: none !important;
+  }
+
+  thead,
+  .responsive-table-wrapper thead,
+  table.responsive-card-table thead {
+    display: none !important;
+  }
+
+  tbody,
+  .responsive-table-wrapper tbody,
+  table.responsive-card-table tbody {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 12px !important;
+    width: 100% !important;
+  }
+
+  tbody tr,
+  .responsive-table-wrapper tbody tr,
+  table.responsive-card-table tbody tr {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+    background-color: #FFFFFF !important;
+    border: 1px solid #E2E8F0 !important;
+    border-radius: 14px !important;
+    padding: 16px !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04) !important;
+    margin-bottom: 0 !important;
+    box-sizing: border-box !important;
+    width: 100% !important;
+    transition: all 0.2s ease !important;
+  }
+
+  tbody tr:hover,
+  .responsive-table-wrapper tbody tr:hover,
+  table.responsive-card-table tbody tr:hover {
+    border-color: #CBD5E1 !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06) !important;
+  }
+
+  tbody td,
+  .responsive-table-wrapper tbody td,
+  table.responsive-card-table tbody td {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    padding: 4px 0 !important;
+    border: none !important;
+    font-size: 13px !important;
+    white-space: normal !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    text-align: left !important;
+  }
+
+  /* First TD (Header / Primary Title) */
+  tbody td:first-child,
+  .responsive-table-wrapper tbody td:first-child,
+  table.responsive-card-table tbody td:first-child {
+    padding-bottom: 8px !important;
+    border-bottom: 1px solid #F1F5F9 !important;
+    margin-bottom: 4px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+  }
+
+  /* Last TD (Action Buttons) */
+  tbody td:last-child,
+  .responsive-table-wrapper tbody td:last-child,
+  table.responsive-card-table tbody td:last-child {
+    margin-top: 6px !important;
+    padding-top: 10px !important;
+    border-top: 1px dashed #E2E8F0 !important;
+    display: flex !important;
+    justify-content: flex-end !important;
+    align-items: center !important;
+    gap: 8px !important;
+  }
+}
+
+/* 6. Extra Small Screen Protection (320px - 480px) */
+@media (max-width: 480px) {
   div[style*="minmax(360px"],
   div[style*="minmax(340px"],
-  div[style*="minmax(320px"] {
+  div[style*="minmax(320px"],
+  div[style*="minmax(300px"],
+  div[style*="minmax(280px"] {
     grid-template-columns: 1fr !important;
+  }
+
+  h1 {
+    font-size: 1.15rem !important;
+  }
+
+  .dash-card-hover {
+    padding: 14px !important;
   }
 }
 

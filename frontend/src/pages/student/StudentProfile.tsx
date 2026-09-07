@@ -13,6 +13,21 @@ interface StudentProfileProps {
   onProfileSaved?: () => void;
 }
 
+export const DEPARTMENT_OPTIONS = [
+  { value: "CSE", label: "CSE — Computer Science and Engineering" },
+  { value: "IT", label: "IT — Information Technology" },
+  { value: "ECE", label: "ECE — Electronics and Communication Engineering" },
+  { value: "EEE", label: "EEE — Electrical and Electronics Engineering" },
+  { value: "AIDS", label: "AIDS — Artificial Intelligence & Data Science" },
+  { value: "AIML", label: "AIML — AI & Machine Learning" },
+  { value: "MECH", label: "MECH — Mechanical Engineering" },
+  { value: "CIVIL", label: "CIVIL — Civil Engineering" },
+  { value: "CSBS", label: "CSBS — Computer Science and Business Systems" },
+  { value: "Cyber Security", label: "Cyber Security / Information Security" },
+  { value: "BCA", label: "BCA — Bachelor of Computer Applications" },
+  { value: "B.Sc CS", label: "B.Sc — Computer Science" },
+];
+
 const StudentProfile: React.FC<StudentProfileProps> = ({
   user,
   onProfileSaved,
@@ -1008,11 +1023,13 @@ const StudentProfile: React.FC<StudentProfileProps> = ({
               )}
             </div>
 
-            {/* Row 2: Reg No & Department */}
+            {/* Row 2: Reg No & Department & Batch */}
             <div style={{ fontSize: "13.5px", color: "#334155", display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap", fontWeight: 600 }}>
               <span> Reg No: <strong style={{ color: "#0F172A" }}>{registerNumber || "Not specified"}</strong></span>
               <span style={{ color: "#CBD5E1" }}>•</span>
-              <span>️ Dept: <strong style={{ color: "#0F172A" }}>{department || "Not specified"}</strong></span>
+              <span> Dept: <strong style={{ color: "#0F172A" }}>{department || "Not specified"}</strong></span>
+              <span style={{ color: "#CBD5E1" }}>•</span>
+              <span>🎓 Batch: <strong style={{ color: "#2563EB" }}>{graduationYear ? `${graduationYear} Batch` : "Not specified"}</strong></span>
             </div>
 
             {/* Row 3: Personal & Contact Info Line */}
@@ -1111,7 +1128,9 @@ const StudentProfile: React.FC<StudentProfileProps> = ({
           marginTop: "4px",
           boxShadow: "0 1px 3px rgba(22, 163, 74, 0.08)"
         }}>
-          <span style={{ fontSize: "20px", color: "#16A34A" }}>✓</span>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16A34A" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
           <div>
             <strong style={{ color: "#166534" }}>Profile Approved & Verified:</strong>{" "}
             <span style={{ color: "#15803D" }}>Your profile credentials have been verified by the Placement Officer. You are approved for campus recruitment drives.</span>
@@ -1132,7 +1151,11 @@ const StudentProfile: React.FC<StudentProfileProps> = ({
         }}>
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              <span style={{ fontSize: "24px" }}>⚠️</span>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#DC2626" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="12" />
+                <line x1="12" y1="16" x2="12.01" y2="16" />
+              </svg>
               <div>
                 <h4 style={{ margin: 0, fontSize: "16px", fontWeight: "800", color: "#B91C1C" }}>
                   Profile Rejected by Placement Officer
@@ -1159,7 +1182,7 @@ const StudentProfile: React.FC<StudentProfileProps> = ({
                 boxShadow: "0 2px 6px rgba(220, 38, 38, 0.25)"
               }}
             >
-              ✏️ Fix Details Now
+              Fix Details Now
             </button>
           </div>
 
@@ -1177,7 +1200,7 @@ const StudentProfile: React.FC<StudentProfileProps> = ({
           </div>
 
           <div style={{ fontSize: "12.5px", color: "#7F1D1D", lineHeight: 1.5 }}>
-            👉 <strong>Next Steps:</strong> Review the reason above, update your incorrect fields using the <em>Edit Profile Info</em> button, and save your profile. Your updated profile will automatically be sent back to the Placement Officer for re-verification and approval.
+            <strong>Next Steps:</strong> Review the reason above, update your incorrect fields using the <em>Edit Profile Info</em> button, and save your profile. Your updated profile will automatically be sent back to the Placement Officer for re-verification and approval.
           </div>
         </div>
       ) : (
@@ -1195,7 +1218,10 @@ const StudentProfile: React.FC<StudentProfileProps> = ({
           marginTop: "4px",
           boxShadow: "0 1px 3px rgba(180, 83, 9, 0.08)"
         }}>
-          <span style={{ fontSize: "20px" }}>⏳</span>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#B45309" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10" />
+            <polyline points="12 6 12 12 16 14" />
+          </svg>
           <div>
             <strong style={{ color: "#92400E" }}>Pending Officer Verification:</strong>{" "}
             <span style={{ color: "#B45309" }}>Your recent profile details were submitted and are currently waiting for Placement Officer approval.</span>
@@ -1648,9 +1674,47 @@ const StudentProfile: React.FC<StudentProfileProps> = ({
                   </div>
                   <div style={styles.formGroup}>
                     <label style={styles.formLabel}>
-                      Department <span style={{ color: "#dc2626", fontWeight: "800" }}>*</span>
+                      Department / Branch <span style={{ color: "#dc2626", fontWeight: "800" }}>*</span>
                     </label>
-                    <input type="text" required value={department} onChange={(e) => { setDepartment(e.target.value); if (!ugSpecialization) setUgSpecialization(e.target.value); }} style={styles.formInput} placeholder="e.g. Computer Science and Engineering" />
+                    <select
+                      value={
+                        DEPARTMENT_OPTIONS.some(opt => opt.value.toLowerCase() === (department || "").toLowerCase() || opt.label.toLowerCase() === (department || "").toLowerCase())
+                          ? (DEPARTMENT_OPTIONS.find(opt => opt.value.toLowerCase() === (department || "").toLowerCase() || opt.label.toLowerCase() === (department || "").toLowerCase())?.value || department)
+                          : (department ? "Other" : "")
+                      }
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val !== "Other") {
+                          setDepartment(val);
+                          if (!ugSpecialization) setUgSpecialization(val);
+                        } else {
+                          setDepartment("");
+                        }
+                      }}
+                      style={styles.formSelect}
+                      required
+                    >
+                      <option value="">-- Select Department / Branch --</option>
+                      {DEPARTMENT_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                      <option value="Other">Other Department (Specify below)</option>
+                    </select>
+                    {(!DEPARTMENT_OPTIONS.some(opt => opt.value.toLowerCase() === (department || "").toLowerCase())) && (
+                      <input
+                        type="text"
+                        required
+                        placeholder="Enter specific department / branch name"
+                        value={department}
+                        onChange={(e) => {
+                          setDepartment(e.target.value);
+                          if (!ugSpecialization) setUgSpecialization(e.target.value);
+                        }}
+                        style={{ ...styles.formInput, marginTop: "8px" }}
+                      />
+                    )}
                   </div>
                   <div style={styles.formGroup}>
                     <label style={styles.formLabel}>
@@ -1682,9 +1746,21 @@ const StudentProfile: React.FC<StudentProfileProps> = ({
                   </div>
                   <div style={styles.formGroup}>
                     <label style={styles.formLabel}>
-                      UG Year of Pass <span style={{ color: "#dc2626", fontWeight: "800" }}>*</span>
+                      Graduation Batch / Pass-out Year <span style={{ color: "#dc2626", fontWeight: "800" }}>*</span>
                     </label>
-                    <input type="number" required value={graduationYear} onChange={(e) => setGraduationYear(Number(e.target.value))} style={styles.formInput} placeholder="e.g. 2026" />
+                    <select
+                      required
+                      value={graduationYear || ""}
+                      onChange={(e) => setGraduationYear(e.target.value ? Number(e.target.value) : "")}
+                      style={styles.formSelect}
+                    >
+                      <option value="">-- Select Graduation Batch --</option>
+                      {[2023, 2024, 2025, 2026, 2027, 2028, 2029, 2030].map((yr) => (
+                        <option key={yr} value={yr}>
+                          {yr} Batch (Pass-out {yr})
+                        </option>
+                      ))}
+                    </select>
                   </div>
                   <div style={styles.formGroup}>
                     <label style={styles.formLabel}>
@@ -1847,8 +1923,46 @@ const StudentProfile: React.FC<StudentProfileProps> = ({
                   <input type="text" required placeholder="e.g. John Doe" value={fullName} onChange={(e) => setFullName(e.target.value)} style={styles.formInput} />
                 </div>
                 <div style={styles.formGroup}>
-                  <label style={styles.formLabel}>Department <span style={{ color: "#dc2626" }}>*</span></label>
-                  <input type="text" required placeholder="e.g. Computer Science and Engineering" value={department} onChange={(e) => setDepartment(e.target.value)} style={styles.formInput} />
+                  <label style={styles.formLabel}>Department / Branch <span style={{ color: "#dc2626" }}>*</span></label>
+                  <select
+                    value={
+                      DEPARTMENT_OPTIONS.some(opt => opt.value.toLowerCase() === (department || "").toLowerCase() || opt.label.toLowerCase() === (department || "").toLowerCase())
+                        ? (DEPARTMENT_OPTIONS.find(opt => opt.value.toLowerCase() === (department || "").toLowerCase() || opt.label.toLowerCase() === (department || "").toLowerCase())?.value || department)
+                        : (department ? "Other" : "")
+                    }
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val !== "Other") {
+                        setDepartment(val);
+                        if (!ugSpecialization) setUgSpecialization(val);
+                      } else {
+                        setDepartment("");
+                      }
+                    }}
+                    style={styles.formSelect}
+                    required
+                  >
+                    <option value="">-- Select Department / Branch --</option>
+                    {DEPARTMENT_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                    <option value="Other">Other Department (Specify below)</option>
+                  </select>
+                  {(!DEPARTMENT_OPTIONS.some(opt => opt.value.toLowerCase() === (department || "").toLowerCase())) && (
+                    <input
+                      type="text"
+                      required
+                      placeholder="Enter specific department / branch name"
+                      value={department}
+                      onChange={(e) => {
+                        setDepartment(e.target.value);
+                        if (!ugSpecialization) setUgSpecialization(e.target.value);
+                      }}
+                      style={{ ...styles.formInput, marginTop: "8px" }}
+                    />
+                  )}
                 </div>
                 <div style={styles.formGroup}>
                   <label style={styles.formLabel}>Register Number <span style={{ color: "#dc2626" }}>*</span></label>
@@ -1878,6 +1992,24 @@ const StudentProfile: React.FC<StudentProfileProps> = ({
                 <div style={styles.formGroup}>
                   <label style={styles.formLabel}>Date of Birth</label>
                   <input type="text" placeholder="DD-MM-YYYY" value={dob} onChange={(e) => setDob(e.target.value)} style={styles.formInput} />
+                </div>
+                <div style={styles.formGroup}>
+                  <label style={styles.formLabel}>
+                    Graduation Batch / Pass-out Year <span style={{ color: "#dc2626" }}>*</span>
+                  </label>
+                  <select
+                    required
+                    value={graduationYear || ""}
+                    onChange={(e) => setGraduationYear(e.target.value ? Number(e.target.value) : "")}
+                    style={styles.formSelect}
+                  >
+                    <option value="">-- Select Graduation Batch --</option>
+                    {[2023, 2024, 2025, 2026, 2027, 2028, 2029, 2030].map((yr) => (
+                      <option key={yr} value={yr}>
+                        {yr} Batch (Pass-out {yr})
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
               <div style={styles.formActions}>

@@ -218,12 +218,19 @@ const StudentProfileForm: React.FC<StudentProfileFormProps> = ({
                 required
                 style={styles.input}
               >
-                <option value="">-- Select Department --</option>
-                <option value="Computer Science & Engineering">Computer Science & Engineering</option>
-                <option value="Information Technology">Information Technology</option>
-                <option value="Electronics & Communication">Electronics & Communication</option>
-                <option value="Electrical & Electronics">Electrical & Electronics</option>
-                <option value="Mechanical Engineering">Mechanical Engineering</option>
+                <option value="">-- Select Department / Branch --</option>
+                <option value="CSE">CSE — Computer Science & Engineering</option>
+                <option value="IT">IT — Information Technology</option>
+                <option value="ECE">ECE — Electronics & Communication Engineering</option>
+                <option value="EEE">EEE — Electrical & Electronics Engineering</option>
+                <option value="AIDS">AIDS — Artificial Intelligence & Data Science</option>
+                <option value="AIML">AIML — AI & Machine Learning</option>
+                <option value="MECH">MECH — Mechanical Engineering</option>
+                <option value="CIVIL">CIVIL — Civil Engineering</option>
+                <option value="CSBS">CSBS — Computer Science and Business Systems</option>
+                <option value="Cyber Security">Cyber Security / Information Security</option>
+                <option value="BCA">BCA — Bachelor of Computer Applications</option>
+                <option value="B.Sc CS">B.Sc — Computer Science</option>
               </select>
             </div>
             <div style={styles.inputGroup}>
@@ -297,14 +304,17 @@ const StudentProfileForm: React.FC<StudentProfileFormProps> = ({
               />
             </div>
             <div style={styles.inputGroup}>
-              <label style={styles.label}>Expected Graduation Year</label>
+              <label style={styles.label}>Graduation Batch / Pass-out Year</label>
               <select
                 value={graduationYear}
                 onChange={(e) => setGraduationYear(Number(e.target.value))}
                 style={styles.input}
               >
-                <option value={2026}>2026</option>
-                <option value={2027}>2027</option>
+                {[2023, 2024, 2025, 2026, 2027, 2028, 2029, 2030].map((yr) => (
+                  <option key={yr} value={yr}>
+                    {yr} Batch
+                  </option>
+                ))}
               </select>
             </div>
           </div>

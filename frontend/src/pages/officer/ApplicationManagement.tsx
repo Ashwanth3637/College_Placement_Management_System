@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import jsPDF from "jspdf";
 import { formatCleanRoundName, getPureRoundTitle } from "../../utils/roundUtils";
 import { API_BASE_URL } from "../../config/api";
+import { Eye, Trash2, Search, Filter, Download, FileText } from "lucide-react";
 
 export interface ApplicationRecord {
   id: string;
@@ -13,7 +14,7 @@ export interface ApplicationRecord {
   companyName: string;
   jobRole: string;
   appliedDate: string;
-  status: "Applied" | "Opted-In" | "Under Review" | "Shortlisted" | "Assessment" | "Technical Round" | "HR Round" | "Selected" | "Rejected" | "Not Shortlisted";
+  status: "Applied" | "Opted-In" | "Under Review" | "Shortlisted" | "Assessment" | "Technical Round" | "HR Round" | "Selected" | "Completed" | "Rejected" | "Not Shortlisted";
 
   currentRound?: number;
   roundStatus?: string;
@@ -725,17 +726,25 @@ const ApplicationManagement: React.FC = () => {
     doc.save(targetName);
   };
 
-  // Get Status Badge Styling (Consistent blue badge for active recruitment rounds: Round 1, Round 2, etc.)
+  // Get Status Badge Styling:
+  // 1. Before drive starts (Applied / Opted-In / Pending) -> "Active"
+  // 2. Once drive starts / recruitment rounds underway (Under Review / Assessment / Technical / HR / Shortlisted / In Progress) -> "In Progress"
+  // 3. Once drive is over / selected / completed (Selected / Completed / Offer Accepted) -> "Completed"
+  // 4. If rejected / not shortlisted -> "Not Shortlisted"
   const getStatusBadge = (status: ApplicationRecord["status"], currentRound?: number) => {
-    if (status === "Selected") {
-      return { bg: "#f0fdf4", color: "#15803d", border: "1px solid #bbf7d0", label: "Selected" };
+    const s = (status || "").toLowerCase().trim();
+    if (s === "selected" || s === "completed" || s === "offer accepted") {
+      return { bg: "#f0fdf4", color: "#15803d", border: "1px solid #bbf7d0", label: "Completed" };
     }
-    if (status === "Not Shortlisted" || status === "Rejected") {
+    if (s === "not shortlisted" || s === "rejected" || s === "offer declined") {
       return { bg: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca", label: "Not Shortlisted" };
     }
+    if (s === "under review" || s === "assessment" || s === "technical round" || s === "hr round" || s === "shortlisted" || s === "in progress") {
+      return { bg: "#eff6ff", color: "#2563eb", border: "1px solid #bfdbfe", label: "In Progress" };
+    }
 
-    const rNum = currentRound || 1;
-    return { bg: "#eff6ff", color: "#2563eb", border: "1px solid #bfdbfe", label: `Round ${rNum}` };
+    // Default: Before drive starts (Applied, Opted-In, Open, Pending)
+    return { bg: "#ecfdf5", color: "#059669", border: "1px solid #a7f3d0", label: "Active" };
   };
 
 
@@ -903,56 +912,23 @@ const ApplicationManagement: React.FC = () => {
                     </td>
 
                     <td style={{ padding: "14px 20px", textAlign: "right", whiteSpace: "nowrap" }}>
-                      <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end", alignItems: "center" }}>
+                      <div style={{ display: "flex", gap: "6px", justifyContent: "flex-end", alignItems: "center" }}>
                         <button
                           type="button"
                           onClick={() => setSelectedApp(app)}
+                          className="btn-action-view"
                           title="View / Record Application"
-                          style={{
-                            width: "34px",
-                            height: "34px",
-                            backgroundColor: "#0F172A",
-                            color: "#FFFFFF",
-                            border: "none",
-                            borderRadius: "8px",
-                            cursor: "pointer",
-                            display: "inline-flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            boxShadow: "0 1px 3px rgba(15, 23, 42, 0.2)",
-                            transition: "all 0.15s ease"
-                          }}
                         >
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                            <circle cx="12" cy="12" r="3" />
-                          </svg>
+                          <Eye size={15} />
                         </button>
 
                         <button
                           type="button"
                           onClick={() => setAppToDelete(app)}
+                          className="btn-action-delete"
                           title="Delete Application Record"
-                          style={{
-                            width: "34px",
-                            height: "34px",
-                            backgroundColor: "#FEF2F2",
-                            color: "#DC2626",
-                            border: "1px solid #FECACA",
-                            borderRadius: "8px",
-                            cursor: "pointer",
-                            display: "inline-flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            transition: "all 0.15s ease"
-                          }}
                         >
-                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#DC2626" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                            <polyline points="3 6 5 6 21 6" />
-                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                            <line x1="10" y1="11" x2="10" y2="17" />
-                            <line x1="14" y1="11" x2="14" y2="17" />
-                          </svg>
+                          <Trash2 size={15} />
                         </button>
                       </div>
                     </td>
@@ -1087,161 +1063,28 @@ const ApplicationManagement: React.FC = () => {
                 </div>
               </div>
 
-              {/* Application Status Lifecycle Progress Bar */}
-              <div style={{ backgroundColor: "#f8fafc", padding: "16px 18px", borderRadius: "12px", border: "1px solid #eaedf0" }}>
-                <h4 style={{ margin: "0 0 12px 0", fontSize: "12px", fontWeight: "800", color: "#64748b", textTransform: "uppercase" }}>Application Lifecycle Progress</h4>
-                {selectedApp.status === "Not Shortlisted" ? (
-                  <div style={{ padding: "14px 18px", backgroundColor: "#fef2f2", color: "#991b1b", borderRadius: "10px", fontWeight: "700", fontSize: "13px", border: "1px solid #fecaca", boxShadow: "0 2px 4px rgba(220,38,38,0.05)" }}>
-                    <div style={{ fontSize: "14px", fontWeight: "800", marginBottom: "4px" }}>
-                       Not Shortlisted {selectedApp.currentRound ? `in Round ${selectedApp.currentRound}` : "during screening"}
-                    </div>
-                    {selectedApp.roundName && (
-                      <div style={{ fontSize: "12px", color: "#7f1d1d", fontWeight: "600", marginBottom: "4px" }}>
-                        Round: <strong>{selectedApp.roundName}</strong>
-                      </div>
-                    )}
-                    <div style={{ fontSize: "12px", color: "#b91c1c" }}>
-                      Application closed {selectedApp.currentRound ? `after Round ${selectedApp.currentRound}` : "during screening"}.
-                    </div>
+              {/* Application Status Banner */}
+              <div style={{ backgroundColor: "#f8fafc", padding: "14px 18px", borderRadius: "12px", border: "1px solid #eaedf0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <span style={{ fontSize: "11px", fontWeight: "800", color: "#64748b", textTransform: "uppercase" }}>Registration Status</span>
+                  <div style={{ fontSize: "14px", fontWeight: "800", color: "#0f172a", marginTop: "2px" }}>
+                    {selectedApp.companyName} • {!selectedApp.jobRole || /^\d+$/.test(selectedApp.jobRole.trim()) || selectedApp.jobRole.startsWith("drive_") ? "Software Developer" : selectedApp.jobRole}
                   </div>
-                ) : selectedApp.status === "Rejected" ? (
-                  <div style={{ padding: "14px 18px", backgroundColor: "#fef2f2", color: "#991b1b", borderRadius: "10px", fontWeight: "700", fontSize: "13px", border: "1px solid #fecaca" }}>
-                    <div style={{ fontSize: "14px", fontWeight: "800", marginBottom: "4px" }}>
-                       Application Rejected
-                    </div>
-                    <div style={{ fontSize: "12px", color: "#b91c1c" }}>
-                      Candidate was not shortlisted for further recruitment rounds.
-                    </div>
-                  </div>
-                ) : (
-                  (() => {
-                    const driveRounds = getAppRoundsList(selectedApp);
-                    const currentRoundNum = selectedApp.currentRound || 1;
-                    const isSelectedFinal = selectedApp.status === "Selected";
-
-                    // Build dynamic stages array: Applied -> Round 1 -> Round 2 -> ... -> Selected
-                    const dynamicSteps = [
-                      { key: "Applied", label: "Applied" },
-                      ...driveRounds.map((r: any, idx: number) => {
-                        const rNum = r.roundNumber || idx + 1;
-                        return {
-                          key: `Round ${rNum}`,
-                          label: `Round ${rNum}`,
-                          roundNum: rNum,
-                          name: r.roundName
-                        };
-                      }),
-                      { key: "Selected", label: "Selected" }
-                    ];
-
-                    return (
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", position: "relative" }}>
-                        {dynamicSteps.map((step: any, idx: number) => {
-                          let isPassed = false;
-                          let isCurrent = false;
-
-                          if (isSelectedFinal) {
-                            isPassed = true;
-                          } else if (step.key === "Applied") {
-                            isPassed = currentRoundNum >= 1;
-                          } else if (step.key === "Selected") {
-                            isPassed = false;
-                            isCurrent = false;
-                          } else {
-                            // Round N
-                            if (step.roundNum < currentRoundNum) {
-                              isPassed = true;
-                            } else if (step.roundNum === currentRoundNum) {
-                              isCurrent = true;
-                            }
-                          }
-
-                          return (
-                            <div key={idx} style={{ display: "flex", flexDirection: "column", alignItems: "center", flex: 1, position: "relative", zIndex: 2 }}>
-                              <div style={{
-                                width: "28px",
-                                height: "28px",
-                                borderRadius: "50%",
-                                backgroundColor: isPassed ? "#16a34a" : isCurrent ? "#2563eb" : "#e2e8f0",
-                                color: "#ffffff",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                fontSize: "12px",
-                                fontWeight: "800",
-                                boxShadow: isCurrent ? "0 0 0 3px rgba(37, 99, 235, 0.25)" : "none"
-                              }}>
-                                {isPassed ? "" : isCurrent ? "⏳" : step.roundNum || (idx + 1)}
-                              </div>
-                              <div style={{ fontSize: "10px", fontWeight: isCurrent ? "800" : "600", color: isCurrent ? "#2563eb" : isPassed ? "#15803d" : "#94a3b8", marginTop: "6px", textAlign: "center" }}>
-                                {step.label}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    );
-                  })()
-                )}
-
-                {/* Company Assigned Recruitment Rounds Schedule */}
-                {(() => {
-                  const rounds = getAppRoundsList(selectedApp);
-                  const currentStageIdx = STAGE_ORDER.indexOf(selectedApp.status);
-
-                  return (
-                    <div style={{ marginTop: "16px", paddingTop: "14px", borderTop: "1px dashed #cbd5e1" }}>
-                      <div style={{ fontSize: "11px", fontWeight: "800", color: "#475569", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "10px" }}>
-                         {selectedApp.companyName} Assigned Recruitment Rounds Schedule
-                      </div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                        {rounds.map((rnd: any, i: number) => {
-                          const rndNum = rnd.roundNumber || i + 1;
-                          const isRejectedThisRound = selectedApp.status === "Not Shortlisted" && selectedApp.currentRound === rndNum;
-                          const isLockedAfterRejection = selectedApp.status === "Not Shortlisted" && (selectedApp.currentRound ? rndNum > selectedApp.currentRound : true);
-
-                          const activeRoundNumber = selectedApp.currentRound || 1;
-                          const isCompletedRound = !isLockedAfterRejection && !isRejectedThisRound && rndNum < activeRoundNumber;
-                          const isCurrentRound = !isLockedAfterRejection && !isRejectedThisRound && rndNum === activeRoundNumber;
-
-                          return (
-                            <div key={i} style={{
-                              padding: "10px 14px",
-                              borderRadius: "10px",
-                              backgroundColor: isRejectedThisRound ? "#fef2f2" : isCurrentRound ? "#eff6ff" : isCompletedRound ? "#f0fdf4" : "#ffffff",
-                              border: `1px solid ${isRejectedThisRound ? "#fecaca" : isCurrentRound ? "#93c5fd" : isCompletedRound ? "#bbf7d0" : "#eaedf0"}`,
-                              display: "flex",
-                              justifyContent: "space-between",
-                              alignItems: "center"
-                            }}>
-                              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                                <span style={{
-                                  backgroundColor: isRejectedThisRound ? "#dc2626" : isCurrentRound ? "#2563eb" : isCompletedRound ? "#16a34a" : "#64748b",
-                                  color: "#ffffff",
-                                  fontSize: "10px",
-                                  fontWeight: "800",
-                                  padding: "2px 8px",
-                                  borderRadius: "12px"
-                                }}>
-                                  Round {rndNum}
-                                </span>
-                                <div>
-                                  <strong style={{ fontSize: "13px", color: isRejectedThisRound ? "#991b1b" : "#0f172a" }}>{rnd.roundName}</strong>
-                                  <div style={{ fontSize: "11px", color: "#64748b", marginTop: "2px" }}>
-                                     Mode/Venue: <strong style={{ color: "#334155" }}>{rnd.venueOrLink || rnd.mode}</strong> | Date: <strong style={{ color: "#334155" }}>{rnd.date}</strong>
-                                  </div>
-                                </div>
-                              </div>
-                              <div style={{ fontSize: "11px", fontWeight: "800", color: isRejectedThisRound ? "#dc2626" : isCurrentRound ? "#2563eb" : isCompletedRound ? "#16a34a" : "#94a3b8" }}>
-                                {isRejectedThisRound ? " Not Shortlisted" : isCurrentRound ? "In Progress ⏳" : isCompletedRound ? "Cleared " : "Upcoming"}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })()}
+                </div>
+                <span style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "5px",
+                  backgroundColor: (selectedApp.status === "Selected" || selectedApp.status === "Completed") ? "#dcfce7" : "#eff6ff",
+                  color: (selectedApp.status === "Selected" || selectedApp.status === "Completed") ? "#15803d" : "#2563eb",
+                  border: `1px solid ${(selectedApp.status === "Selected" || selectedApp.status === "Completed") ? "#86efac" : "#bfdbfe"}`,
+                  padding: "4px 12px",
+                  borderRadius: "14px",
+                  fontSize: "12px",
+                  fontWeight: "700"
+                }}>
+                  {(selectedApp.status === "Selected" || selectedApp.status === "Completed") ? "Completed / Selected" : "Opted-In / Applied"}
+                </span>
               </div>
 
               {/* Application Activity / History */}
@@ -1261,230 +1104,13 @@ const ApplicationManagement: React.FC = () => {
               </div>
             </div>
 
-            {/* Modal Footer with Round-Aware Stage Action Buttons */}
-            {(() => {
-              const driveRounds = getAppRoundsList(selectedApp);
-              const totalRounds = driveRounds.length;
-              let currentRoundStep = selectedApp.currentRound || 1;
-              const isFinalRound = currentRoundStep >= totalRounds;
-              const nextRoundObj = driveRounds[currentRoundStep] || null;
-
-              let nextRoundButtonText = " Select Candidate & Issue Offer";
-              if (!isFinalRound && nextRoundObj) {
-                const rNum = nextRoundObj.roundNumber || (currentRoundStep + 1);
-                const pureTitle = getPureRoundTitle(nextRoundObj.roundName, "Next Selection Round");
-                nextRoundButtonText = ` Pass to Round ${rNum}: ${pureTitle}`;
-              }
-
-              return (
-                <div style={{ padding: "16px 24px", backgroundColor: "#f8fafc", borderTop: "1px solid #eaedf0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div style={{ display: "flex", gap: "10px" }}>
-                    {/* Dynamic Stage Actions */}
-                    {selectedApp.status !== "Selected" && selectedApp.status !== "Rejected" && selectedApp.status !== "Not Shortlisted" && (
-                      <>
-                        {isFinalRound ? (
-                          <button
-                            onClick={() => handleUpdateStatus(selectedApp.id, "Selected", "Final Selection ", `Cleared all ${totalRounds} recruitment rounds and selected for placement offer!`)}
-                            style={{ padding: "10px 18px", backgroundColor: "#16a34a", color: "#ffffff", border: "none", borderRadius: "8px", fontSize: "13px", fontWeight: "700", cursor: "pointer", boxShadow: "0 2px 4px rgba(22, 163, 74, 0.2)" }}
-                          >
-                             Select Candidate & Issue Offer
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => {
-                              const nextRoundNum = currentRoundStep + 1;
-                              let nextStage: ApplicationRecord["status"] = "Technical Round";
-                              if (nextRoundNum === 2) nextStage = "Assessment";
-                              else if (nextRoundNum === 3) nextStage = "Technical Round";
-                              else nextStage = "HR Round";
-
-                              const pureTitle = getPureRoundTitle(nextRoundObj?.roundName, `Round ${nextRoundNum}`);
-                              const targetName = formatCleanRoundName(nextRoundNum, pureTitle);
-
-                              handleUpdateStatus(
-                                selectedApp.id,
-                                nextStage,
-                                `Passed Round ${currentRoundStep}`,
-                                `Candidate cleared Round ${currentRoundStep} and advanced to ${targetName}.`,
-                                nextRoundNum,
-                                "In Progress",
-                                targetName
-                              );
-                            }}
-                            style={{ padding: "10px 18px", backgroundColor: "#16a34a", color: "#ffffff", border: "none", borderRadius: "8px", fontSize: "13px", fontWeight: "700", cursor: "pointer", boxShadow: "0 2px 4px rgba(22, 163, 74, 0.2)" }}
-                          >
-                            {nextRoundButtonText}
-                          </button>
-                        )}
-
-                        <button
-                          onClick={() => setShowNotShortlistConfirm(true)}
-                          style={{ padding: "10px 18px", backgroundColor: "#dc2626", color: "#ffffff", border: "none", borderRadius: "8px", fontSize: "13px", fontWeight: "700", cursor: "pointer", boxShadow: "0 2px 4px rgba(220, 38, 38, 0.2)" }}
-                        >
-                           Not Shortlist
-                        </button>
-                      </>
-                    )}
-
-                    {(selectedApp.status === "Selected" || selectedApp.status === "Rejected" || selectedApp.status === "Not Shortlisted") && (
-                      <button
-                        onClick={() => {
-                           const nowStr = new Date().toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" });
-                           const resetHistory = [
-                             { date: nowStr, title: "Application Re-evaluated ↺", desc: "Placement Officer reset application status to Under Review and cleared previous trial audit history." },
-                             { date: "19 Aug 2026 09:30 AM", title: "Application Submitted", desc: `Candidate applied for ${selectedApp.companyName} ${selectedApp.jobRole}.` }
-                           ];
-
-                           setApplications(prev => prev.map(a => {
-                             if (a.id === selectedApp.id) {
-                               return {
-                                 ...a,
-                                 status: "Under Review",
-                                 currentRound: 1,
-                                 roundStatus: "In Progress",
-                                 roundName: "Round 1",
-                                 history: resetHistory
-                               };
-                             }
-                             return a;
-                           }));
-
-                           setSelectedApp(prev => prev ? {
-                             ...prev,
-                             status: "Under Review",
-                             currentRound: 1,
-                             roundStatus: "In Progress",
-                             roundName: "Round 1",
-                             history: resetHistory
-                           } : null);
-                         }}
-                        style={{ padding: "10px 18px", backgroundColor: "#ffffff", color: "#334155", border: "1px solid #cbd5e1", borderRadius: "8px", fontSize: "13px", fontWeight: "700", cursor: "pointer" }}
-                      >
-                        ↺ Re-evaluate Status
-                      </button>
-                    )}
-                  </div>
-
-                  <button
-                    onClick={() => setSelectedApp(null)}
-                    style={{ padding: "10px 20px", backgroundColor: "#0f172a", color: "#ffffff", border: "none", borderRadius: "8px", fontSize: "13px", fontWeight: "700", cursor: "pointer" }}
-                  >
-                    Close
-                  </button>
-                </div>
-              );
-            })()}
-          </div>
-        </div>
-      )}
-
-      {/* Confirmation Modal for Not Shortlist Action */}
-      {showNotShortlistConfirm && selectedApp && (
-        <div onClick={(e) => e.stopPropagation()} style={{
-          position: "fixed",
-          inset: 0,
-          backgroundColor: "rgba(15, 23, 42, 0.75)",
-          backdropFilter: "blur(4px)",
-          zIndex: 10000,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: "20px"
-        }}>
-          <div style={{
-            backgroundColor: "#ffffff",
-            borderRadius: "18px",
-            padding: "28px",
-            maxWidth: "480px",
-            width: "100%",
-            boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
-            border: "1px solid #e2e8f0"
-          }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "12px" }}>
-              <div style={{ width: "42px", height: "42px", borderRadius: "50%", backgroundColor: "#fef2f2", display: "flex", alignItems: "center", justifyContent: "center", color: "#dc2626", fontSize: "20px" }}>
-                ️
-              </div>
-              <div>
-                <h3 style={{ margin: 0, fontSize: "18px", fontWeight: "800", color: "#0f172a" }}>
-                  Not Shortlist Candidate?
-                </h3>
-                <span style={{ fontSize: "12px", color: "#64748b" }}>
-                  Confirmation required
-                </span>
-              </div>
-            </div>
-            <p style={{ margin: "0 0 24px 0", fontSize: "14px", color: "#334155", lineHeight: "1.6" }}>
-              This will end the candidate's participation in this placement drive. This action will not affect applications to other drives.
-            </p>
-            <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
+            {/* Modal Footer with Close Button */}
+            <div style={{ padding: "16px 24px", backgroundColor: "#f8fafc", borderTop: "1px solid #eaedf0", display: "flex", justifyContent: "flex-end", alignItems: "center" }}>
               <button
-                onClick={() => setShowNotShortlistConfirm(false)}
-                style={{
-                  padding: "10px 18px",
-                  backgroundColor: "#f1f5f9",
-                  color: "#334155",
-                  border: "1px solid #cbd5e1",
-                  borderRadius: "10px",
-                  fontSize: "13px",
-                  fontWeight: "700",
-                  cursor: "pointer"
-                }}
+                onClick={() => setSelectedApp(null)}
+                style={{ padding: "10px 24px", backgroundColor: "#0f172a", color: "#ffffff", border: "none", borderRadius: "8px", fontSize: "13px", fontWeight: "700", cursor: "pointer", transition: "all 0.15s ease" }}
               >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  const stageToRoundMap: Record<string, { num: number; defaultName: string }> = {
-                    "Applied": { num: 1, defaultName: "Initial Screening" },
-                    "Under Review": { num: 1, defaultName: "Document & Eligibility Verification" },
-                    "Shortlisted": { num: 1, defaultName: "Initial Shortlisting" },
-                    "Assessment": { num: 1, defaultName: "Online Assessment / Aptitude Test" },
-                    "Technical Round": { num: 2, defaultName: "Technical Interview" },
-                    "HR Round": { num: 3, defaultName: "HR & Leadership Round" }
-                  };
-
-                  const roundInfo = stageToRoundMap[selectedApp.status] || { num: 1, defaultName: "Recruitment Round" };
-                  
-                  // Try to fetch custom round name from company rounds
-                  let customRoundName = roundInfo.defaultName;
-                  try {
-                    const savedDrives = localStorage.getItem("cpms_drives");
-                    if (savedDrives) {
-                      const parsed = JSON.parse(savedDrives);
-                      if (Array.isArray(parsed)) {
-                        const matched = parsed.find((d: any) => d.companyName.toLowerCase().includes(selectedApp.companyName.toLowerCase()));
-                        if (matched && Array.isArray(matched.rounds)) {
-                          const rObj = matched.rounds.find((r: any) => r.roundNumber === roundInfo.num) || matched.rounds[roundInfo.num - 1];
-                          if (rObj && rObj.roundName) customRoundName = rObj.roundName;
-                        }
-                      }
-                    }
-                  } catch (e) {}
-
-                  handleUpdateStatus(
-                    selectedApp.id, 
-                    "Not Shortlisted", 
-                    `Not Shortlisted in Round ${roundInfo.num}`, 
-                    `Candidate was not shortlisted in Round ${roundInfo.num} (${customRoundName}). Participation in this drive has ended.`,
-                    roundInfo.num,
-                    "Not Shortlisted",
-                    customRoundName
-                  );
-                  setShowNotShortlistConfirm(false);
-                }}
-                style={{
-                  padding: "10px 18px",
-                  backgroundColor: "#dc2626",
-                  color: "#ffffff",
-                  border: "none",
-                  borderRadius: "10px",
-                  fontSize: "13px",
-                  fontWeight: "700",
-                  cursor: "pointer",
-                  boxShadow: "0 4px 6px -1px rgba(220, 38, 38, 0.2)"
-                }}
-              >
-                Confirm Not Shortlist
+                Close
               </button>
             </div>
           </div>

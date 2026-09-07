@@ -1,6 +1,22 @@
 import React, { useState, useEffect } from "react";
 import jsPDF from "jspdf";
 import { API_BASE_URL } from "../../config/api";
+import {
+  Search,
+  RefreshCw,
+  Eye,
+  XCircle,
+  CheckCircle2,
+  Download,
+  Edit3,
+  Trash2,
+  AlertCircle,
+  Check,
+  X,
+  UserCheck,
+  UserX,
+  FileText
+} from "lucide-react";
 
 interface StudentRecord {
   _id?: string;
@@ -115,10 +131,11 @@ const StudentManagement: React.FC = () => {
   const [rejectionReason, setRejectionReason] = useState<string>("");
   const [showRejectModal, setShowRejectModal] = useState<boolean>(false);
   const [rejectTargetStudent, setRejectTargetStudent] = useState<StudentRecord | null>(null);
+  const [studentToDelete, setStudentToDelete] = useState<StudentRecord | null>(null);
 
   const openStudentModal = (st: StudentRecord) => {
     const sId = st._id || st.id || st.user?._id || "";
-    const sEmail = (st.user?.email || "").toLowerCase().trim();
+    const sEmail = (st.user?.email || (st as any).email || "").toLowerCase().trim();
 
     let updatedSt = { ...st };
 
@@ -164,42 +181,55 @@ const StudentManagement: React.FC = () => {
       }
     } catch (e) {}
 
+    let pFields: string[] = [];
+    try {
+      const pFieldsStr =
+        localStorage.getItem(`cpms_pending_fields_${sId}`) ||
+        localStorage.getItem(`cpms_pending_fields_${sEmail}`) ||
+        localStorage.getItem("cpms_pending_fields_global");
+      if (pFieldsStr) {
+        pFields = JSON.parse(pFieldsStr);
+      }
+    } catch (e) {}
+
     // If no stored diff list or stale data, compute exact diff between base record `st` and draft `updatedSt`
-    if (!diffList || diffList.length === 0) {
-      const addDiff = (field: string, label: string, oldV: any, newV: any) => {
-        const normOld = oldV !== undefined && oldV !== null ? String(oldV).trim() : "";
-        const normNew = newV !== undefined && newV !== null ? String(newV).trim() : "";
-        if (normNew && normOld && normNew !== normOld) {
-          diffList.push({ field, label, oldVal: normOld, newVal: normNew });
-        }
-      };
+    const addDiff = (field: string, label: string, oldV: any, newV: any) => {
+      const normOld = oldV !== undefined && oldV !== null ? String(oldV).trim() : "";
+      const normNew = newV !== undefined && newV !== null ? String(newV).trim() : "";
+      if (normNew && normOld && normNew !== normOld && !diffList.some(d => d.field === field)) {
+        diffList.push({ field, label, oldVal: normOld, newVal: normNew });
+      }
+    };
 
-      addDiff("cgpa", "CGPA", st.academic?.cgpa, updatedSt.academic?.cgpa);
-      addDiff("phone", "Phone Number", st.personal?.phone, updatedSt.personal?.phone);
-      addDiff("department", "Department", st.personal?.department, updatedSt.personal?.department);
-      addDiff("registerNumber", "Register Number", st.personal?.registerNumber, updatedSt.personal?.registerNumber);
-      addDiff("location", "Location", st.personal?.location, updatedSt.personal?.location);
-      addDiff("ugInstitution", "UG Institution", st.academic?.ugInstitution, updatedSt.academic?.ugInstitution);
-      addDiff("appNumber", "Application Number", st.academic?.appNumber, updatedSt.academic?.appNumber);
-      addDiff("ugProgram", "UG Program", st.academic?.ugProgram, updatedSt.academic?.ugProgram);
-      addDiff("ugSpecialization", "UG Specialization", st.academic?.ugSpecialization, updatedSt.academic?.ugSpecialization);
-      addDiff("currentSemester", "Current Semester", st.academic?.currentSemester, updatedSt.academic?.currentSemester);
-      addDiff("backlogs", "Current Backlogs", st.academic?.backlogs, updatedSt.academic?.backlogs);
-      addDiff("backlogHistory", "Backlog History", st.academic?.backlogHistory, updatedSt.academic?.backlogHistory);
-      addDiff("graduationYear", "Graduation Year", st.academic?.graduationYear, updatedSt.academic?.graduationYear);
-      addDiff("tenthPercentage", "10th %", st.academic?.tenthPercentage, updatedSt.academic?.tenthPercentage);
-      addDiff("twelfthPercentage", "12th %", st.academic?.twelfthPercentage, updatedSt.academic?.twelfthPercentage);
-      addDiff("schoolName", "School Name", st.academic?.schoolName, updatedSt.academic?.schoolName);
-      addDiff("diplomaInstitution", "Diploma Institution", st.academic?.diplomaInstitution, updatedSt.academic?.diplomaInstitution);
-      addDiff("diplomaSpecialization", "Diploma Specialization", st.academic?.diplomaSpecialization, updatedSt.academic?.diplomaSpecialization);
-      addDiff("pgInstitution", "PG Institution", st.academic?.pgInstitution, updatedSt.academic?.pgInstitution);
-      addDiff("pgProgram", "PG Program", st.academic?.pgProgram, updatedSt.academic?.pgProgram);
-      addDiff("pgSpecialization", "PG Specialization", st.academic?.pgSpecialization, updatedSt.academic?.pgSpecialization);
-      addDiff("pgCgpa", "PG CGPA", st.academic?.pgCgpa, updatedSt.academic?.pgCgpa);
-    }
+    addDiff("fullName", "Full Name", st.personal?.fullName || st.user?.name, updatedSt.personal?.fullName || updatedSt.user?.name);
+    addDiff("email", "Email Address", st.personal?.email || st.user?.email, updatedSt.personal?.email || updatedSt.user?.email);
+    addDiff("cgpa", "UG CGPA", st.academic?.cgpa, updatedSt.academic?.cgpa);
+    addDiff("phone", "Phone Number", st.personal?.phone, updatedSt.personal?.phone);
+    addDiff("department", "Department", st.personal?.department, updatedSt.personal?.department);
+    addDiff("registerNumber", "Register Number", st.personal?.registerNumber, updatedSt.personal?.registerNumber);
+    addDiff("location", "Location", st.personal?.location, updatedSt.personal?.location);
+    addDiff("gender", "Gender", st.personal?.gender, updatedSt.personal?.gender);
+    addDiff("ugInstitution", "UG Institution", st.academic?.ugInstitution, updatedSt.academic?.ugInstitution);
+    addDiff("appNumber", "Application Number", st.academic?.appNumber, updatedSt.academic?.appNumber);
+    addDiff("ugProgram", "UG Program", st.academic?.ugProgram, updatedSt.academic?.ugProgram);
+    addDiff("ugSpecialization", "UG Specialization", st.academic?.ugSpecialization, updatedSt.academic?.ugSpecialization);
+    addDiff("currentSemester", "Current Semester", st.academic?.currentSemester, updatedSt.academic?.currentSemester);
+    addDiff("backlogs", "Current Backlogs", st.academic?.backlogs, updatedSt.academic?.backlogs);
+    addDiff("backlogHistory", "Backlog History", st.academic?.backlogHistory, updatedSt.academic?.backlogHistory);
+    addDiff("graduationYear", "Graduation Year", st.academic?.graduationYear, updatedSt.academic?.graduationYear);
+    addDiff("tenthPercentage", "10th / SSLC Mark (%)", st.academic?.tenthPercentage, updatedSt.academic?.tenthPercentage);
+    addDiff("twelfthPercentage", "12th / HSC Mark (%)", st.academic?.twelfthPercentage, updatedSt.academic?.twelfthPercentage);
+    addDiff("schoolName", "School Name", st.academic?.schoolName, updatedSt.academic?.schoolName);
+    addDiff("diplomaInstitution", "Diploma Institution", st.academic?.diplomaInstitution, updatedSt.academic?.diplomaInstitution);
+    addDiff("diplomaSpecialization", "Diploma Specialization", st.academic?.diplomaSpecialization, updatedSt.academic?.diplomaSpecialization);
+    addDiff("pgInstitution", "PG Institution", st.academic?.pgInstitution, updatedSt.academic?.pgInstitution);
+    addDiff("pgProgram", "PG Program", st.academic?.pgProgram, updatedSt.academic?.pgProgram);
+    addDiff("pgSpecialization", "PG Specialization", st.academic?.pgSpecialization, updatedSt.academic?.pgSpecialization);
+    addDiff("pgCgpa", "PG CGPA", st.academic?.pgCgpa, updatedSt.academic?.pgCgpa);
 
-    (updatedSt as any).changedFields = (st as any).pendingChanges?.changedFields || diffList;
-    (updatedSt as any).pendingFields = diffList.map(d => d.field);
+    const mergedPending = Array.from(new Set([...pFields, ...diffList.map(d => d.field)]));
+    (updatedSt as any).changedFields = diffList;
+    (updatedSt as any).pendingFields = mergedPending;
 
     setSelectedStudent(updatedSt);
     setEditForm({
@@ -737,7 +767,7 @@ const StudentManagement: React.FC = () => {
     }
     setShowRejectModal(false);
     setRejectTargetStudent(null);
-    setActionMessage({ type: "error", text: `✓ Rejected ${targetName}'s Profile. Rejection feedback sent to student.` });
+    setActionMessage({ type: "error", text: `Rejected ${targetName}'s Profile. Rejection feedback sent to student.` });
 
     if (targetEmail) {
       localStorage.setItem(`cpms_verification_status_${targetEmail}`, "rejected");
@@ -829,11 +859,13 @@ const StudentManagement: React.FC = () => {
     setTimeout(() => setActionMessage(null), 4000);
   };
 
-  const handleDeleteStudent = (studentId?: string) => {
+  const handleDeleteStudent = async (targetStudent: StudentRecord) => {
+    if (!targetStudent) return;
+    const studentId = targetStudent._id || targetStudent.id || targetStudent.user?._id;
+    const studentName = targetStudent.personal?.fullName || targetStudent.user?.name || targetStudent.name || "Student";
     if (!studentId) return;
-    const confirmDelete = window.confirm("Are you sure you want to delete this student record?");
-    if (!confirmDelete) return;
 
+    // 1. Update state immediately
     setStudents(prev => {
       const updated = prev.filter(s => s._id !== studentId && s.id !== studentId && s.user?._id !== studentId);
       try {
@@ -841,11 +873,31 @@ const StudentManagement: React.FC = () => {
       } catch (e) { }
       return updated;
     });
+
+    // 2. Add to deleted student IDs blacklist in localStorage
+    try {
+      const delSaved = localStorage.getItem("cpms_deleted_student_ids");
+      let deletedList: string[] = delSaved ? JSON.parse(delSaved) : [];
+      if (!deletedList.includes(studentId)) {
+        deletedList.push(studentId);
+        localStorage.setItem("cpms_deleted_student_ids", JSON.stringify(deletedList));
+      }
+    } catch (e) { }
+
+    // 3. Clear selected student if it was the one deleted
     if (selectedStudent && (selectedStudent._id === studentId || selectedStudent.id === studentId || selectedStudent.user?._id === studentId)) {
       setSelectedStudent(null);
     }
-    setActionMessage({ type: "success", text: "Student record deleted successfully" });
-    setTimeout(() => setActionMessage(null), 3000);
+
+    // 4. Send API DELETE call
+    try {
+      await fetch(`${API_BASE_URL}/api/students/${studentId}`, { method: "DELETE" });
+      await fetch(`${API_BASE_URL}/api/users/${studentId}`, { method: "DELETE" });
+    } catch (err) { }
+
+    window.dispatchEvent(new Event("storage"));
+    setActionMessage({ type: "success", text: `Student record for "${studentName}" deleted successfully.` });
+    setTimeout(() => setActionMessage(null), 3500);
   };
 
   const handleDownloadResume = (resumeUrl?: string, resumeName?: string, studentName?: string) => {
@@ -1038,8 +1090,9 @@ const StudentManagement: React.FC = () => {
             Manage student profiles, verify academic criteria, and track placement statuses.
           </p>
         </div>
-        <button onClick={fetchStudents} style={styles.refreshBtn}>
-           Refresh List
+        <button onClick={fetchStudents} style={{ ...styles.refreshBtn, display: "inline-flex", alignItems: "center", gap: "6px" }}>
+           <RefreshCw size={13} />
+           <span>Refresh List</span>
         </button>
       </div>
 
@@ -1181,7 +1234,7 @@ const StudentManagement: React.FC = () => {
                                 color: isRejected ? "#dc2626" : isVer ? "#15803d" : "#b45309",
                                 border: isRejected ? "1px solid #fecaca" : isVer ? "1px solid #86efac" : "1px solid #fde68a"
                               }}>
-                                {isRejected ? "Rejected ✕" : isVer ? "Verified ✓" : "Pending ⏳"}
+                                {isRejected ? "Rejected" : isVer ? "Verified" : "Pending"}
                               </span>
                               {isRejected && (st as any).rejectionReason && (
                                 <span title={`Reason: ${(st as any).rejectionReason}`} style={{ fontSize: "10px", color: "#dc2626", maxWidth: "120px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -1220,54 +1273,21 @@ const StudentManagement: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => openStudentModal(st)}
+                            className="btn-action-view"
                             title="View & Verify Details"
-                            style={{
-                              padding: "6px 10px",
-                              borderRadius: "8px",
-                              backgroundColor: "#f8fafc",
-                              border: "1.5px solid #cbd5e1",
-                              color: "#0f172a",
-                              fontSize: "12px",
-                              fontWeight: "600",
-                              cursor: "pointer",
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: "4px",
-                              transition: "all 0.15s ease",
-                              boxShadow: "0 1px 2px rgba(0, 0, 0, 0.04)"
-                            }}
                           >
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                              <circle cx="12" cy="12" r="3" />
-                            </svg>
-                            <span>Review</span>
+                            <Eye size={15} />
                           </button>
                           <button
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              setRejectTargetStudent(st);
-                              setRejectionReason("");
-                              setShowRejectModal(true);
+                              setStudentToDelete(st);
                             }}
-                            title="Reject Profile with Reason"
-                            style={{
-                              padding: "6px 9px",
-                              borderRadius: "8px",
-                              backgroundColor: "#fef2f2",
-                              border: "1.5px solid #fecaca",
-                              color: "#dc2626",
-                              fontSize: "12px",
-                              fontWeight: "700",
-                              cursor: "pointer",
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: "3px",
-                              transition: "all 0.15s ease",
-                            }}
+                            className="btn-action-delete"
+                            title="Delete Student Record"
                           >
-                            ✕ Reject
+                            <Trash2 size={15} />
                           </button>
                         </div>
                       </td>
@@ -1282,30 +1302,97 @@ const StudentManagement: React.FC = () => {
 
       {/* Student Details Verification Modal for Placement Officer */}
       {selectedStudent && (() => {
-        let pendingFields: string[] = [];
+        const sId = selectedStudent._id || selectedStudent.id || selectedStudent.user?._id || "";
+        const sEmail = (selectedStudent.user?.email || (selectedStudent as any).email || "").toLowerCase().trim();
+
+        let pendingFieldsList: string[] = [];
+        let diffItemsList: any[] = [];
+
+        try {
+          const pFieldsStr =
+            localStorage.getItem(`cpms_pending_fields_${sEmail}`) ||
+            localStorage.getItem(`cpms_pending_fields_${sId}`) ||
+            localStorage.getItem("cpms_pending_fields_global");
+          if (pFieldsStr) {
+            const arr = JSON.parse(pFieldsStr);
+            if (Array.isArray(arr)) pendingFieldsList.push(...arr);
+          }
+        } catch (e) {}
+
+        try {
+          const diffStr =
+            localStorage.getItem(`cpms_pending_diff_${sEmail}`) ||
+            localStorage.getItem(`cpms_pending_diff_${sId}`) ||
+            localStorage.getItem("cpms_pending_diff_global");
+          if (diffStr) {
+            const arr = JSON.parse(diffStr);
+            if (Array.isArray(arr)) {
+              diffItemsList = arr;
+              arr.forEach((d: any) => {
+                if (d.field) pendingFieldsList.push(d.field);
+              });
+            }
+          }
+        } catch (e) {}
+
         if ((selectedStudent as any).changedFields && Array.isArray((selectedStudent as any).changedFields)) {
-          pendingFields = (selectedStudent as any).changedFields.map((c: any) => c.field);
-        } else if (Array.isArray(selectedStudent.pendingFields)) {
-          pendingFields = selectedStudent.pendingFields;
+          (selectedStudent as any).changedFields.forEach((c: any) => {
+            if (c.field) pendingFieldsList.push(c.field);
+            if (!diffItemsList.some(d => d.field === c.field)) diffItemsList.push(c);
+          });
+        }
+        if (Array.isArray(selectedStudent.pendingFields)) {
+          pendingFieldsList.push(...selectedStudent.pendingFields);
         }
 
-        if (selectedStudent.isVerified && selectedStudent.verificationStatus === "verified") {
-          pendingFields = [];
-        }
+        const isVerifiedStatus = Boolean(
+          selectedStudent.isVerified === true &&
+          selectedStudent.verificationStatus === "verified" &&
+          localStorage.getItem(`cpms_verification_status_${sEmail}`) !== "pending" &&
+          localStorage.getItem(`cpms_verification_status_${sId}`) !== "pending"
+        );
 
         const isFieldPending = (fieldName: string) => {
-          if (selectedStudent.isVerified && selectedStudent.verificationStatus === "verified") return false;
+          if (isVerifiedStatus) return false;
+          const target = fieldName.toLowerCase().trim();
 
-          // Strictly check if the field is in the changed fields list
-          if ((selectedStudent as any).changedFields && Array.isArray((selectedStudent as any).changedFields)) {
-            return (selectedStudent as any).changedFields.some((c: any) => c.field === fieldName);
-          }
+          const aliasMap: Record<string, string[]> = {
+            twelfthpercentage: ["twelfthpercentage", "twelfth", "12th", "twelfth_percentage", "hsc", "12th percentage"],
+            tenthpercentage: ["tenthpercentage", "tenth", "10th", "tenth_percentage", "sslc", "10th percentage"],
+            fullname: ["fullname", "name", "studentname", "full name"],
+            name: ["fullname", "name", "studentname", "full name"],
+            email: ["email", "studentemail", "email address", "personal.email"],
+            phone: ["phone", "mobile", "phonenumber", "phone number", "personal.phone"],
+            registernumber: ["registernumber", "regno", "register number", "rollnumber"],
+            department: ["department", "dept", "branch"],
+            location: ["location", "city"],
+            gender: ["gender", "sex"],
+            uginstitution: ["uginstitution", "ug institution", "institution", "college"],
+            appnumber: ["appnumber", "application number", "app number"],
+            ugprogram: ["ugprogram", "ug program", "degree", "program"],
+            ugspecialization: ["ugspecialization", "ug specialization", "specialization"],
+            currentsemester: ["currentsemester", "current semester", "semester"],
+            graduationyear: ["graduationyear", "graduation year", "gradyear", "batch", "passoutyear"],
+            cgpa: ["cgpa", "ugmark", "ug mark", "ug cgpa", "ug_cgpa"],
+            backlogs: ["backlogs", "current backlogs", "active backlogs", "currentbacklogs"],
+            backloghistory: ["backloghistory", "backlog history", "historyofbacklogs"],
+            schoolname: ["schoolname", "school name", "school"],
+            diplomainstitution: ["diplomainstitution", "diploma institution"],
+            diplomaspecialization: ["diplomaspecialization", "diploma specialization"],
+            pginstitution: ["pginstitution", "pg institution"],
+            pgprogram: ["pgprogram", "pg program"],
+            pgspecialization: ["pgspecialization", "pg specialization"],
+            pgcgpa: ["pgcgpa", "pg cgpa"],
+            skills: ["skills", "technicalskills", "technical skills"],
+            projects: ["projects", "projectlist"],
+            resume: ["resume", "resumename", "resumefile", "cv"]
+          };
 
-          if (pendingFields && Array.isArray(pendingFields) && pendingFields.length > 0) {
-            return pendingFields.includes(fieldName);
-          }
-
-          return false;
+          const aliases = aliasMap[target] || [target];
+          return pendingFieldsList.some(p => {
+            const pNorm = String(p).toLowerCase().trim();
+            return aliases.includes(pNorm) || aliases.some(a => pNorm.includes(a) || a.includes(pNorm));
+          });
         };
 
         const pendingBadgeStyle: React.CSSProperties = {
@@ -1332,13 +1419,14 @@ const StudentManagement: React.FC = () => {
           >
             <div
               onClick={(e) => e.stopPropagation()}
-              style={{ backgroundColor: "#ffffff", borderRadius: "18px", maxWidth: "600px", width: "100%", overflow: "hidden", boxShadow: "0 25px 50px -12px rgba(0,0,0,0.25)" }}
+              style={{ backgroundColor: "#ffffff", borderRadius: "18px", maxWidth: "620px", width: "100%", overflow: "hidden", boxShadow: "0 25px 50px -12px rgba(0,0,0,0.25)" }}
             >
               {/* Modal Header */}
               <div style={{ backgroundColor: "#0f172a", color: "#ffffff", padding: "20px 24px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div>
-                  <h3 style={{ margin: 0, fontSize: "18px", fontWeight: "800", color: "#ffffff" }}>
-                    {selectedStudent.user?.name || "Student Profile"}
+                  <h3 style={{ margin: 0, fontSize: "18px", fontWeight: "800", color: "#ffffff", display: "flex", alignItems: "center", gap: "8px" }}>
+                    {selectedStudent.personal?.fullName || selectedStudent.user?.name || selectedStudent.name || "Student Profile"}
+                    {(isFieldPending("fullName") || isFieldPending("name")) && <span style={pendingBadgeStyle}>Pending</span>}
                   </h3>
                   <span style={{ fontSize: "12px", color: "#38bdf8", fontWeight: "600" }}>{selectedStudent.personal?.department || "Computer Science & Engineering"}</span>
                 </div>
@@ -1361,7 +1449,7 @@ const StudentManagement: React.FC = () => {
                   }}
                   title="Close Modal (Esc)"
                 >
-                  
+                  ✕
                 </button>
               </div>
 
@@ -1369,25 +1457,44 @@ const StudentManagement: React.FC = () => {
               <div style={{ padding: "24px", display: "flex", flexDirection: "column", gap: "16px", maxHeight: "72vh", overflowY: "auto" }}>
 
                 {/* Pending Verification Banner */}
-                {!selectedStudent.isVerified && (
+                {!isVerifiedStatus && (
                   <div style={{
                     backgroundColor: "#fffbeb",
                     border: "1px solid #fde68a",
                     borderRadius: "10px",
-                    padding: "10px 14px",
+                    padding: "12px 14px",
                     color: "#b45309",
                     fontSize: "12px",
                     display: "flex",
-                    alignItems: "center",
-                    gap: "8px"
+                    flexDirection: "column",
+                    gap: "6px"
                   }}>
-                    <span style={{ fontSize: "16px" }}>️</span>
-                    <div>
-                      <strong style={{ color: "#92400e" }}>Pending Officer Verification:</strong>{" "}
-                      <span style={{ fontSize: "11px", color: "#b45309" }}>
-                        Fields tagged with <span style={pendingBadgeStyle}>⏳ Pending</span> were edited by the student.
-                      </span>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <span style={{ fontSize: "16px" }}>⚠️</span>
+                      <div>
+                        <strong style={{ color: "#92400e" }}>Pending Officer Verification:</strong>{" "}
+                        <span style={{ fontSize: "11.5px", color: "#b45309" }}>
+                          Fields tagged with <span style={pendingBadgeStyle}>Pending</span> were edited by the student.
+                        </span>
+                      </div>
                     </div>
+                    {diffItemsList.length > 0 && (
+                      <div style={{ marginTop: "4px", display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                        {diffItemsList.map((diff: any, dIdx: number) => (
+                          <span key={dIdx} style={{
+                            fontSize: "11px",
+                            backgroundColor: "#FEF3C7",
+                            color: "#92400E",
+                            border: "1px solid #FCD34D",
+                            borderRadius: "6px",
+                            padding: "2px 8px",
+                            fontWeight: 700
+                          }}>
+                            {diff.label || diff.field}: {diff.newVal || "Updated"}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -1395,26 +1502,33 @@ const StudentManagement: React.FC = () => {
                 <div style={{ backgroundColor: "#f8fafc", padding: "14px 18px", borderRadius: "12px", border: "1px solid #eaedf0" }}>
                   <h4 style={{ margin: "0 0 10px 0", fontSize: "12px", fontWeight: "800", color: "#64748b", textTransform: "uppercase" }}>Personal & Contact Details</h4>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", fontSize: "13px", color: "#334155" }}>
-                    <div><strong>Email:</strong> {selectedStudent.personal?.email || selectedStudent.user?.email || (selectedStudent as any).email || "ashwanths.22cse@kongu.edu"}</div>
+                    <div>
+                      <strong>Full Name:</strong> {selectedStudent.personal?.fullName || selectedStudent.user?.name || selectedStudent.name || "N/A"}
+                      {(isFieldPending("fullName") || isFieldPending("name")) && <span style={pendingBadgeStyle}>Pending</span>}
+                    </div>
+                    <div>
+                      <strong>Email:</strong> {selectedStudent.personal?.email || selectedStudent.user?.email || (selectedStudent as any).email || "ashwanths.22cse@kongu.edu"}
+                      {isFieldPending("email") && <span style={pendingBadgeStyle}>Pending</span>}
+                    </div>
                     <div>
                       <strong>Phone:</strong> {selectedStudent.personal?.phone || "9345271959"}
-                      {isFieldPending("phone") && <span style={pendingBadgeStyle}>⏳ Pending</span>}
+                      {isFieldPending("phone") && <span style={pendingBadgeStyle}>Pending</span>}
                     </div>
                     <div>
                       <strong>Register Number:</strong> {selectedStudent.personal?.registerNumber || "22CSR025"}
-                      {isFieldPending("registerNumber") && <span style={pendingBadgeStyle}>⏳ Pending</span>}
+                      {isFieldPending("registerNumber") && <span style={pendingBadgeStyle}>Pending</span>}
                     </div>
                     <div>
                       <strong>Department:</strong> {selectedStudent.personal?.department || "Computer Science & Engineering"}
-                      {isFieldPending("department") && <span style={pendingBadgeStyle}>⏳ Pending</span>}
+                      {isFieldPending("department") && <span style={pendingBadgeStyle}>Pending</span>}
                     </div>
                     <div>
                       <strong>Location / City:</strong> {selectedStudent.personal?.location || "Erode"}
-                      {isFieldPending("location") && <span style={pendingBadgeStyle}>⏳ Pending</span>}
+                      {isFieldPending("location") && <span style={pendingBadgeStyle}>Pending</span>}
                     </div>
                     <div>
                       <strong>Gender:</strong> {selectedStudent.personal?.gender || "Male"}
-                      {isFieldPending("gender") && <span style={pendingBadgeStyle}>⏳ Pending</span>}
+                      {isFieldPending("gender") && <span style={pendingBadgeStyle}>Pending</span>}
                     </div>
                   </div>
                 </div>
@@ -1425,39 +1539,39 @@ const StudentManagement: React.FC = () => {
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", fontSize: "13px", color: "#334155" }}>
                     <div>
                       <strong>UG Institution:</strong> {selectedStudent.academic?.ugInstitution || "KEC"}
-                      {isFieldPending("ugInstitution") && <span style={pendingBadgeStyle}>⏳ Pending</span>}
+                      {isFieldPending("ugInstitution") && <span style={pendingBadgeStyle}>Pending</span>}
                     </div>
                     <div>
                       <strong>Application Number:</strong> {selectedStudent.academic?.appNumber || "291930"}
-                      {isFieldPending("appNumber") && <span style={pendingBadgeStyle}>⏳ Pending</span>}
+                      {isFieldPending("appNumber") && <span style={pendingBadgeStyle}>Pending</span>}
                     </div>
                     <div>
                       <strong>UG Program (Degree):</strong> {selectedStudent.academic?.ugProgram || "B.E."}
-                      {isFieldPending("ugProgram") && <span style={pendingBadgeStyle}>⏳ Pending</span>}
+                      {isFieldPending("ugProgram") && <span style={pendingBadgeStyle}>Pending</span>}
                     </div>
                     <div>
                       <strong>UG Specialization:</strong> {selectedStudent.academic?.ugSpecialization || "CSE"}
-                      {isFieldPending("ugSpecialization") && <span style={pendingBadgeStyle}>⏳ Pending</span>}
+                      {isFieldPending("ugSpecialization") && <span style={pendingBadgeStyle}>Pending</span>}
                     </div>
                     <div>
                       <strong>Current Semester:</strong> {selectedStudent.academic?.currentSemester || "Semester 4"}
-                      {isFieldPending("currentSemester") && <span style={pendingBadgeStyle}>⏳ Pending</span>}
+                      {isFieldPending("currentSemester") && <span style={pendingBadgeStyle}>Pending</span>}
                     </div>
                     <div>
                       <strong>UG Year of Pass:</strong> {selectedStudent.academic?.graduationYear || 2026}
-                      {isFieldPending("graduationYear") && <span style={pendingBadgeStyle}>⏳ Pending</span>}
+                      {isFieldPending("graduationYear") && <span style={pendingBadgeStyle}>Pending</span>}
                     </div>
                     <div>
                       <strong>UG Mark (CGPA):</strong> <strong style={{ color: "#16a34a" }}>{selectedStudent.academic?.cgpa !== undefined && selectedStudent.academic?.cgpa !== null ? selectedStudent.academic.cgpa : "7.6"}</strong>
-                      {isFieldPending("cgpa") && <span style={pendingBadgeStyle}>⏳ Pending</span>}
+                      {isFieldPending("cgpa") && <span style={pendingBadgeStyle}>Pending</span>}
                     </div>
                     <div>
                       <strong>Current Backlogs:</strong> {selectedStudent.academic?.backlogs !== undefined ? selectedStudent.academic.backlogs : 0}
-                      {isFieldPending("backlogs") && <span style={pendingBadgeStyle}>⏳ Pending</span>}
+                      {isFieldPending("backlogs") && <span style={pendingBadgeStyle}>Pending</span>}
                     </div>
                     <div>
                       <strong>Backlog History:</strong> {selectedStudent.academic?.backlogHistory !== undefined ? selectedStudent.academic.backlogHistory : 1}
-                      {isFieldPending("backlogHistory") && <span style={pendingBadgeStyle}>⏳ Pending</span>}
+                      {isFieldPending("backlogHistory") && <span style={pendingBadgeStyle}>Pending</span>}
                     </div>
                   </div>
                 </div>
@@ -1467,24 +1581,24 @@ const StudentManagement: React.FC = () => {
                   <h4 style={{ margin: "0 0 10px 0", fontSize: "12px", fontWeight: "800", color: "#64748b", textTransform: "uppercase" }}>School & Diploma Details</h4>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", fontSize: "13px", color: "#334155" }}>
                     <div>
-                      <strong>10th / SSLC Mark (%):</strong> {selectedStudent.academic?.tenthPercentage ? `${selectedStudent.academic.tenthPercentage}%` : "87%"}
-                      {isFieldPending("tenthPercentage") && <span style={pendingBadgeStyle}>⏳ Pending</span>}
+                      <strong>10th / SSLC Mark (%):</strong> {selectedStudent.academic?.tenthPercentage !== undefined ? `${selectedStudent.academic.tenthPercentage}%` : "87%"}
+                      {isFieldPending("tenthPercentage") && <span style={pendingBadgeStyle}>Pending</span>}
                     </div>
                     <div>
-                      <strong>12th / HSC Mark (%):</strong> {selectedStudent.academic?.twelfthPercentage ? `${selectedStudent.academic.twelfthPercentage}%` : "87%"}
-                      {isFieldPending("twelfthPercentage") && <span style={pendingBadgeStyle}>⏳ Pending</span>}
+                      <strong>12th / HSC Mark (%):</strong> {selectedStudent.academic?.twelfthPercentage !== undefined ? `${selectedStudent.academic.twelfthPercentage}%` : "87%"}
+                      {isFieldPending("twelfthPercentage") && <span style={pendingBadgeStyle}>Pending</span>}
                     </div>
                     <div>
                       <strong>School Name:</strong> {selectedStudent.academic?.schoolName || "KNMHSS"}
-                      {isFieldPending("schoolName") && <span style={pendingBadgeStyle}>⏳ Pending</span>}
+                      {isFieldPending("schoolName") && <span style={pendingBadgeStyle}>Pending</span>}
                     </div>
                     <div>
                       <strong>Diploma Institution:</strong> {selectedStudent.academic?.diplomaInstitution || "N/A"}
-                      {isFieldPending("diplomaInstitution") && <span style={pendingBadgeStyle}>⏳ Pending</span>}
+                      {isFieldPending("diplomaInstitution") && <span style={pendingBadgeStyle}>Pending</span>}
                     </div>
                     <div>
                       <strong>Diploma Specialization:</strong> {selectedStudent.academic?.diplomaSpecialization || "N/A"}
-                      {isFieldPending("diplomaSpecialization") && <span style={pendingBadgeStyle}>⏳ Pending</span>}
+                      {isFieldPending("diplomaSpecialization") && <span style={pendingBadgeStyle}>Pending</span>}
                     </div>
                   </div>
                 </div>
@@ -1496,19 +1610,19 @@ const StudentManagement: React.FC = () => {
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", fontSize: "13px", color: "#334155" }}>
                       <div>
                         <strong>PG Institution:</strong> {selectedStudent.academic?.pgInstitution || "N/A"}
-                        {isFieldPending("pgInstitution") && <span style={pendingBadgeStyle}>⏳ Pending</span>}
+                        {isFieldPending("pgInstitution") && <span style={pendingBadgeStyle}>Pending</span>}
                       </div>
                       <div>
                         <strong>PG Program:</strong> {selectedStudent.academic?.pgProgram || "N/A"}
-                        {isFieldPending("pgProgram") && <span style={pendingBadgeStyle}>⏳ Pending</span>}
+                        {isFieldPending("pgProgram") && <span style={pendingBadgeStyle}>Pending</span>}
                       </div>
                       <div>
                         <strong>PG Specialization:</strong> {selectedStudent.academic?.pgSpecialization || "N/A"}
-                        {isFieldPending("pgSpecialization") && <span style={pendingBadgeStyle}>⏳ Pending</span>}
+                        {isFieldPending("pgSpecialization") && <span style={pendingBadgeStyle}>Pending</span>}
                       </div>
                       <div>
                         <strong>PG CGPA:</strong> {selectedStudent.academic?.pgCgpa || "N/A"}
-                        {isFieldPending("pgCgpa") && <span style={pendingBadgeStyle}>⏳ Pending</span>}
+                        {isFieldPending("pgCgpa") && <span style={pendingBadgeStyle}>Pending</span>}
                       </div>
                     </div>
                   </div>
@@ -1520,11 +1634,11 @@ const StudentManagement: React.FC = () => {
                   <div style={{ display: "flex", flexDirection: "column", gap: "8px", fontSize: "13px", color: "#334155" }}>
                     <div>
                       <strong>Skills:</strong> {selectedStudent.professional?.skills?.length ? selectedStudent.professional.skills.join(", ") : "React.js, Node.js, Python, MongoDB, Tailwind CSS"}
-                      {isFieldPending("skills") && <span style={pendingBadgeStyle}>⏳ Pending</span>}
+                      {isFieldPending("skills") && <span style={pendingBadgeStyle}>Pending</span>}
                     </div>
                     <div>
                       <strong>Projects:</strong> {selectedStudent.professional?.projects?.length ? selectedStudent.professional.projects.join(", ") : "Placement Management System, AI Resume Parser"}
-                      {isFieldPending("projects") && <span style={pendingBadgeStyle}>⏳ Pending</span>}
+                      {isFieldPending("projects") && <span style={pendingBadgeStyle}>Pending</span>}
                     </div>
                     <div>
                       <strong>Resume:</strong>{" "}
@@ -1571,7 +1685,7 @@ const StudentManagement: React.FC = () => {
                            Ashwanth_CV.pdf (Download & View )
                         </button>
                       )}
-                      {isFieldPending("resume") && <span style={pendingBadgeStyle}>⏳ Pending</span>}
+                      {isFieldPending("resume") && <span style={pendingBadgeStyle}>Pending</span>}
                     </div>
                   </div>
                 </div>
@@ -1681,6 +1795,24 @@ const StudentManagement: React.FC = () => {
                   >
                     ✕ Reject Profile
                   </button>
+                  <button
+                    onClick={() => setStudentToDelete(selectedStudent)}
+                    style={{
+                      padding: "10px 18px",
+                      backgroundColor: "#fee2e2",
+                      color: "#dc2626",
+                      border: "1px solid #fecaca",
+                      borderRadius: "8px",
+                      fontSize: "13px",
+                      fontWeight: "700",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "6px",
+                    }}
+                  >
+                    <Trash2 size={14} /> Delete Record
+                  </button>
                 </div>
                 <button
                   onClick={() => setSelectedStudent(null)}
@@ -1760,8 +1892,8 @@ const StudentManagement: React.FC = () => {
               {/* Modal Header */}
               <div style={{ padding: "20px 24px", borderBottom: "1px solid #fee2e2", backgroundColor: "#fff5f5", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                  <div style={{ width: "40px", height: "40px", borderRadius: "10px", backgroundColor: "#fee2e2", border: "1px solid #fca5a5", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "20px", color: "#dc2626" }}>
-                    ⚠️
+                  <div style={{ width: "40px", height: "40px", borderRadius: "10px", backgroundColor: "#fee2e2", border: "1px solid #fca5a5", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "14px", fontWeight: 800, color: "#dc2626" }}>
+                    !
                   </div>
                   <div>
                     <h3 style={{ margin: 0, fontSize: "17px", fontWeight: "800", color: "#991b1b" }}>
@@ -1919,6 +2051,87 @@ const StudentManagement: React.FC = () => {
           </div>
         );
       })()}
+
+      {/* Confirmation Modal for Permanent Student Deletion */}
+      {studentToDelete && (
+        <div onClick={() => setStudentToDelete(null)} style={{
+          position: "fixed",
+          inset: 0,
+          backgroundColor: "rgba(15, 23, 42, 0.75)",
+          backdropFilter: "blur(4px)",
+          zIndex: 10001,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "20px"
+        }}>
+          <div onClick={(e) => e.stopPropagation()} style={{
+            backgroundColor: "#ffffff",
+            borderRadius: "18px",
+            padding: "28px",
+            maxWidth: "450px",
+            width: "100%",
+            boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+            border: "1px solid #e2e8f0"
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "12px" }}>
+              <div style={{ width: "42px", height: "42px", borderRadius: "50%", backgroundColor: "#fef2f2", display: "flex", alignItems: "center", justifyContent: "center", color: "#dc2626" }}>
+                <Trash2 size={20} />
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: "18px", fontWeight: "800", color: "#0f172a" }}>
+                  Delete Student Record?
+                </h3>
+                <span style={{ fontSize: "12px", color: "#64748b" }}>
+                  Permanent Deletion
+                </span>
+              </div>
+            </div>
+            <p style={{ margin: "0 0 24px 0", fontSize: "14px", color: "#334155", lineHeight: "1.6" }}>
+              Are you sure you want to delete the student record for <strong>{studentToDelete.personal?.fullName || studentToDelete.user?.name || studentToDelete.name || "this student"}</strong> ({studentToDelete.personal?.registerNumber || studentToDelete.academic?.registerNumber || studentToDelete.user?.email || "Candidate"})? This record will be permanently removed.
+            </p>
+            <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
+              <button
+                type="button"
+                onClick={() => setStudentToDelete(null)}
+                style={{
+                  padding: "10px 18px",
+                  backgroundColor: "#f1f5f9",
+                  color: "#334155",
+                  border: "1px solid #cbd5e1",
+                  borderRadius: "10px",
+                  fontSize: "13px",
+                  fontWeight: "700",
+                  cursor: "pointer"
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const target = studentToDelete;
+                  setStudentToDelete(null);
+                  handleDeleteStudent(target);
+                }}
+                style={{
+                  padding: "10px 18px",
+                  backgroundColor: "#dc2626",
+                  color: "#ffffff",
+                  border: "none",
+                  borderRadius: "10px",
+                  fontSize: "13px",
+                  fontWeight: "700",
+                  cursor: "pointer",
+                  boxShadow: "0 2px 4px rgba(220, 38, 38, 0.25)"
+                }}
+              >
+                Delete Permanently
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

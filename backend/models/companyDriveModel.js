@@ -4,7 +4,9 @@ const companyDriveSchema = new mongoose.Schema(
     {
         company: {
             type: String,
-            required: true,
+            required: [true, "Company name is required"],
+            trim: true,
+            default: "Partner Company",
         },
         jobTitle: {
             type: String,
@@ -20,24 +22,31 @@ const companyDriveSchema = new mongoose.Schema(
         },
         location: {
             type: String,
-            required: true,
+            default: "Pan-India / Flexible",
         },
         packageCtc: {
             type: String,
-            default: function () { return this.ctc || ""; }
+            default: function () { return this.ctc || "6 LPA"; }
         },
         ctc: {
             type: String,
-            default: function () { return this.packageCtc || ""; }
+            default: function () { return this.packageCtc || "6 LPA"; }
         },
         deadline: {
             type: String,
-            required: true,
+            default: () => new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10),
         },
         status: {
             type: String,
-            enum: ["Draft", "Pending Approval", "Approved", "Active", "Rejected", "Closed"],
             default: "Active",
+        },
+        isOfficerPublished: {
+            type: Boolean,
+            default: false,
+        },
+        isCreatedByOfficer: {
+            type: Boolean,
+            default: false,
         },
         rejectionReason: {
             type: String,
@@ -49,7 +58,7 @@ const companyDriveSchema = new mongoose.Schema(
         },
         createdBy: {
             type: String,
-            default: "",
+            default: "Placement Officer",
         },
         logo: {
             type: String,
@@ -116,8 +125,8 @@ const companyDriveSchema = new mongoose.Schema(
         },
         rounds: [
             {
-                roundNumber: { type: Number, required: true },
-                roundName: { type: String, required: true },
+                roundNumber: { type: Number, default: 1 },
+                roundName: { type: String, default: "Assessment / Interview" },
                 mode: { type: String, default: "Online" },
                 date: { type: String, default: "" },
                 time: { type: String, default: "" },
@@ -127,7 +136,6 @@ const companyDriveSchema = new mongoose.Schema(
         ],
         workMode: {
             type: String,
-            enum: ["On-site", "Hybrid", "Remote"],
             default: "On-site",
         },
         bondAgreement: {
@@ -151,7 +159,7 @@ const companyDriveSchema = new mongoose.Schema(
             default: true,
         },
 
-        // Flow 3: Enhanced drive details
+        // Enhanced drive details
         aboutCompany: {
             type: String,
             default: "",
@@ -160,7 +168,6 @@ const companyDriveSchema = new mongoose.Schema(
         roles: [{ type: String }],
         workArrangement: {
             type: String,
-            enum: ["Remote", "WFO", "Hybrid", "On-site"],
             default: "WFO",
         },
         internStipend: {

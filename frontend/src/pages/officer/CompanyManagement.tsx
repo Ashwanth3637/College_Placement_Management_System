@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { API_BASE_URL } from "../../config/api";
+import { Check, X, Eye, Trash2, Edit3, Plus, Building2, Search, Filter } from "lucide-react";
 
 export const INITIAL_COMPANIES: any[] = [];
 
@@ -223,6 +224,7 @@ const CompanyManagement: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState("All");
   const [jobTypeFilter, setJobTypeFilter] = useState("All");
   const [selectedCompany, setSelectedCompany] = useState<any | null>(null);
+  const [companyToDelete, setCompanyToDelete] = useState<any | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editFormData, setEditFormData] = useState<any>({});
   const [showAddNewModal, setShowAddNewModal] = useState(false);
@@ -416,8 +418,10 @@ const CompanyManagement: React.FC = () => {
     } catch (e) { }
   };
 
-  const handleDeleteCompany = (id: string) => {
-    if (!window.confirm("Are you sure you want to delete this company record?")) return;
+  const handleDeleteCompany = async (target: any) => {
+    if (!target) return;
+    const id = target.id || target._id || target;
+    const compName = target.name || target.companyName || "Company";
 
     try {
       const delSaved = localStorage.getItem("cpms_deleted_company_ids");
@@ -441,7 +445,7 @@ const CompanyManagement: React.FC = () => {
       if (savedDrives) {
         let driveArr = JSON.parse(savedDrives);
         if (Array.isArray(driveArr)) {
-          const filtered = driveArr.filter((d: any) => d.id !== id && d._id !== id && String(d.id) !== String(id));
+          const filtered = driveArr.filter((d: any) => d.id !== id && d._id !== id && String(d.id) !== String(id) && d.company !== compName);
           localStorage.setItem("cpms_drives", JSON.stringify(filtered));
         }
       }
@@ -451,6 +455,11 @@ const CompanyManagement: React.FC = () => {
       localStorage.removeItem(`cpms_override_status_${id}`);
       localStorage.removeItem(`cpms_company_status_${id}`);
       localStorage.removeItem(`cpms_company_status_${id}_reason`);
+    } catch (e) { }
+
+    try {
+      await fetch(`${API_BASE_URL}/api/companies/${id}`, { method: "DELETE" });
+      await fetch(`${API_BASE_URL}/api/company/${id}`, { method: "DELETE" });
     } catch (e) { }
 
     window.dispatchEvent(new Event("storage"));
@@ -911,81 +920,27 @@ const CompanyManagement: React.FC = () => {
                     </span>
                   </td>
 
-                  {/* Actions: View (️) | Delete (️) | Quick Approve () | Quick Reject () */}
+                  {/* Actions: View (Eye) | Delete (Trash2) | Quick Approve (Check) | Quick Reject (X) */}
                   <td style={{ padding: "14px 16px", textAlign: "center" }}>
-                    <div style={{ display: "inline-flex", gap: "8px", justifyContent: "center", alignItems: "center" }}>
+                    <div style={{ display: "inline-flex", gap: "6px", justifyContent: "center", alignItems: "center" }}>
                       {/* 1. View Icon Button (Always Position 1) */}
                       <button
                         type="button"
                         onClick={() => setSelectedCompany(c)}
+                        className="btn-action-view"
                         title="View Details"
-                        style={{
-                          width: "36px",
-                          height: "36px",
-                          borderRadius: "10px",
-                          backgroundColor: "#ffffff",
-                          border: "1.5px solid #cbd5e1",
-                          color: "#334155",
-                          cursor: "pointer",
-                          display: "inline-flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          transition: "all 0.15s ease",
-                          flexShrink: 0,
-                          boxShadow: "0 1px 2px rgba(0, 0, 0, 0.03)"
-                        }}
-                        onMouseEnter={(e: any) => {
-                          e.currentTarget.style.backgroundColor = "#eff6ff";
-                          e.currentTarget.style.borderColor = "#2563eb";
-                          e.currentTarget.style.color = "#2563eb";
-                        }}
-                        onMouseLeave={(e: any) => {
-                          e.currentTarget.style.backgroundColor = "#ffffff";
-                          e.currentTarget.style.borderColor = "#cbd5e1";
-                          e.currentTarget.style.color = "#334155";
-                        }}
                       >
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                          <circle cx="12" cy="12" r="3" />
-                        </svg>
+                        <Eye size={15} />
                       </button>
 
                       {/* 2. Delete / Bin Icon Button (Always Position 2) */}
                       <button
                         type="button"
-                        onClick={() => handleDeleteCompany(c.id)}
-                        title="Delete Record"
-                        style={{
-                          width: "36px",
-                          height: "36px",
-                          borderRadius: "10px",
-                          backgroundColor: "#fff5f5",
-                          color: "#dc2626",
-                          border: "1.5px solid #fecaca",
-                          cursor: "pointer",
-                          display: "inline-flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          transition: "all 0.15s ease",
-                          flexShrink: 0,
-                          boxShadow: "0 1px 2px rgba(0, 0, 0, 0.03)"
-                        }}
-                        onMouseEnter={(e: any) => {
-                          e.currentTarget.style.backgroundColor = "#fee2e2";
-                          e.currentTarget.style.borderColor = "#ef4444";
-                        }}
-                        onMouseLeave={(e: any) => {
-                          e.currentTarget.style.backgroundColor = "#fff5f5";
-                          e.currentTarget.style.borderColor = "#fecaca";
-                        }}
+                        onClick={() => setCompanyToDelete(c)}
+                        className="btn-action-delete"
+                        title="Delete Company Record"
                       >
-                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <polyline points="3 6 5 6 21 6" />
-                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                          <line x1="10" y1="11" x2="10" y2="17" />
-                          <line x1="14" y1="11" x2="14" y2="17" />
-                        </svg>
+                        <Trash2 size={15} />
                       </button>
 
                       {/* 3. Quick Approve & Reject Buttons (Shown only when Pending) */}
@@ -994,50 +949,18 @@ const CompanyManagement: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => handleApprove(c.id)}
+                            className="btn-action-approve"
                             title="Approve Company"
-                            style={{
-                              width: "36px",
-                              height: "36px",
-                              borderRadius: "10px",
-                              backgroundColor: "#16a34a",
-                              color: "#ffffff",
-                              border: "none",
-                              fontSize: "16px",
-                              fontWeight: "800",
-                              cursor: "pointer",
-                              display: "inline-flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              boxShadow: "0 2px 4px rgba(22, 163, 74, 0.25)",
-                              flexShrink: 0,
-                              transition: "all 0.15s ease"
-                            }}
                           >
-
+                            <Check size={15} />
                           </button>
                           <button
                             type="button"
                             onClick={() => handleReject(c.id)}
+                            className="btn-action-reject"
                             title="Reject Company"
-                            style={{
-                              width: "36px",
-                              height: "36px",
-                              borderRadius: "10px",
-                              backgroundColor: "#dc2626",
-                              color: "#ffffff",
-                              border: "none",
-                              fontSize: "16px",
-                              fontWeight: "800",
-                              cursor: "pointer",
-                              display: "inline-flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              boxShadow: "0 2px 4px rgba(220, 38, 38, 0.25)",
-                              flexShrink: 0,
-                              transition: "all 0.15s ease"
-                            }}
                           >
-
+                            <X size={15} />
                           </button>
                         </>
                       )}
@@ -1296,9 +1219,14 @@ const CompanyManagement: React.FC = () => {
                         </>
                       )}
                     </div>
-                    <button onClick={() => handleStartEdit(selectedCompany)} style={{ padding: "6px 16px", backgroundColor: "#2563eb", color: "#ffffff", border: "none", borderRadius: "8px", fontSize: "12px", fontWeight: "700", cursor: "pointer" }}>
-                      Edit Details
-                    </button>
+                    <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                      <button onClick={() => setCompanyToDelete(selectedCompany)} style={{ padding: "6px 14px", backgroundColor: "#fee2e2", color: "#dc2626", border: "1px solid #fecaca", borderRadius: "8px", fontSize: "12px", fontWeight: "700", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                        <Trash2 size={14} /> Delete
+                      </button>
+                      <button onClick={() => handleStartEdit(selectedCompany)} style={{ padding: "6px 16px", backgroundColor: "#2563eb", color: "#ffffff", border: "none", borderRadius: "8px", fontSize: "12px", fontWeight: "700", cursor: "pointer" }}>
+                        Edit Details
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
@@ -1475,6 +1403,87 @@ const CompanyManagement: React.FC = () => {
                 <button type="submit" style={{ padding: "8px 20px", backgroundColor: "#2563eb", color: "#ffffff", border: "none", borderRadius: "8px", fontSize: "12px", fontWeight: "700", cursor: "pointer" }}>Save & Onboard Company</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal for Permanent Company Deletion */}
+      {companyToDelete && (
+        <div onClick={() => setCompanyToDelete(null)} style={{
+          position: "fixed",
+          inset: 0,
+          backgroundColor: "rgba(15, 23, 42, 0.75)",
+          backdropFilter: "blur(4px)",
+          zIndex: 10001,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "20px"
+        }}>
+          <div onClick={(e) => e.stopPropagation()} style={{
+            backgroundColor: "#ffffff",
+            borderRadius: "18px",
+            padding: "28px",
+            maxWidth: "450px",
+            width: "100%",
+            boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+            border: "1px solid #e2e8f0"
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "12px" }}>
+              <div style={{ width: "42px", height: "42px", borderRadius: "50%", backgroundColor: "#fef2f2", display: "flex", alignItems: "center", justifyContent: "center", color: "#dc2626" }}>
+                <Trash2 size={20} />
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: "18px", fontWeight: "800", color: "#0f172a" }}>
+                  Delete Company Record?
+                </h3>
+                <span style={{ fontSize: "12px", color: "#64748b" }}>
+                  Permanent Deletion
+                </span>
+              </div>
+            </div>
+            <p style={{ margin: "0 0 24px 0", fontSize: "14px", color: "#334155", lineHeight: "1.6" }}>
+              Are you sure you want to delete <strong>{companyToDelete.companyName || companyToDelete.name || "this company"}</strong>? This record and related listing will be permanently removed.
+            </p>
+            <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
+              <button
+                type="button"
+                onClick={() => setCompanyToDelete(null)}
+                style={{
+                  padding: "10px 18px",
+                  backgroundColor: "#f1f5f9",
+                  color: "#334155",
+                  border: "1px solid #cbd5e1",
+                  borderRadius: "10px",
+                  fontSize: "13px",
+                  fontWeight: "700",
+                  cursor: "pointer"
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const target = companyToDelete;
+                  setCompanyToDelete(null);
+                  handleDeleteCompany(target);
+                }}
+                style={{
+                  padding: "10px 18px",
+                  backgroundColor: "#dc2626",
+                  color: "#ffffff",
+                  border: "none",
+                  borderRadius: "10px",
+                  fontSize: "13px",
+                  fontWeight: "700",
+                  cursor: "pointer",
+                  boxShadow: "0 2px 4px rgba(220, 38, 38, 0.25)"
+                }}
+              >
+                Delete Permanently
+              </button>
+            </div>
           </div>
         </div>
       )}

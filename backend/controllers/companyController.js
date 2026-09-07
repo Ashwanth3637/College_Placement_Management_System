@@ -16,27 +16,22 @@ const getDrives = async (req, res) => {
         if (status && status.trim()) {
             query.status = status.trim();
         } else if (role === "student" || forStudent === "true") {
-            // Strictly enforce DB-level filtering for student view: ONLY Approved/Active/Upcoming/Ongoing drives
-            query.status = { $in: ["Approved", "Active", "Upcoming", "Ongoing"] };
+            // Strictly enforce DB-level filtering for student view: ONLY Approved/Active/Upcoming/Ongoing/Published drives
+            query.status = { $in: ["Approved", "Active", "Upcoming", "Ongoing", "Published"] };
         }
 
         let drives = await CompanyDrive.find(query).sort({ createdAt: -1 });
 
-        // Deduplicate drives by canonical company
+        // Deduplicate drives by company and role (keeping the latest instance)
         const uniqueDrives = [];
         const seen = new Set();
         for (const d of drives) {
-            let compKey = (d.company || "").toLowerCase().replace(/[^a-z0-9]/g, "");
-            if (compKey.includes("tcs") || compKey.includes("tataconsultancy")) {
-                compKey = "tcs";
-            } else if (compKey.includes("amazon")) {
-                compKey = "amazon";
-            } else {
-                compKey = compKey.slice(0, 12);
-            }
+            const compClean = (d.company || "").toLowerCase().trim().replace(/[^a-z0-9]/g, "");
+            const roleClean = (d.role || d.jobTitle || "").toLowerCase().trim().replace(/[^a-z0-9]/g, "");
+            const key = `${compClean}_${roleClean}`;
 
-            if (!seen.has(compKey)) {
-                seen.add(compKey);
+            if (!seen.has(key)) {
+                seen.add(key);
                 uniqueDrives.push(d);
             }
         }
@@ -48,10 +43,17 @@ const getDrives = async (req, res) => {
     }
 };
 
-// Create a new placement drive in MongoDB (bound to recruiter's company)
+// Create a new placement drive in MongoDB (bound to recruiter's company or placement officer)
 const createDrive = async (req, res) => {
     try {
         const body = req.body;
+
+        // Safe number parser
+        const parseNum = (val, fallback = 0) => {
+            if (val === undefined || val === null || val === "") return fallback;
+            const n = Number(val);
+            return isNaN(n) ? fallback : n;
+        };
 
         // Handle attachments from multer
         let attachments = [];
@@ -76,77 +78,91 @@ const createDrive = async (req, res) => {
             try {
                 const parsedRounds = typeof body.rounds === "string" ? JSON.parse(body.rounds) : body.rounds;
                 if (Array.isArray(parsedRounds)) {
-                    customRounds = parsedRounds.map((r, idx) => ({
-                        roundNumber: Number(r.roundNumber) || (idx + 1),
-                        roundName: r.roundName || `Round ${idx + 1}`,
-                        mode: r.mode || "Online",
-                        date: r.date || "",
-                        time: r.time || "",
-                        venue: r.venue || "",
-                        description: r.description || ""
-                    }));
+                    customRounds = parsedRounds
+                        .filter(r => r && (r.roundName || r.date || r.venue || r.mode))
+                        .map((r, idx) => ({
+                            roundNumber: parseNum(r.roundNumber, idx + 1),
+                            roundName: (r.roundName && String(r.roundName).trim()) ? String(r.roundName).trim() : `Round ${idx + 1}`,
+                            mode: r.mode || "Online",
+                            date: r.date || "",
+                            time: r.time || "",
+                            venue: r.venue || "",
+                            description: r.description || ""
+                        }));
                 }
             } catch (e) { }
         }
 
+        if (customRounds.length === 0) {
+            customRounds = [
+                {
+                    roundNumber: 1,
+                    roundName: "Assessment / Interview",
+                    mode: "Online",
+                    date: body.deadline || "",
+                    time: "",
+                    venue: "",
+                    description: ""
+                }
+            ];
+        }
+
+        const deptArray = Array.isArray(body.departments)
+            ? body.departments
+            : (body.eligibleBranches
+                ? (Array.isArray(body.eligibleBranches) ? body.eligibleBranches : String(body.eligibleBranches).split(",").map(b => b.trim()).filter(Boolean))
+                : (body.department ? String(body.department).split(",").map(b => b.trim()).filter(Boolean) : []));
+
         const payload = {
-            company: (body.company || body.companyName || "").trim(),
-            jobTitle: (body.jobTitle || body.role || "").trim(),
-            role: (body.role || body.jobTitle || "").trim(),
-            jobType: body.jobType || "Full-Time",
-            location: (body.location || "").trim(),
-            packageCtc: (body.packageCtc || body.ctc || "").trim(),
-            ctc: (body.ctc || body.packageCtc || "").trim(),
-            deadline: body.deadline || "",
+            company: (body.company || body.companyName || "Partner Company").trim(),
+            jobTitle: (body.jobTitle || body.role || "Software Engineer").trim(),
+            role: (body.role || body.jobTitle || "Software Engineer").trim(),
+            jobType: body.jobType || "Full-Time (FTE)",
+            location: (body.location || "Pan-India / Flexible").trim(),
+            packageCtc: (body.packageCtc || body.ctc || "6 LPA").trim(),
+            ctc: (body.ctc || body.packageCtc || "6 LPA").trim(),
+            deadline: (body.deadline || new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10)).trim(),
             status: body.status || "Active",
+            isOfficerPublished: body.isOfficerPublished === true || body.isOfficerPublished === "true",
+            isCreatedByOfficer: body.isCreatedByOfficer === true || body.isCreatedByOfficer === "true",
             rejectionReason: body.rejectionReason || "",
-            approvedBy: body.approvedBy || "",
+            approvedBy: body.approvedBy || "Placement Officer",
             createdBy: body.createdBy || "Placement Officer",
             logo: body.logo || "",
             website: body.website || "",
             recruiterName: body.recruiterName || "",
             recruiterEmail: body.recruiterEmail || "",
             recruiterMobile: body.recruiterMobile || "",
-            openings: body.openings ? Number(body.openings) : 1,
-            eligibleBranches: Array.isArray(body.eligibleBranches)
-                ? body.eligibleBranches
-                : (body.departments
-                    ? (Array.isArray(body.departments) ? body.departments : body.departments.split(",").map(b => b.trim()).filter(Boolean))
-                    : (body.department
-                        ? body.department.split(",").map(b => b.trim()).filter(Boolean)
-                        : (body.eligibleBranches ? body.eligibleBranches.split(",").map(b => b.trim()).filter(Boolean) : []))),
-            departments: Array.isArray(body.departments)
-                ? body.departments
-                : (body.eligibleBranches
-                    ? (Array.isArray(body.eligibleBranches) ? body.eligibleBranches : body.eligibleBranches.split(",").map(b => b.trim()).filter(Boolean))
-                    : (body.department ? body.department.split(",").map(b => b.trim()).filter(Boolean) : [])),
-            department: (body.department || (Array.isArray(body.eligibleBranches) ? body.eligibleBranches.join(", ") : body.eligibleBranches) || "").toString(),
-            minCgpa: body.minCgpa ? Number(body.minCgpa) : 0,
-            minTenth: body.minTenth ? Number(body.minTenth) : 0,
-            minTwelfth: body.minTwelfth ? Number(body.minTwelfth) : 0,
-            gradYear: body.gradYear ? Number(body.gradYear) : (body.batch ? Number(body.batch) : 2026),
-            batch: (body.batch || body.gradYear || "").toString(),
-            maxBacklogs: body.maxBacklogs !== undefined ? Number(body.maxBacklogs) : 0,
-            requiredSkills: Array.isArray(body.requiredSkills) ? body.requiredSkills : (body.requiredSkills ? body.requiredSkills.split(",").map(s => s.trim()) : []),
+            openings: parseNum(body.openings, 1),
+            eligibleBranches: deptArray,
+            departments: deptArray,
+            department: (body.department || deptArray.join(", ") || "").toString(),
+            minCgpa: parseNum(body.minCgpa, 0),
+            minTenth: parseNum(body.minTenth, 0),
+            minTwelfth: parseNum(body.minTwelfth, 0),
+            gradYear: parseNum(body.gradYear || body.batch, 2026),
+            batch: (body.batch || body.gradYear || "2026").toString(),
+            maxBacklogs: parseNum(body.maxBacklogs, 0),
+            requiredSkills: Array.isArray(body.requiredSkills) ? body.requiredSkills : (body.requiredSkills ? String(body.requiredSkills).split(",").map(s => s.trim()) : []),
             jobDescription: body.jobDescription || "",
             selectionProcess: body.selectionProcess || (customRounds.length > 0 ? customRounds.map(r => r.roundName).join(" → ") : ""),
             rounds: customRounds,
             workMode: body.workMode || "On-site",
-            bondAgreement: body.bondAgreement || "",
+            bondAgreement: body.bondAgreement || "None",
             benefitsPerks: body.benefitsPerks || "",
             additionalInstructions: body.additionalInstructions || "",
             isActive: true,
 
             // Flow 3: Enhanced drive details
             aboutCompany: body.aboutCompany || "",
-            jobLocations: Array.isArray(body.jobLocations) ? body.jobLocations : (body.jobLocations ? body.jobLocations.split(",").map(l => l.trim()) : []),
-            roles: Array.isArray(body.roles) ? body.roles : (body.roles ? body.roles.split(",").map(r => r.trim()) : []),
+            jobLocations: Array.isArray(body.jobLocations) ? body.jobLocations : (body.jobLocations ? String(body.jobLocations).split(",").map(l => l.trim()) : []),
+            roles: Array.isArray(body.roles) ? body.roles : (body.roles ? String(body.roles).split(",").map(r => r.trim()) : []),
             workArrangement: body.workArrangement || body.workMode || "WFO",
             internStipend: body.internStipend || "",
             keyResponsibilities: body.keyResponsibilities || "",
             hiringProcess: body.hiringProcess || body.selectionProcess || "",
             eligibleCriteria: body.eligibleCriteria || "",
-            optInOutDeadline: body.optInOutDeadline || null,
+            optInOutDeadline: (body.optInOutDeadline && !isNaN(new Date(body.optInOutDeadline).getTime())) ? new Date(body.optInOutDeadline) : null,
             attachments: attachments,
         };
 
@@ -171,7 +187,7 @@ const createDrive = async (req, res) => {
         res.status(201).json({ message: "Placement drive created & saved successfully!", drive });
     } catch (error) {
         console.error("Create Company Drive Error:", error);
-        res.status(500).json({ message: "Failed to create company drive", error: error.message });
+        res.status(500).json({ message: error.message || "Failed to create company drive", error: error.message });
     }
 };
 
@@ -201,6 +217,68 @@ const updateDrive = async (req, res) => {
         }
 
         const updatedDrive = await CompanyDrive.findByIdAndUpdate(id, updateData, { new: true });
+
+        // If Officer marks drive as Completed or Closed, automatically update all opted-in applications and notify students
+        if (updateData.status === "Completed" || updateData.status === "Closed") {
+            try {
+                const Application = require("../models/applicationModel");
+                const Notification = require("../models/notificationModel");
+                const todayStr = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+
+                const compName = existingDrive.company;
+                const driveRole = existingDrive.role || existingDrive.jobTitle || "Software Engineer";
+
+                // Find all applications for this drive
+                const optedApps = await Application.find({
+                    $or: [
+                        { driveId: id },
+                        { companyName: new RegExp(`^${compName.trim()}$`, "i") }
+                    ],
+                    isActive: true
+                });
+
+                // Update applications to Completed
+                for (const app of optedApps) {
+                    app.status = "Completed";
+                    app.history = app.history || [];
+                    app.history.push({
+                        date: todayStr,
+                        title: "Drive Completed ✓",
+                        desc: `Placement recruitment drive for ${compName} (${driveRole}) has concluded.`,
+                        status: "Completed",
+                        roundNumber: 1
+                    });
+                    await app.save();
+
+                    // Send targeted notification to this student
+                    if (app.email) {
+                        await Notification.create({
+                            recipientId: app.studentId || "students",
+                            recipientEmail: app.email.toLowerCase().trim(),
+                            title: `Drive Completed: ${compName} 🎉`,
+                            message: `The recruitment drive for "${compName}" (${driveRole}) you opted-in for has concluded and is now marked as Completed.`,
+                            type: "Drives",
+                            company: compName,
+                            driveId: String(id),
+                            isRead: false
+                        });
+                    }
+                }
+
+                // Broadcast notification to all students
+                await Notification.create({
+                    recipientId: "all",
+                    title: `Drive Completed: ${compName}`,
+                    message: `Placement recruitment drive for ${compName} (${driveRole}) has concluded and is marked as Completed.`,
+                    type: "Drives",
+                    company: compName,
+                    driveId: String(id),
+                    isRead: false
+                });
+            } catch (notifErr) {
+                console.error("Failed to notify students on drive completion:", notifErr);
+            }
+        }
 
         res.status(200).json({ message: "Placement drive updated successfully in MongoDB!", drive: updatedDrive });
     } catch (error) {

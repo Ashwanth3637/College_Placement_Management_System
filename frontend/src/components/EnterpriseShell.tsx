@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { CommandPalette } from './CommandPalette';
 import { API_BASE_URL } from '../config/api';
+import { Menu, Building2, Search, Bell, ChevronDown, UserCheck, LogOut, Check } from 'lucide-react';
 
 export interface NavItem {
  id: string;
@@ -51,15 +52,20 @@ export const EnterpriseShell: React.FC<EnterpriseShellProps> = ({
  const [showNotifications, setShowNotifications] = useState(false);
  const [showUserMenu, setShowUserMenu] = useState(false);
  const [showRoleSwitcher, setShowRoleSwitcher] = useState(false);
+ const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
 
  const role = (user?.role || 'student').toLowerCase().trim();
 
  const toggleSidebar = () => {
-  const next = !sidebarCollapsed;
-  setSidebarCollapsed(next);
-  try {
-   localStorage.setItem('cpms_sidebar_collapsed', String(next));
-  } catch (e) {}
+  if (typeof window !== 'undefined' && window.innerWidth <= 1024) {
+    setMobileDrawerOpen(prev => !prev);
+  } else {
+    const next = !sidebarCollapsed;
+    setSidebarCollapsed(next);
+    try {
+      localStorage.setItem('cpms_sidebar_collapsed', String(next));
+    } catch (e) {}
+  }
  };
 
  const handleRoleSwitch = (targetRole: string) => {
@@ -149,6 +155,7 @@ export const EnterpriseShell: React.FC<EnterpriseShellProps> = ({
 
    {/* 1. FIXED TOP HEADER (64px) */}
    <header
+    className="enterprise-top-header"
     style={{
      position: 'fixed',
      top: 0,
@@ -160,23 +167,24 @@ export const EnterpriseShell: React.FC<EnterpriseShellProps> = ({
      display: 'flex',
      alignItems: 'center',
      justifyContent: 'space-between',
-     padding: '0 20px',
+     padding: '0 16px',
      zIndex: 1000,
      boxShadow: '0 2px 8px rgba(11, 61, 145, 0.25)',
      borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
     }}
    >
     {/* Left: Brand & Sidebar Toggle */}
-    <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
      <button
       onClick={toggleSidebar}
       title={sidebarCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
+      aria-label="Toggle Navigation Sidebar"
       style={{
        background: 'rgba(255, 255, 255, 0.12)',
        border: 'none',
        color: '#FFFFFF',
-       width: '34px',
-       height: '34px',
+       width: '36px',
+       height: '36px',
        borderRadius: '8px',
        cursor: 'pointer',
        display: 'flex',
@@ -184,15 +192,16 @@ export const EnterpriseShell: React.FC<EnterpriseShellProps> = ({
        justifyContent: 'center',
        fontSize: '16px',
        transition: 'background-color 0.15s ease',
+       flexShrink: 0
       }}
       onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.22)')}
       onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.12)')}
      >
-      
+      <Menu size={18} />
      </button>
 
      <div
-      style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}
+      style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', minWidth: 0 }}
       onClick={() => {
        if (role === 'student') navigate('/student/dashboard');
        else navigate('/officer/dashboard');
@@ -208,26 +217,25 @@ export const EnterpriseShell: React.FC<EnterpriseShellProps> = ({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        fontWeight: 800,
-        fontSize: '18px',
+        flexShrink: 0,
         boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
        }}
       >
-       
+       <Building2 size={20} />
       </div>
-      <div>
-       <div style={{ fontSize: '15px', fontWeight: 700, letterSpacing: '-0.2px', lineHeight: 1.2 }}>
+      <div className="enterprise-brand-text" style={{ minWidth: 0, overflow: 'hidden' }}>
+       <div style={{ fontSize: '14.5px', fontWeight: 800, letterSpacing: '-0.2px', lineHeight: 1.2, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
         CAMPUS PLACEMENT PORTAL
        </div>
-       <div style={{ fontSize: '11px', color: '#93C5FD', fontWeight: 500 }}>
-        Enterprise Placement Cell System
+       <div style={{ fontSize: '10.5px', color: '#93C5FD', fontWeight: 500, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+        Enterprise Placement Cell
        </div>
       </div>
      </div>
     </div>
 
     {/* Center: Global Search Bar (⌘K Trigger) */}
-    <div style={{ flex: 1, maxWidth: '440px', margin: '0 24px' }}>
+    <div className="enterprise-search-wrapper" style={{ flex: 1, maxWidth: '400px', margin: '0 16px' }}>
      <button
       onClick={() => setIsCommandPaletteOpen(true)}
       style={{
@@ -238,9 +246,9 @@ export const EnterpriseShell: React.FC<EnterpriseShellProps> = ({
        backgroundColor: 'rgba(255, 255, 255, 0.12)',
        border: '1px solid rgba(255, 255, 255, 0.2)',
        borderRadius: '8px',
-       padding: '8px 14px',
+       padding: '7px 12px',
        color: '#E2E8F0',
-       fontSize: '13px',
+       fontSize: '12.5px',
        cursor: 'pointer',
        transition: 'all 0.15s ease',
       }}
@@ -253,20 +261,21 @@ export const EnterpriseShell: React.FC<EnterpriseShellProps> = ({
        e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
       }}
      >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-       <span style={{ fontSize: '14px' }}></span>
-       <span style={{ color: '#CBD5E1' }}>Search jobs, drives, applicants, actions...</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
+       <Search size={14} color="#CBD5E1" />
+       <span style={{ color: '#CBD5E1', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Search jobs, drives, applicants...</span>
       </div>
       <kbd
        style={{
-        fontSize: '10.5px',
+        fontSize: '10px',
         fontWeight: 600,
-        padding: '2px 6px',
+        padding: '2px 5px',
         backgroundColor: 'rgba(0, 0, 0, 0.25)',
         border: '1px solid rgba(255, 255, 255, 0.25)',
         borderRadius: '4px',
         color: '#FFFFFF',
         fontFamily: 'JetBrains Mono, monospace',
+        flexShrink: 0
        }}
       >
        ⌘K
@@ -275,29 +284,30 @@ export const EnterpriseShell: React.FC<EnterpriseShellProps> = ({
     </div>
 
     {/* Right: Actions, Notifications, Role Switcher, Profile */}
-    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
      {/* Quick Role Switcher Pill */}
-     <div style={{ position: 'relative' }}>
+     <div className="enterprise-role-switcher" style={{ position: 'relative' }}>
       <button
        onClick={() => { setShowRoleSwitcher(!showRoleSwitcher); setShowNotifications(false); setShowUserMenu(false); }}
        style={{
         display: 'flex',
         alignItems: 'center',
-        gap: '6px',
+        gap: '5px',
         backgroundColor: 'rgba(255, 255, 255, 0.15)',
         border: '1px solid rgba(255, 255, 255, 0.25)',
         borderRadius: '20px',
-        padding: '5px 12px',
+        padding: '4px 10px',
         color: '#FFFFFF',
-        fontSize: '12px',
+        fontSize: '11.5px',
         fontWeight: 600,
         cursor: 'pointer',
        }}
       >
-       <span style={{ textTransform: 'uppercase', letterSpacing: '0.4px' }}>
-        Role: {role === 'admin' ? 'Officer / Admin' : role}
+       <UserCheck size={13} />
+       <span style={{ textTransform: 'uppercase', letterSpacing: '0.3px' }}>
+        {role === 'admin' ? 'Officer' : role}
        </span>
-       <span style={{ fontSize: '10px' }}>▼</span>
+       <ChevronDown size={11} />
       </button>
 
       {showRoleSwitcher && (
@@ -370,7 +380,7 @@ export const EnterpriseShell: React.FC<EnterpriseShellProps> = ({
         fontSize: '16px',
        }}
       >
-       
+       <Bell size={18} />
        {unreadCount > 0 && (
         <span
          style={{
@@ -590,8 +600,25 @@ export const EnterpriseShell: React.FC<EnterpriseShellProps> = ({
 
    {/* 2. BODY LAYOUT: COLLAPSIBLE SIDEBAR + MAIN CONTENT */}
    <div style={{ display: 'flex', flex: 1, marginTop: '64px' }}>
+    {/* Mobile Backdrop */}
+    {mobileDrawerOpen && (
+      <div
+        className="enterprise-sidebar-backdrop"
+        onClick={() => setMobileDrawerOpen(false)}
+        style={{
+          position: 'fixed',
+          inset: 0,
+          backgroundColor: 'rgba(15, 23, 42, 0.65)',
+          backdropFilter: 'blur(4px)',
+          WebkitBackdropFilter: 'blur(4px)',
+          zIndex: 1040,
+        }}
+      />
+    )}
+
     {/* SIDEBAR (240px or 64px) */}
     <aside
+     className={`enterprise-sidebar-aside ${mobileDrawerOpen ? 'mobile-open' : ''}`}
      style={{
       width: sidebarCollapsed ? '68px' : '240px',
       backgroundColor: '#FFFFFF',
@@ -602,8 +629,8 @@ export const EnterpriseShell: React.FC<EnterpriseShellProps> = ({
       top: '64px',
       bottom: 0,
       left: 0,
-      zIndex: 900,
-      transition: 'width 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+      zIndex: 1050,
+      transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
       overflowY: 'auto',
       overflowX: 'hidden',
      }}
@@ -630,7 +657,10 @@ export const EnterpriseShell: React.FC<EnterpriseShellProps> = ({
         return (
          <button
           key={item.id}
-          onClick={() => onTabChange(item.id)}
+          onClick={() => {
+            onTabChange(item.id);
+            setMobileDrawerOpen(false);
+          }}
           title={sidebarCollapsed ? item.label : undefined}
           style={{
            width: '100%',
@@ -756,6 +786,7 @@ export const EnterpriseShell: React.FC<EnterpriseShellProps> = ({
 
     {/* MAIN CONTENT AREA */}
     <main
+     className="enterprise-main-content"
      style={{
       flex: 1,
       marginLeft: sidebarCollapsed ? '68px' : '240px',
@@ -765,6 +796,7 @@ export const EnterpriseShell: React.FC<EnterpriseShellProps> = ({
       backgroundColor: '#F8FAFC',
       maxWidth: '100%',
       boxSizing: 'border-box',
+      overflowX: 'hidden',
      }}
     >
      {/* Breadcrumb Bar */}

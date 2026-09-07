@@ -8,6 +8,7 @@ const AuditLog = require("../models/auditLogModel");
 const College = require("../models/collegeModel");
 const Subscription = require("../models/subscriptionModel");
 const SupportTicket = require("../models/supportTicketModel");
+const PlatformSettings = require("../models/platformSettingsModel");
 
 // Helper to log audit actions
 const logAudit = async (actor, action, entityType, entityId, details, ip = "127.0.0.1", status = "SUCCESS") => {
@@ -142,8 +143,8 @@ const createCollege = async (req, res) => {
 
         // Flow 1: Auto-create Placement Officer user if officer details provided
         let officerUser = null;
-        const officerEmail = (req.body.officerEmail || "").toLowerCase().trim();
-        const officerName = req.body.officerName || "Placement Officer";
+        const officerEmail = (req.body.officerEmail || req.body.contactEmail || "").toLowerCase().trim();
+        const officerName = req.body.officerName || req.body.contactPerson || "Placement Officer";
         const officerPassword = req.body.officerPassword || "password123";
 
         if (officerEmail) {
@@ -157,14 +158,15 @@ const createCollege = async (req, res) => {
                     password: hashedPassword,
                     role: "officer",
                     collegeId: newCollege._id,
+                    college: newCollege.name,
                 });
                 newCollege.placementOfficerId = officerUser._id;
                 newCollege.contactPerson = officerName;
                 newCollege.contactEmail = officerEmail;
                 await newCollege.save();
             } else {
-                // Link existing officer to this college
                 existingOfficer.collegeId = newCollege._id;
+                existingOfficer.college = newCollege.name;
                 existingOfficer.role = "officer";
                 await existingOfficer.save();
                 newCollege.placementOfficerId = existingOfficer._id;
@@ -180,6 +182,7 @@ const createCollege = async (req, res) => {
             Basic: { students: 500, recruiters: 25, drives: 15, amount: 7999, duration: 90 },
             Premium: { students: 2000, recruiters: 100, drives: 50, amount: 14999, duration: 180 },
             Pro: { students: 5000, recruiters: 250, drives: "Unlimited", amount: 24999, duration: 365 },
+            Custom: { students: 1000, recruiters: 50, drives: 30, amount: 9999, duration: 90 }
         };
         const limits = planLimits[planName] || planLimits["Basic"];
         const startDate = new Date();
@@ -194,6 +197,11 @@ const createCollege = async (req, res) => {
                 expiryDate: expiryDate.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
                 amount: limits.amount,
                 status: "Active",
+                paymentMode: req.body.paymentMode || (planName === "Trial" ? "Free/Trial" : "UPI"),
+                paymentTransactionId: req.body.paymentTransactionId || (planName === "Trial" ? "TRIAL-INIT" : `TXN-${Date.now().toString().slice(-6)}`),
+                paymentDate: new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
+                paymentNotes: `Initial onboarding on ${planName} plan.`,
+                activatedBy: req.user?.name || "Super Admin",
                 usage: {
                     studentsUsed: 0,
                     studentsLimit: limits.students,
@@ -233,6 +241,22 @@ const updateCollege = async (req, res) => {
     }
 };
 
+const deleteCollege = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const college = await College.findByIdAndDelete(id);
+        if (!college) {
+            return res.status(404).json({ success: false, message: "College not found" });
+        }
+        // Also remove associated subscriptions
+        await Subscription.deleteMany({ collegeId: id });
+        await logAudit(req.user, "DELETE_COLLEGE", "COLLEGE", id, `Deleted college ${college.name} and its subscriptions`);
+        return res.status(200).json({ success: true, message: `College "${college.name}" deleted successfully` });
+    } catch (err) {
+        return res.status(500).json({ success: false, message: "Failed to delete college", error: err.message });
+    }
+};
+
 const toggleCollegeStatus = async (req, res) => {
     try {
         const { id } = req.params;
@@ -247,7 +271,7 @@ const toggleCollegeStatus = async (req, res) => {
     }
 };
 
-// 3. Subscriptions & Plans
+// 3. Subscriptions & Plan Activation Center (Super Admin authority)
 const getSubscriptions = async (req, res) => {
     try {
         const subs = await Subscription.find().sort({ createdAt: -1 });
@@ -257,7 +281,182 @@ const getSubscriptions = async (req, res) => {
     }
 };
 
-// 4. Support Tickets
+// Super Admin activates or upgrades plan for a college with GPay/UPI/Bank payment details
+const activateCollegeSubscription = async (req, res) => {
+    try {
+        const {
+            collegeId,
+            planName = "Basic",
+            durationDays = 90,
+            amount,
+            paymentMode = "GPay",
+            paymentTransactionId = "",
+            paymentDate,
+            paymentNotes = "",
+            studentsLimit,
+            recruitersLimit,
+            drivesLimit,
+        } = req.body;
+
+        const college = await College.findById(collegeId);
+        if (!college) {
+            return res.status(404).json({ success: false, message: "College not found" });
+        }
+
+        const planLimits = {
+            Trial: { students: 100, recruiters: 5, drives: 2, amount: 0, defaultDays: 14 },
+            Basic: { students: 500, recruiters: 25, drives: 15, amount: 7999, defaultDays: 90 },
+            Premium: { students: 2000, recruiters: 100, drives: 50, amount: 14999, defaultDays: 180 },
+            Pro: { students: 5000, recruiters: 250, drives: "Unlimited", amount: 24999, defaultDays: 365 },
+            Custom: { students: 1000, recruiters: 50, drives: 30, amount: 9999, defaultDays: 90 },
+        };
+
+        const defaultTier = planLimits[planName] || planLimits["Basic"];
+        const effectiveAmount = amount !== undefined && amount !== "" ? Number(amount) : defaultTier.amount;
+        const effectiveDays = Number(durationDays) || defaultTier.defaultDays;
+
+        const startDate = new Date();
+        const expiryDate = new Date(startDate.getTime() + effectiveDays * 24 * 60 * 60 * 1000);
+
+        const sDateFormatted = startDate.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+        const eDateFormatted = expiryDate.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+        const pDateFormatted = paymentDate || sDateFormatted;
+
+        // Upsert or create new active subscription
+        let sub = await Subscription.findOne({ collegeId: college._id, status: "Active" });
+        if (sub) {
+            sub.planName = planName;
+            sub.startDate = sDateFormatted;
+            sub.expiryDate = eDateFormatted;
+            sub.amount = effectiveAmount;
+            sub.status = "Active";
+            sub.paymentMode = paymentMode;
+            sub.paymentTransactionId = paymentTransactionId || `UPI-${Date.now().toString().slice(-6)}`;
+            sub.paymentDate = pDateFormatted;
+            sub.paymentNotes = paymentNotes;
+            sub.activatedBy = req.user?.name || "Super Admin";
+            sub.usage.studentsLimit = studentsLimit !== undefined && studentsLimit !== "" ? Number(studentsLimit) : defaultTier.students;
+            sub.usage.recruitersLimit = recruitersLimit !== undefined && recruitersLimit !== "" ? Number(recruitersLimit) : defaultTier.recruiters;
+            sub.usage.drivesLimit = drivesLimit !== undefined && drivesLimit !== "" ? drivesLimit : defaultTier.drives;
+            await sub.save();
+        } else {
+            sub = await Subscription.create({
+                collegeId: college._id,
+                collegeName: college.name,
+                planName,
+                startDate: sDateFormatted,
+                expiryDate: eDateFormatted,
+                amount: effectiveAmount,
+                status: "Active",
+                paymentMode,
+                paymentTransactionId: paymentTransactionId || `UPI-${Date.now().toString().slice(-6)}`,
+                paymentDate: pDateFormatted,
+                paymentNotes,
+                activatedBy: req.user?.name || "Super Admin",
+                usage: {
+                    studentsUsed: 0,
+                    studentsLimit: studentsLimit !== undefined && studentsLimit !== "" ? Number(studentsLimit) : defaultTier.students,
+                    recruitersUsed: 0,
+                    recruitersLimit: recruitersLimit !== undefined && recruitersLimit !== "" ? Number(recruitersLimit) : defaultTier.recruiters,
+                    drivesUsed: 0,
+                    drivesLimit: drivesLimit !== undefined && drivesLimit !== "" ? drivesLimit : defaultTier.drives,
+                },
+            });
+        }
+
+        // Update College active plan & status
+        college.currentPlan = planName;
+        college.status = "Active";
+        await college.save();
+
+        await logAudit(
+            req.user,
+            "ACTIVATE_PLAN",
+            "SUBSCRIPTION",
+            sub._id,
+            `Activated ${planName} plan for ${college.name} via ${paymentMode} (Txn: ${sub.paymentTransactionId}, Amount: ₹${effectiveAmount})`
+        );
+
+        return res.status(200).json({
+            success: true,
+            message: `Plan "${planName}" successfully activated for ${college.name} with ${paymentMode} payment verified!`,
+            subscription: sub,
+            college,
+        });
+    } catch (err) {
+        return res.status(500).json({ success: false, message: "Failed to activate subscription plan", error: err.message });
+    }
+};
+
+const renewSubscription = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { durationDays = 365, amount, paymentMode = "GPay", paymentTransactionId = "" } = req.body;
+
+        const sub = await Subscription.findById(id);
+        if (!sub) {
+            return res.status(404).json({ success: false, message: "Subscription record not found" });
+        }
+
+        const now = new Date();
+        const days = Number(durationDays) || 365;
+        const newExpiry = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+
+        sub.expiryDate = newExpiry.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+        sub.status = "Active";
+        if (amount) sub.amount = Number(amount);
+        if (paymentMode) sub.paymentMode = paymentMode;
+        if (paymentTransactionId) sub.paymentTransactionId = paymentTransactionId;
+        sub.paymentDate = now.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+        await sub.save();
+
+        await logAudit(req.user, "RENEW_SUBSCRIPTION", "SUBSCRIPTION", id, `Renewed ${sub.planName} for ${sub.collegeName} (+${days} days)`);
+        return res.status(200).json({ success: true, message: `Subscription for ${sub.collegeName} renewed successfully!`, subscription: sub });
+    } catch (err) {
+        return res.status(500).json({ success: false, message: "Failed to renew subscription", error: err.message });
+    }
+};
+
+const deleteSubscription = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const sub = await Subscription.findByIdAndDelete(id);
+        if (!sub) return res.status(404).json({ success: false, message: "Subscription not found" });
+        await logAudit(req.user, "DELETE_SUBSCRIPTION", "SUBSCRIPTION", id, `Removed subscription for ${sub.collegeName}`);
+        return res.status(200).json({ success: true, message: "Subscription removed successfully" });
+    } catch (err) {
+        return res.status(500).json({ success: false, message: "Failed to delete subscription", error: err.message });
+    }
+};
+
+// 4. Global Platform & Payment (GPay/UPI/Bank) Settings
+const getPaymentSettings = async (req, res) => {
+    try {
+        let settings = await PlatformSettings.findOne({ key: "global_platform_settings" });
+        if (!settings) {
+            settings = await PlatformSettings.create({ key: "global_platform_settings" });
+        }
+        return res.status(200).json({ success: true, settings });
+    } catch (err) {
+        return res.status(500).json({ success: false, message: "Failed to fetch payment settings", error: err.message });
+    }
+};
+
+const updatePaymentSettings = async (req, res) => {
+    try {
+        let settings = await PlatformSettings.findOneAndUpdate(
+            { key: "global_platform_settings" },
+            { ...req.body, key: "global_platform_settings" },
+            { new: true, upsert: true }
+        );
+        await logAudit(req.user, "UPDATE_PAYMENT_SETTINGS", "SETTINGS", "payment_settings", "Updated platform payment & GPay credentials");
+        return res.status(200).json({ success: true, message: "Payment & platform settings updated successfully!", settings });
+    } catch (err) {
+        return res.status(500).json({ success: false, message: "Failed to update payment settings", error: err.message });
+    }
+};
+
+// 5. Support Tickets
 const getSupportTickets = async (req, res) => {
     try {
         const tickets = await SupportTicket.find().sort({ createdAt: -1 });
@@ -280,7 +479,7 @@ const replySupportTicket = async (req, res) => {
     }
 };
 
-// 5. Get Placement Seasons
+// 6. Placement Seasons
 const getSeasons = async (req, res) => {
     try {
         const seasons = await Season.find().sort({ createdAt: -1 });
@@ -327,7 +526,7 @@ const updateSeason = async (req, res) => {
     }
 };
 
-// 6. Get Audit Logs
+// 7. Security Audit Logs
 const getAuditLogs = async (req, res) => {
     try {
         const { limit = 50, entityType, action } = req.query;
@@ -342,7 +541,7 @@ const getAuditLogs = async (req, res) => {
     }
 };
 
-// 7. System Health
+// 8. System Health
 const getSystemHealth = async (req, res) => {
     try {
         const totalUsers = await User.countDocuments();
@@ -384,8 +583,14 @@ module.exports = {
     getColleges,
     createCollege,
     updateCollege,
+    deleteCollege,
     toggleCollegeStatus,
     getSubscriptions,
+    activateCollegeSubscription,
+    renewSubscription,
+    deleteSubscription,
+    getPaymentSettings,
+    updatePaymentSettings,
     getSupportTickets,
     replySupportTicket,
     getSeasons,

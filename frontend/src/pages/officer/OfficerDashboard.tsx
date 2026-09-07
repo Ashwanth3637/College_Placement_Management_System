@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
+import { Eye } from "lucide-react";
 import { API_BASE_URL } from "../../config/api";
 import StudentManagement from "./StudentManagement";
 import DriveManagement from "./DriveManagement";
 import ApplicationManagement from "./ApplicationManagement";
-import SelectionsManagement from "./SelectionsManagement";
 import ReportsAnalyticsManagement from "./ReportsAnalyticsManagement";
 
 interface User {
@@ -37,14 +37,37 @@ export const OfficerDashboard: React.FC<DashboardProps> = ({ user, onLogout, ini
   const fetchAllOfficerData = async () => {
     setLoading(true);
     try {
-      // 1. Fetch Drives
+      // 1. Fetch Drives (merge localStorage + API)
+      let drivesCombined: any[] = [];
+      try {
+        const saved = localStorage.getItem("cpms_drives");
+        if (saved) {
+          const arr = JSON.parse(saved);
+          if (Array.isArray(arr)) drivesCombined = arr;
+        }
+      } catch (e) {}
+
       try {
         const res = await fetch(`${API_BASE_URL}/api/company/drives`);
         if (res.ok) {
           const data = await res.json();
-          if (Array.isArray(data)) setDrivesList(data);
+          if (Array.isArray(data)) {
+            data.forEach(rd => {
+              const rdId = rd._id || rd.id;
+              const idx = drivesCombined.findIndex(d => (d._id || d.id) === rdId);
+              if (idx !== -1) {
+                drivesCombined[idx] = { ...drivesCombined[idx], ...rd };
+              } else {
+                drivesCombined.push(rd);
+              }
+            });
+          }
         }
       } catch (e) { }
+
+      if (drivesCombined.length > 0) {
+        setDrivesList(drivesCombined);
+      }
 
       // 2. Fetch Students
       try {
@@ -79,15 +102,21 @@ export const OfficerDashboard: React.FC<DashboardProps> = ({ user, onLogout, ini
 
   useEffect(() => {
     fetchAllOfficerData();
-    const interval = setInterval(fetchAllOfficerData, 5000);
-    return () => clearInterval(interval);
+    const interval = setInterval(fetchAllOfficerData, 4000);
+    window.addEventListener("storage", fetchAllOfficerData);
+    window.addEventListener("cpms_drives_updated", fetchAllOfficerData);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("storage", fetchAllOfficerData);
+      window.removeEventListener("cpms_drives_updated", fetchAllOfficerData);
+    };
   }, []);
 
   // Aggregated KPIs
   const totalActiveDrives = drivesList.filter(d => (d.status || "").toLowerCase() === "active").length;
+  const totalCompletedDrives = drivesList.filter(d => (d.status || "").toLowerCase() === "completed").length;
   const totalStudents = studentsList.length;
   const totalApplications = applicationsList.length;
-  const totalSelected = selectionsList.filter(s => (s.status || "").toLowerCase().includes("select") || (s.status || "").toLowerCase().includes("placed")).length;
 
   const upcomingDrives = drivesList.filter(d => (d.status || "").toLowerCase() === "active" || (d.status || "").toLowerCase() === "upcoming" || !d.status).slice(0, 4);
   const recentApplications = applicationsList.slice(0, 4);
@@ -122,7 +151,7 @@ export const OfficerDashboard: React.FC<DashboardProps> = ({ user, onLogout, ini
         <div>
           {/* Brand Header */}
           <div style={{ display: "flex", alignItems: "center", gap: "12px", padding: "0 8px 24px 8px", borderBottom: "1px solid #E2E8F0", marginBottom: "20px" }}>
-            <div style={{ width: "38px", height: "38px", borderRadius: "10px", backgroundColor: "#4F46E5", display: "flex", alignItems: "center", justifyContent: "center", color: "#FFFFFF", boxShadow: "0 4px 12px rgba(79,70,229,0.25)" }}>
+            <div style={{ width: "38px", height: "38px", borderRadius: "10px", backgroundColor: "#0B3D91", display: "flex", alignItems: "center", justifyContent: "center", color: "#FFFFFF", boxShadow: "0 4px 12px rgba(11,61,145,0.25)" }}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
                 <path d="M6 12v5c3 3 9 3 12 0v-5" />
@@ -181,16 +210,7 @@ export const OfficerDashboard: React.FC<DashboardProps> = ({ user, onLogout, ini
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                     <polyline points="14 2 14 8 20 8" />
                     <line x1="16" y1="13" x2="8" y2="13" />
-                    <line x1="16" y1="17" x2="8" y2="17" />
-                  </svg>
-                )
-              },
-              {
-                id: "selections",
-                label: "Offers & Selections",
-                svg: (
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6M18 9h1.5a2.5 2.5 0 0 0 0-5H18M4 22h16M10 14.66V17M14 14.66V17M18 4H6v7a6 6 0 0 0 12 0V4z" />
+                    <line x1="17" y1="17" x2="8" y2="17" />
                   </svg>
                 )
               },
@@ -218,25 +238,25 @@ export const OfficerDashboard: React.FC<DashboardProps> = ({ user, onLogout, ini
                     padding: "10px 14px",
                     borderRadius: "8px",
                     border: "none",
-                    backgroundColor: isActive ? "#EEF2FF" : "transparent",
-                    color: isActive ? "#4338CA" : "#475569",
+                    backgroundColor: isActive ? "#EFF6FF" : "transparent",
+                    color: isActive ? "#0B3D91" : "#475569",
                     fontWeight: isActive ? 700 : 500,
                     fontSize: "13.5px",
                     cursor: "pointer",
                     textAlign: "left",
                     transition: "all 0.15s ease",
-                    borderLeft: isActive ? "3.5px solid #4F46E5" : "3.5px solid transparent"
+                    borderLeft: isActive ? "3.5px solid #1E5FCC" : "3.5px solid transparent"
                   }}
                   onMouseEnter={(e) => {
-                    if (!isActive) e.currentTarget.style.backgroundColor = "#F5F3FF";
-                    if (!isActive) e.currentTarget.style.color = "#4338CA";
+                    if (!isActive) e.currentTarget.style.backgroundColor = "#F0F7FF";
+                    if (!isActive) e.currentTarget.style.color = "#0B3D91";
                   }}
                   onMouseLeave={(e) => {
                     if (!isActive) e.currentTarget.style.backgroundColor = "transparent";
                     if (!isActive) e.currentTarget.style.color = "#475569";
                   }}
                 >
-                  <span style={{ color: isActive ? "#4F46E5" : "#64748B", display: "flex", alignItems: "center" }}>
+                  <span style={{ color: isActive ? "#1E5FCC" : "#64748B", display: "flex", alignItems: "center" }}>
                     {item.svg}
                   </span>
                   <span>{item.label}</span>
@@ -249,7 +269,7 @@ export const OfficerDashboard: React.FC<DashboardProps> = ({ user, onLogout, ini
         {/* User Profile Pill & Sign Out */}
         <div style={{ borderTop: "1px solid #E2E8F0", paddingTop: "16px", display: "flex", flexDirection: "column", gap: "10px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "8px 10px", backgroundColor: "#F8FAFC", borderRadius: "10px", border: "1px solid #E2E8F0" }}>
-            <div style={{ width: "34px", height: "34px", borderRadius: "50%", backgroundColor: "#4F46E5", display: "flex", alignItems: "center", justifyContent: "center", color: "#FFFFFF", fontWeight: 800, fontSize: "13px" }}>
+            <div style={{ width: "34px", height: "34px", borderRadius: "50%", backgroundColor: "#0B3D91", display: "flex", alignItems: "center", justifyContent: "center", color: "#FFFFFF", fontWeight: 800, fontSize: "13px" }}>
               PO
             </div>
             <div style={{ overflow: "hidden" }}>
@@ -292,28 +312,30 @@ export const OfficerDashboard: React.FC<DashboardProps> = ({ user, onLogout, ini
       <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, height: "100vh", overflowY: "auto", overflowX: "hidden", maxWidth: "100vw", boxSizing: "border-box" }}>
 
         {/* Top Header */}
-        <div style={{ padding: "clamp(12px, 3vw, 20px) clamp(12px, 3vw, 28px) 0 clamp(12px, 3vw, 28px)", boxSizing: "border-box", width: "100%" }}>
+        <div style={{ padding: "clamp(10px, 2.5vw, 18px) clamp(12px, 3vw, 24px) 0 clamp(12px, 3vw, 24px)", boxSizing: "border-box", width: "100%" }}>
           <header
             style={{
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
               backgroundColor: "#FFFFFF",
-              padding: "12px 20px",
+              padding: "12px clamp(12px, 2.5vw, 20px)",
               borderRadius: "12px",
               border: "1px solid #E2E8F0",
-              borderLeft: "4px solid #4F46E5",
+              borderLeft: "4px solid #1E5FCC",
               gap: "10px",
-              boxShadow: "0 2px 6px rgba(79,70,229,0.03)",
+              boxShadow: "0 2px 6px rgba(11,61,145,0.03)",
               boxSizing: "border-box",
-              width: "100%"
+              width: "100%",
+              flexWrap: "wrap"
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0, flex: 1 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0, flex: "1 1 200px" }}>
               <button
                 onClick={() => setIsMobileMenuOpen(true)}
                 className="mobile-hamburger-toggle"
-                style={{ display: "none", alignItems: "center", justifyContent: "center", width: "36px", height: "36px", borderRadius: "8px", border: "1px solid #e2e8f0", backgroundColor: "#f8fafc", cursor: "pointer", fontSize: "18px", color: "#4F46E5" }}
+                style={{ display: "none", alignItems: "center", justifyContent: "center", width: "36px", height: "36px", borderRadius: "8px", border: "1px solid #e2e8f0", backgroundColor: "#f8fafc", cursor: "pointer", fontSize: "18px", color: "#1E5FCC", flexShrink: 0 }}
+                aria-label="Open Navigation Menu"
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="3" y1="12" x2="21" y2="12" />
@@ -321,17 +343,17 @@ export const OfficerDashboard: React.FC<DashboardProps> = ({ user, onLogout, ini
                   <line x1="3" y1="18" x2="21" y2="18" />
                 </svg>
               </button>
-              <div>
-                <h1 style={{ margin: 0, fontSize: "clamp(15px, 2.5vw, 19px)", fontWeight: 800, color: "#0F172A", letterSpacing: "-0.3px" }}>
-                  Placement Officer Management Console
+              <div style={{ minWidth: 0, overflow: "hidden" }}>
+                <h1 style={{ margin: 0, fontSize: "clamp(14px, 3vw, 18px)", fontWeight: 800, color: "#0F172A", letterSpacing: "-0.3px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  Placement Officer Console
                 </h1>
-                <div style={{ fontSize: "11.5px", color: "#64748B", fontWeight: 500, marginTop: "2px" }}>
-                  All Placement Seasons • Campus Recruitment Lifecycle & Analytics
+                <div style={{ fontSize: "11px", color: "#64748B", fontWeight: 500, marginTop: "2px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  Campus Recruitment Lifecycle & Analytics
                 </div>
               </div>
             </div>
 
-            <div style={{ display: "inline-flex", alignItems: "center", gap: "6px", backgroundColor: "#DCFCE7", border: "1px solid #86EFAC", padding: "4px 10px", borderRadius: "20px", fontSize: "11px", fontWeight: 700, color: "#15803D" }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: "6px", backgroundColor: "#DCFCE7", border: "1px solid #86EFAC", padding: "4px 10px", borderRadius: "20px", fontSize: "11px", fontWeight: 700, color: "#15803D", flexShrink: 0 }}>
               <span style={{ width: "6px", height: "6px", borderRadius: "50%", backgroundColor: "#16A34A" }}></span>
               <span>Live System Connected</span>
             </div>
@@ -339,45 +361,45 @@ export const OfficerDashboard: React.FC<DashboardProps> = ({ user, onLogout, ini
         </div>
 
         {/* Content Body */}
-        <main style={{ flex: 1, padding: "clamp(14px, 3vw, 24px) clamp(12px, 3vw, 28px)", boxSizing: "border-box", width: "100%", maxWidth: "100%" }}>
+        <main style={{ flex: 1, padding: "clamp(12px, 2.5vw, 20px) clamp(12px, 3vw, 24px)", boxSizing: "border-box", width: "100%", maxWidth: "100%" }}>
 
           {/* ========================================================================= */}
           {/* TAB 1: EXECUTIVE DASHBOARD (Student Module Layout & Cards) */}
           {/* ========================================================================= */}
           {activeTab === "stats" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
 
               {/* Executive Welcome Hero Banner */}
               <div style={{
-                background: "linear-gradient(135deg, #1E1B4B 0%, #312E81 50%, #4338CA 100%)",
+                background: "linear-gradient(135deg, #07255A 0%, #0B3D91 50%, #1E5FCC 100%)",
                 borderRadius: "16px",
-                padding: "22px 26px",
+                padding: "clamp(16px, 3vw, 24px) clamp(16px, 3vw, 28px)",
                 color: "#ffffff",
-                boxShadow: "0 10px 25px -5px rgba(67, 56, 202, 0.3)",
+                boxShadow: "0 10px 25px -5px rgba(11, 61, 145, 0.25)",
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
                 flexWrap: "wrap",
                 gap: "14px"
               }}>
-                <div>
-                  <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", backgroundColor: "rgba(255,255,255,0.15)", padding: "4px 10px", borderRadius: "16px", fontSize: "11px", fontWeight: 700, color: "#E0E7FF", marginBottom: "8px" }}>
-                    <span style={{ width: "7px", height: "7px", borderRadius: "50%", backgroundColor: "#818CF8" }}></span>
-                    Campus Placement Portal • Multi-Season Recruitment Console
+                <div style={{ flex: "1 1 240px", minWidth: 0 }}>
+                  <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", backgroundColor: "rgba(255,255,255,0.15)", padding: "4px 12px", borderRadius: "16px", fontSize: "11px", fontWeight: 700, color: "#E0F2FE", marginBottom: "8px", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <span style={{ width: "6px", height: "6px", borderRadius: "50%", backgroundColor: "#38BDF8", flexShrink: 0 }}></span>
+                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Campus Placement Portal • Multi-Season</span>
                   </div>
-                  <h1 style={{ fontSize: "clamp(18px, 4vw, 23px)", fontWeight: 800, margin: "0 0 6px 0", color: "#FFFFFF", letterSpacing: "-0.3px" }}>
+                  <h1 style={{ fontSize: "clamp(16px, 3.5vw, 22px)", fontWeight: 800, margin: "0 0 6px 0", color: "#FFFFFF", letterSpacing: "-0.3px", wordBreak: "break-word" }}>
                     Welcome, {user.name || "Placement Officer"}!
                   </h1>
-                  <p style={{ fontSize: "13px", color: "#C7D2FE", margin: 0, lineHeight: 1.5 }}>
-                    Overseeing <strong>{totalActiveDrives} active drives</strong> and <strong>{totalStudents} enrolled candidates</strong> across all active placement seasons.
+                  <p style={{ fontSize: "12.5px", color: "#BFDBFE", margin: 0, lineHeight: 1.5 }}>
+                    Overseeing <strong>{totalActiveDrives} active drives</strong> and <strong>{totalStudents} enrolled candidates</strong>.
                   </p>
                 </div>
-                <div>
+                <div style={{ flexShrink: 0 }}>
                   <button
                     onClick={() => setActiveTab("drives")}
-                    style={{ backgroundColor: "#FFFFFF", color: "#4338CA", border: "none", borderRadius: "8px", padding: "9px 16px", fontWeight: 700, fontSize: "12.5px", cursor: "pointer", boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}
+                    style={{ backgroundColor: "#FFFFFF", color: "#0B3D91", border: "none", borderRadius: "8px", padding: "9px 16px", fontWeight: 700, fontSize: "12.5px", cursor: "pointer", boxShadow: "0 4px 12px rgba(0,0,0,0.1)", display: "inline-flex", alignItems: "center", gap: "6px" }}
                   >
-                    + Create & Publish Drive
+                    <span>+</span> Create & Publish Drive
                   </button>
                 </div>
               </div>
@@ -389,11 +411,11 @@ export const OfficerDashboard: React.FC<DashboardProps> = ({ user, onLogout, ini
                     label: "Active Placement Drives",
                     value: totalActiveDrives,
                     sub: "Published on portal",
-                    color: "#4F46E5",
-                    bg: "#EEF2FF",
+                    color: "#1E5FCC",
+                    bg: "#EFF6FF",
                     onClick: () => setActiveTab("drives"),
                     svg: (
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4F46E5" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1E5FCC" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
                         <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
                         <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
                       </svg>
@@ -428,15 +450,16 @@ export const OfficerDashboard: React.FC<DashboardProps> = ({ user, onLogout, ini
                     )
                   },
                   {
-                    label: "Offers & Selections",
-                    value: totalSelected,
-                    sub: `${totalStudents > 0 ? Math.round((totalSelected / totalStudents) * 100) : 0}% Placement Rate`,
+                    label: "Completed Drives",
+                    value: totalCompletedDrives,
+                    sub: "Concluded recruitment drives",
                     color: "#16A34A",
                     bg: "#DCFCE7",
-                    onClick: () => setActiveTab("selections"),
+                    onClick: () => setActiveTab("drives"),
                     svg: (
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#16A34A" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6M18 9h1.5a2.5 2.5 0 0 0 0-5H18M4 22h16M10 14.66V17M14 14.66V17M18 4H6v7a6 6 0 0 0 12 0V4z" />
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                        <polyline points="22 4 12 14.01 9 11.01" />
                       </svg>
                     )
                   }
@@ -456,7 +479,7 @@ export const OfficerDashboard: React.FC<DashboardProps> = ({ user, onLogout, ini
                     }}
                     onMouseEnter={(e) => {
                       e.currentTarget.style.transform = "translateY(-3px)";
-                      e.currentTarget.style.boxShadow = "0 8px 18px rgba(79,70,229,0.08)";
+                      e.currentTarget.style.boxShadow = "0 8px 18px rgba(11,61,145,0.08)";
                     }}
                     onMouseLeave={(e) => {
                       e.currentTarget.style.transform = "translateY(0)";
@@ -487,7 +510,7 @@ export const OfficerDashboard: React.FC<DashboardProps> = ({ user, onLogout, ini
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "16px" }}>
                       <div>
                         <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "16px", fontWeight: 800, color: "#0F172A" }}>
-                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4F46E5" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1E5FCC" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                             <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
                             <line x1="16" y1="2" x2="16" y2="6" />
                             <line x1="8" y1="2" x2="8" y2="6" />
@@ -549,29 +572,37 @@ export const OfficerDashboard: React.FC<DashboardProps> = ({ user, onLogout, ini
                                   width: "42px",
                                   height: "42px",
                                   borderRadius: "8px",
-                                  backgroundColor: "#EEF2FF",
-                                  border: "1px solid #C7D2FE",
+                                  backgroundColor: "#EFF6FF",
+                                  border: "1px solid #BFDBFE",
                                   display: "flex",
                                   flexDirection: "column",
                                   alignItems: "center",
                                   justifyContent: "center",
                                   flexShrink: 0
                                 }}>
-                                  <div style={{ fontSize: "14px", fontWeight: 900, color: "#4338CA", lineHeight: 1 }}>{dayNum}</div>
-                                  <div style={{ fontSize: "9.5px", fontWeight: 800, color: "#6366F1", marginTop: "2px" }}>{monthStr}</div>
+                                  <div style={{ fontSize: "14px", fontWeight: 900, color: "#0B3D91", lineHeight: 1 }}>{dayNum}</div>
+                                  <div style={{ fontSize: "9.5px", fontWeight: 800, color: "#1E5FCC", marginTop: "2px" }}>{monthStr}</div>
                                 </div>
 
                                 <div>
                                   <div style={{ fontWeight: 800, fontSize: "13.5px", color: "#0F172A" }}>{d.company}</div>
                                   <div style={{ fontSize: "11.5px", color: "#64748B" }}>
-                                    {d.role || d.jobTitle || "Software Engineer"} • <strong style={{ color: "#4F46E5" }}>{d.ctc || d.packageCtc || "₹12.0 LPA"}</strong>
+                                    {d.role || d.jobTitle || "Software Engineer"} • <strong style={{ color: "#0B3D91" }}>{d.ctc || d.packageCtc || "₹12.0 LPA"}</strong>
                                   </div>
                                 </div>
                               </div>
 
-                              <span style={{ fontSize: "11px", color: "#059669", fontWeight: 700, backgroundColor: "#DCFCE7", padding: "4px 8px", borderRadius: "6px", border: "1px solid #86EFAC", whiteSpace: "nowrap" }}>
-                                Active Drive
-                              </span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setActiveTab("drives");
+                                }}
+                                className="btn-action-view"
+                                title="View Drive Details"
+                              >
+                                <Eye size={15} />
+                              </button>
                             </div>
                           );
                         })
@@ -586,7 +617,7 @@ export const OfficerDashboard: React.FC<DashboardProps> = ({ user, onLogout, ini
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "16px" }}>
                       <div>
                         <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "16px", fontWeight: 800, color: "#0F172A" }}>
-                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4F46E5" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1E5FCC" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                             <polyline points="14 2 14 8 20 8" />
                           </svg>
@@ -617,7 +648,7 @@ export const OfficerDashboard: React.FC<DashboardProps> = ({ user, onLogout, ini
                               <div style={{ fontWeight: 800, fontSize: "13px", color: "#0F172A" }}>{app.studentName || app.studentEmail}</div>
                               <div style={{ fontSize: "11px", color: "#64748B" }}>Applying for <strong>{app.companyName}</strong> ({app.jobRole || "SDE"})</div>
                             </div>
-                            <span style={{ fontSize: "10.5px", fontWeight: 700, color: "#4F46E5", backgroundColor: "#EEF2FF", padding: "3px 8px", borderRadius: "6px" }}>
+                            <span style={{ fontSize: "10.5px", fontWeight: 700, color: "#0B3D91", backgroundColor: "#EFF6FF", border: "1px solid #BFDBFE", padding: "3px 8px", borderRadius: "6px" }}>
                               {app.status || "Applied"}
                             </span>
                           </div>
@@ -641,10 +672,7 @@ export const OfficerDashboard: React.FC<DashboardProps> = ({ user, onLogout, ini
           {/* TAB 4: APPLICATION PIPELINE */}
           {activeTab === "applications" && <ApplicationManagement />}
 
-          {/* TAB 5: OFFERS & SELECTIONS */}
-          {activeTab === "selections" && <SelectionsManagement user={user} />}
-
-          {/* TAB 7: REPORTS & ANALYTICS */}
+          {/* TAB 5: REPORTS & ANALYTICS */}
           {activeTab === "reports" && <ReportsAnalyticsManagement />}
 
         </main>

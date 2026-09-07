@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import jsPDF from 'jspdf';
 import { API_BASE_URL } from '../../config/api';
+import { Eye, Award, CheckCircle, XCircle, FileText, Download, Building, User, Search, Filter, Check, X } from 'lucide-react';
 
 export interface SelectionCandidateRecord {
   id: string;
@@ -670,18 +671,10 @@ const SelectionsManagement: React.FC<SelectionsManagementProps> = ({ user: propU
                           <button
                             type="button"
                             onClick={() => setSelectedCand(cand)}
-                            style={{
-                              padding: "6px 14px",
-                              backgroundColor: "#0f172a",
-                              color: "#ffffff",
-                              border: "none",
-                              borderRadius: "8px",
-                              fontSize: "12px",
-                              fontWeight: "700",
-                              cursor: "pointer"
-                            }}
+                            className="btn-action-view"
+                            title="View Workflow & Offer"
                           >
-                            View
+                            <Eye size={15} />
                           </button>
                         </td>
                       </tr>
