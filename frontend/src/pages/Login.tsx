@@ -122,8 +122,21 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
         if (data.token) {
           localStorage.setItem("token", data.token);
           localStorage.setItem("user", JSON.stringify(data.user));
+          // Clean legacy global fallback keys so new student credentials are never overwritten
+          localStorage.removeItem("cpms_student_fullname");
+          localStorage.removeItem("cpms_profile_global");
+          localStorage.removeItem("cpms_pending_profile_global");
+          localStorage.removeItem("cpms_profile_verified_global");
         }
         if (data.user?.role === "student") {
+          const sUser = data.user;
+          const uKey = sUser.email ? sUser.email.toLowerCase().trim() : (sUser.id || sUser._id || "");
+          if (sUser.name && uKey) {
+            localStorage.setItem(`cpms_student_fullname_${uKey}`, sUser.name.trim());
+          }
+          if (sUser.id || sUser._id) {
+            localStorage.setItem(`cpms_student_fullname_${sUser.id || sUser._id}`, sUser.name ? sUser.name.trim() : "");
+          }
           try {
             const channel = new BroadcastChannel("cpms_profile_channel");
             channel.postMessage({ type: "STUDENT_LOGGED_IN", user: data.user });

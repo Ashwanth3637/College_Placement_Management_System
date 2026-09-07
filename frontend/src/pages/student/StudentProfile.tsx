@@ -38,15 +38,18 @@ const StudentProfile: React.FC<StudentProfileProps> = ({
   // Helper to get local cached profile data strictly for this student
   const getCachedProfile = () => {
     try {
-      const savedStr =
-        (userEmailKey ? localStorage.getItem(`cpms_pending_profile_${userEmailKey}`) : null) ||
-        (userId ? localStorage.getItem(`cpms_pending_profile_${userId}`) : null) ||
-        (userEmailKey ? localStorage.getItem(`cpms_profile_${userEmailKey}`) : null) ||
-        (userId ? localStorage.getItem(`cpms_profile_${userId}`) : null) ||
-        localStorage.getItem("cpms_pending_profile_global") ||
-        localStorage.getItem("cpms_profile_global");
-      if (savedStr) {
-        return JSON.parse(savedStr);
+      const specificKeys = [
+        userEmailKey ? `cpms_pending_profile_${userEmailKey}` : null,
+        userId ? `cpms_pending_profile_${userId}` : null,
+        userEmailKey ? `cpms_profile_${userEmailKey}` : null,
+        userId ? `cpms_profile_${userId}` : null
+      ].filter(Boolean) as string[];
+
+      for (const k of specificKeys) {
+        const savedStr = localStorage.getItem(k);
+        if (savedStr) {
+          return JSON.parse(savedStr);
+        }
       }
     } catch (e) { }
     return null;
@@ -56,9 +59,12 @@ const StudentProfile: React.FC<StudentProfileProps> = ({
   const baseProfileRef = React.useRef<any>(cachedProfileData);
 
   const initialName = (() => {
-    if (cachedProfileData?.personal?.fullName) return cachedProfileData.personal.fullName;
-    if (user?.name) return user.name;
-    const saved = localStorage.getItem(`cpms_student_fullname_${userId}`) || localStorage.getItem(`cpms_student_fullname_${userEmailKey}`) || localStorage.getItem("cpms_student_fullname");
+    if (cachedProfileData?.personal?.fullName && cachedProfileData.personal.fullName.trim()) {
+      return cachedProfileData.personal.fullName.trim();
+    }
+    if (user?.name && user.name.trim()) return user.name.trim();
+    const saved = (userId && localStorage.getItem(`cpms_student_fullname_${userId}`)) ||
+      (userEmailKey && localStorage.getItem(`cpms_student_fullname_${userEmailKey}`));
     if (saved && saved.trim()) return saved.trim();
     return "";
   })();

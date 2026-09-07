@@ -80,7 +80,22 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
   };
 
   const [displayName, setDisplayName] = useState<string>(() => {
-    const savedName = localStorage.getItem(`cpms_student_fullname_${userId}`) || localStorage.getItem("cpms_student_fullname");
+    const specificPending =
+      (userId && localStorage.getItem(`cpms_pending_profile_${userId}`)) ||
+      (userEmailLower && localStorage.getItem(`cpms_pending_profile_${userEmailLower}`)) ||
+      (userId && localStorage.getItem(`cpms_profile_${userId}`)) ||
+      (userEmailLower && localStorage.getItem(`cpms_profile_${userEmailLower}`));
+    if (specificPending) {
+      try {
+        const parsed = JSON.parse(specificPending);
+        if (parsed.personal?.fullName && parsed.personal.fullName.trim()) {
+          return parsed.personal.fullName.trim();
+        }
+      } catch (e) { }
+    }
+    const savedName =
+      (userId && localStorage.getItem(`cpms_student_fullname_${userId}`)) ||
+      (userEmailLower && localStorage.getItem(`cpms_student_fullname_${userEmailLower}`));
     if (savedName && savedName.trim()) {
       return savedName.trim();
     }
@@ -89,60 +104,64 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
 
   const [userAvatarImg, setUserAvatarImg] = useState<string | null>(() => {
     return (
-      localStorage.getItem(`cpms_student_avatar_${userId}`) ||
-      localStorage.getItem(`cpms_student_avatar_${userKey}`) ||
+      (userId && localStorage.getItem(`cpms_student_avatar_${userId}`)) ||
+      (userEmailLower && localStorage.getItem(`cpms_student_avatar_${userEmailLower}`)) ||
       null
     );
   });
 
   const [displayEmail, setDisplayEmail] = useState<string>(() => {
-    const savedPending =
-      localStorage.getItem(`cpms_pending_profile_${userId}`) ||
-      localStorage.getItem(`cpms_pending_profile_${userKey}`) ||
-      localStorage.getItem(`cpms_profile_${userId}`) ||
-      localStorage.getItem(`cpms_profile_${userKey}`);
-    if (savedPending) {
+    const specificPending =
+      (userId && localStorage.getItem(`cpms_pending_profile_${userId}`)) ||
+      (userEmailLower && localStorage.getItem(`cpms_pending_profile_${userEmailLower}`)) ||
+      (userId && localStorage.getItem(`cpms_profile_${userId}`)) ||
+      (userEmailLower && localStorage.getItem(`cpms_profile_${userEmailLower}`));
+    if (specificPending) {
       try {
-        const parsed = JSON.parse(savedPending);
+        const parsed = JSON.parse(specificPending);
         if (parsed.personal?.email) return parsed.personal.email;
         if (parsed.user?.email) return parsed.user.email;
       } catch (e) { }
     }
-    return user?.email || "ashwanths.22cse@kongu.edu";
+    return user?.email || "";
   });
 
   useEffect(() => {
     const syncNameAndAvatar = () => {
-      const savedPending =
-        localStorage.getItem(`cpms_pending_profile_${userId}`) ||
-        localStorage.getItem(`cpms_pending_profile_${userKey}`) ||
-        localStorage.getItem(`cpms_profile_${userId}`) ||
-        localStorage.getItem(`cpms_profile_${userKey}`) ||
-        localStorage.getItem("cpms_profile_global");
+      const specificPending =
+        (userId && localStorage.getItem(`cpms_pending_profile_${userId}`)) ||
+        (userEmailLower && localStorage.getItem(`cpms_pending_profile_${userEmailLower}`)) ||
+        (userId && localStorage.getItem(`cpms_profile_${userId}`)) ||
+        (userEmailLower && localStorage.getItem(`cpms_profile_${userEmailLower}`));
 
-      if (savedPending) {
+      if (specificPending) {
         try {
-          const parsed = JSON.parse(savedPending);
+          const parsed = JSON.parse(specificPending);
           if (parsed.personal?.email) {
             setDisplayEmail(parsed.personal.email);
           } else if (parsed.user?.email) {
             setDisplayEmail(parsed.user.email);
           }
-          if (parsed.personal?.fullName) {
-            setDisplayName(parsed.personal.fullName);
+          if (parsed.personal?.fullName && parsed.personal.fullName.trim()) {
+            setDisplayName(parsed.personal.fullName.trim());
           }
         } catch (e) { }
-      }
-
-      const savedName = localStorage.getItem(`cpms_student_fullname_${userId}`) || localStorage.getItem("cpms_student_fullname");
-      if (savedName && savedName.trim()) {
-        setDisplayName(savedName.trim());
-      } else if (user?.name) {
-        setDisplayName(getFormattedName(user?.name));
+      } else {
+        const savedName =
+          (userId && localStorage.getItem(`cpms_student_fullname_${userId}`)) ||
+          (userEmailLower && localStorage.getItem(`cpms_student_fullname_${userEmailLower}`));
+        if (savedName && savedName.trim()) {
+          setDisplayName(savedName.trim());
+        } else if (user?.name) {
+          setDisplayName(getFormattedName(user.name));
+        }
+        if (user?.email) {
+          setDisplayEmail(user.email);
+        }
       }
       const avatar =
-        localStorage.getItem(`cpms_student_avatar_${userId}`) ||
-        localStorage.getItem(`cpms_student_avatar_${userKey}`);
+        (userId && localStorage.getItem(`cpms_student_avatar_${userId}`)) ||
+        (userEmailLower && localStorage.getItem(`cpms_student_avatar_${userEmailLower}`));
       setUserAvatarImg(avatar || null);
     };
 
@@ -153,7 +172,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
       window.removeEventListener("cpms_profile_updated", syncNameAndAvatar);
       window.removeEventListener("storage", syncNameAndAvatar);
     };
-  }, [userId, user?.name, userKey]);
+  }, [userId, user?.name, userEmailLower, userKey]);
 
   const [currentTab, setCurrentTabState] = useState<
     "dashboard" | "companies" | "applications" | "schedule" | "results" | "profile"
@@ -545,8 +564,14 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
 
   const getLocalProfileData = () => {
     try {
-      const keys = Object.keys(localStorage).filter(k => k.startsWith("cpms_profile_"));
-      for (const k of keys) {
+      const specificKeys = [
+        userId ? `cpms_pending_profile_${userId}` : null,
+        userEmailLower ? `cpms_pending_profile_${userEmailLower}` : null,
+        userId ? `cpms_profile_${userId}` : null,
+        userEmailLower ? `cpms_profile_${userEmailLower}` : null
+      ].filter(Boolean) as string[];
+
+      for (const k of specificKeys) {
         const val = localStorage.getItem(k);
         if (val) {
           const parsed = JSON.parse(val);
@@ -2053,7 +2078,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
               </div>
               <div>
                 <div style={{ fontSize: "13px", fontWeight: "700", color: "#4F46E5", lineHeight: "1.2", whiteSpace: "nowrap" }}>{displayName}</div>
-                <div style={{ fontSize: "10.5px", color: "#64748b", marginTop: "1px", whiteSpace: "nowrap" }}>{displayEmail || user?.email || "ashwanths.22cse@kongu.edu"}</div>
+                <div style={{ fontSize: "10.5px", color: "#64748b", marginTop: "1px", whiteSpace: "nowrap" }}>{displayEmail || user?.email || "student@college.edu"}</div>
               </div>
             </div>
           </div>
@@ -2233,7 +2258,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ user, onLogout, ini
                     Campus Placement Portal • Verified Candidate
                   </div>
                   <h1 style={{ fontSize: "23px", fontWeight: 800, margin: "0 0 6px 0", color: "#FFFFFF", letterSpacing: "-0.3px" }}>
-                    Welcome back, {displayName || "Ashwanth"}!
+                    Welcome back, {displayName || getFormattedName(user?.name)}!
                   </h1>
                   <p style={{ fontSize: "13.5px", color: "#BFDBFE", margin: 0, lineHeight: 1.5 }}>
                     You are eligible for <strong>{filterCounts["Eligible"] || 14} campus drives</strong> this week. Check closing deadlines and track your interview rounds below.
